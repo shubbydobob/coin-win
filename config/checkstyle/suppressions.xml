@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+  Checkstyle 억제 목록.
+
+  억제는 오탐일 때만, 왜 오탐인지 적고 추가한다. "빌드를 통과시키기 위해" 추가하지 않는다.
+-->
+<suppressions>
+
+  <!--
+    Spring Boot 진입점은 static main 만 가지므로 Checkstyle 이 유틸리티 클래스로 오인한다.
+    실제로는 @SpringBootApplication 클래스를 Spring 이 인스턴스화하므로 public 기본 생성자가
+    필요하다. 생성자를 private 으로 바꾸면 애플리케이션이 뜨지 않는다.
+  -->
+  <suppress files="[\\/]CoinWinApplication\.java$"
+            checks="HideUtilityClassConstructor"/>
+
+</suppressions>

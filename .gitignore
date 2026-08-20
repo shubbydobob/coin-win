@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# OMC 운영 산출물 (.omc/skills 는 커밋 대상 예외)
+.omc/*
+!.omc/skills/
+
+# IDE
+# 슬래시로 시작해 저장소 루트로 고정한다.
+# `out/` 처럼 쓰면 헥사고날의 adapter/out/, application/port/out/ 이 전부 무시된다.
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+/out/
+/bin/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 로그 / 비밀
+*.log
+.env
+*.key
+application-secret*.yml

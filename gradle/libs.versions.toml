@@ -1,0 +1,31 @@
+# 모든 버전은 이 파일 한 곳에만 존재한다. build.gradle.kts 에 리터럴 버전을 쓰지 않는다.
+# 확인 시점: 2026-08-21 (Maven Central / Gradle Plugin Portal metadata)
+
+[versions]
+# Spring Boot 3.5 는 2026-06-30 OSS EOL. 4.1 라인이 현재 지원 라인이다. → docs/adr/007
+springBoot = "4.1.1"
+dependencyManagement = "1.1.7"
+
+# Boot 4 는 JUnit Jupiter 6 를 가져온다. ArchUnit 은 junit5 가 아니라 junit6 모듈을 써야 한다.
+archunit = "1.5.0"
+
+springdoc = "3.1.0"
+
+# 정적 분석 도구 (Gradle 플러그인이 아니라 도구 자체의 버전)
+checkstyle = "14.0.0"
+spotbugs = "4.10.4"
+spotbugsPlugin = "6.5.11"
+jacoco = "0.8.15"
+
+# Phase 5 (매매 기록) 에서 추가한다. 지금은 어떤 모듈도 참조하지 않는다.
+# 원본 com.querydsl 은 2024-11 이후 미유지 → io.github.openfeign.querydsl 사용
+# querydsl = "7.6"
+
+[libraries]
+springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+archunit-junit6 = { module = "com.tngtech.archunit:archunit-junit6", version.ref = "archunit" }
+
+[plugins]
+springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }
+dependencyManagement = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
+spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugsPlugin" }

@@ -1,0 +1,76 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew test*)",
+      "Bash(./gradlew check*)",
+      "Bash(./gradlew build*)",
+      "Bash(./gradlew compileJava*)",
+      "Bash(./gradlew bootRun*)",
+      "Bash(./gradlew.bat test*)",
+      "Bash(./gradlew.bat check*)",
+      "Bash(./gradlew.bat build*)",
+      "Bash(./gradlew.bat compileJava*)",
+      "Bash(./gradlew.bat bootRun*)",
+      "Bash(./gradlew.bat jacoco*)",
+      "Bash(./gradlew jacoco*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(docker compose up -d db)",
+      "Bash(docker compose ps)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(docker compose down*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/*.key)",
+      "Read(./**/application-secret*.yml)",
+      "Bash(rm -rf*)",
+      "Bash(./gradlew clean*)",
+      "Bash(./gradlew.bat clean*)",
+      "Bash(gradlew.bat clean*)",
+      "Bash(.\\gradlew.bat clean*)"
+    ]
+  },
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/scripts/guard-domain-purity.sh"
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_FILE_PATHS\" | grep -q '\\.java$'; then ./gradlew compileJava checkstyleMain --quiet 2>&1 | tail -30; fi"
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./gradlew check --quiet 2>&1 | tail -40"
+          }
+        ]
+      }
+    ]
+  }
+}

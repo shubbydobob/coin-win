@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: coinwin
+
+# Phase 3 까지 DB 를 쓰지 않는다. datasource 설정 없음.
+# 근거: .claude/docs/roadmap.md Phase 1 "DB 없음. 순수 계산만."
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
