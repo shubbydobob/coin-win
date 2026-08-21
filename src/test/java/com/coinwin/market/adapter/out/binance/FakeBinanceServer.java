@@ -39,6 +39,7 @@ final class FakeBinanceServer implements AutoCloseable {
     private final HttpServer server;
     private final Map<CandleInterval, NavigableMap<Instant, Candle>> klines = new HashMap<>();
     private final Map<String, String> cannedBodies = new HashMap<>();
+    private boolean ignoringStartTime;
 
     FakeBinanceServer() {
         try {
@@ -71,17 +72,35 @@ final class FakeBinanceServer implements AutoCloseable {
         server.stop(0);
     }
 
+    /**
+     * 거래소가 {@code startTime} 을 무시하고 늘 처음부터 돌려주게 만든다.
+     *
+     * <p>정상 동작이 아니라 <b>고장 난 거래소</b>를 흉내 내는 스위치다. 어댑터의 페이지
+     * 이어받기가 커서 전진에만 기대고 있으면 이 상황에서 영원히 돌게 되므로, 그 종료 보장을
+     * 검사할 방법이 이것뿐이다.
+     */
+    void ignoreStartTime() {
+        this.ignoringStartTime = true;
+    }
+
     private void handleKlines(HttpExchange exchange) throws IOException {
         Map<String, String> params = queryParameters(exchange);
         NavigableMap<Instant, Candle> byOpenTime = klines.getOrDefault(
                 CandleInterval.ofCode(params.get("interval")), new TreeMap<>());
         List<Candle> selected = byOpenTime.subMap(
-                        Instant.ofEpochMilli(Long.parseLong(params.get("startTime"))), true,
+                        startTimeOf(params, byOpenTime), true,
                         Instant.ofEpochMilli(Long.parseLong(params.get("endTime"))), true)
                 .values().stream()
                 .limit(Long.parseLong(params.get("limit")))
                 .toList();
         respond(exchange, klinesJson(selected));
+    }
+
+    private Instant startTimeOf(Map<String, String> params, NavigableMap<Instant, Candle> stored) {
+        if (ignoringStartTime && !stored.isEmpty()) {
+            return stored.firstKey();
+        }
+        return Instant.ofEpochMilli(Long.parseLong(params.get("startTime")));
     }
 
     private void handleCanned(HttpExchange exchange) throws IOException {

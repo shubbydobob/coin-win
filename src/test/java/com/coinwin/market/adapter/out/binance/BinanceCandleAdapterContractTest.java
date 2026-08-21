@@ -11,6 +11,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -66,6 +67,27 @@ class BinanceCandleAdapterContractTest extends LoadCandlesPortContract {
 
         assertThat(loaded.size()).isEqualTo(10);
         assertThat(loaded.last().openTime()).isEqualTo(hour(9));
+    }
+
+    /**
+     * 페이지 이어받기의 종료 보장.
+     *
+     * <p>거래소가 {@code startTime} 을 무시하고 늘 같은 페이지를 돌려주면 커서가 제자리에
+     * 머문다. 페이지가 가득 차 있으므로 "덜 왔으니 끝" 으로도 빠져나가지 못한다. 커서 전진을
+     * 검사하지 않으면 <b>요청 스레드가 영구히 잡힌다.</b>
+     *
+     * <p>{@code @Timeout} 을 건 이유는 이 검사가 없어지면 테스트가 실패가 아니라 정지로
+     * 나타나기 때문이다. 정지는 CI 에서 원인을 읽기 가장 어려운 실패 방식이다.
+     */
+    @Test
+    @Timeout(10)
+    void 거래소가_시작_시각을_무시하면_영원히_받지_않고_던진다() {
+        givenCandlesExist(candles(0, PAGE_SIZE));
+        exchange.ignoreStartTime();
+
+        assertThatThrownBy(() -> loadPort().load(query(0, 10)))
+                .isInstanceOf(BinanceResponseException.class)
+                .hasMessageContaining("지나지 않는다");
     }
 
     /** 거래소가 닿지 않는 것은 500 이 아니라 503 이어야 한다. 그 출발점이 이 예외다. */
