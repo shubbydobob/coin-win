@@ -36,13 +36,11 @@ import org.springframework.web.client.RestClient;
  * 트레이딩뷰 대조용 출력. <b>단언이 아니라 눈으로 볼 표를 찍는 것이 목적이다.</b>
  *
  * <p>Phase 4 완료 조건은 "트레이딩뷰 값과 일치" 인데 그 값은 코드로 가져올 수 없다(ADR 015).
- * golden test 가 증명하는 것은 "구현이 명시된 공식을 정확히 따른다" 까지이고, 공식 해석 자체가
- * 트레이딩뷰와 같은지는 사람이 차트를 열어 확인해야 한다.
+ * golden test 가 증명하는 것은 "구현이 명시된 공식을 정확히 따른다" 까지이므로, 실제 시장
+ * 데이터에서도 값이 맞는지는 사람이 차트를 열어 확인한다.
  *
- * <p><b>변위 26 과 25 를 나란히 찍는 것이 이 테스트의 핵심이다.</b> 두 규약이 모두 통용되고
- * 공개 문서로 갈리지 않으므로(ADR 014), 같은 캔들에서 두 값을 함께 보여 주면 차트를 한 번만
- * 봐도 어느 쪽이 맞는지 정해진다. 전환선·기준선은 변위와 무관하므로 <b>그것부터 맞아야</b>
- * 한다 — 거기서 어긋나면 변위가 아니라 공식이 틀린 것이다.
+ * <p>변위 규약(26 입력 / 25 이동)은 트레이딩뷰가 배포하는 Pine 소스 원문으로 확정했다.
+ * 근거는 ADR 014 — 더 이상 두 규약을 나란히 찍지 않는다.
  *
  * <p>기본 {@code test} 에서 제외한다. 진짜 거래소를 때리므로 네트워크가 없으면 실패하고,
  * 값이 매번 달라 회귀 테스트가 될 수 없다. 실행은 {@code .\gradlew.bat crossCheck} 다.
@@ -62,14 +60,13 @@ class TradingViewCrossCheckTest {
     private static final Symbol SYMBOL = Symbol.BTC_USDT;
     private static final CandleInterval INTERVAL = CandleInterval.ONE_HOUR;
 
-    /** 일목 표준 설정은 78봉이 있어야 값이 하나 나온다. 여유를 둔다. */
+    /** 일목 표준 설정은 77봉이 있어야 값이 하나 나온다. 여유를 둔다. */
     private static final int HOURS = 400;
 
     /** 표에 찍을 최근 시점 수. 다섯 줄이면 한 화면에서 비교된다. */
     private static final int ROWS = 5;
 
-    private static final IchimokuCloud DISPLACED_26 = IchimokuCloud.standard();
-    private static final IchimokuCloud DISPLACED_25 = new IchimokuCloud(9, 26, 52, 25);
+    private static final IchimokuCloud ICHIMOKU = IchimokuCloud.standard();
     private static final BollingerBands BOLLINGER = BollingerBands.standard();
 
     private static final DateTimeFormatter UTC =
@@ -87,18 +84,16 @@ class TradingViewCrossCheckTest {
     void 실제_BTCUSDT_캔들로_트레이딩뷰_대조표를_출력한다() {
         CandleSeries series = loadRecentCandles();
 
-        List<IndicatorPoint<IchimokuValue>> ichimoku26 = DISPLACED_26.over(series);
-        List<IndicatorPoint<IchimokuValue>> ichimoku25 = DISPLACED_25.over(series);
+        List<IndicatorPoint<IchimokuValue>> ichimoku = ICHIMOKU.over(series);
         List<IndicatorPoint<BollingerValue>> bollinger = BOLLINGER.over(series);
 
         printHeader(series);
-        printIchimokuCommon(series, ichimoku26);
-        printLeadingSpans(series, ichimoku26, ichimoku25);
+        printIchimoku(series, ichimoku);
         printBollinger(bollinger);
         printGuide();
 
-        assertThat(series.size()).isGreaterThanOrEqualTo(78);
-        assertThat(ichimoku26.getLast().at()).isEqualTo(series.last().openTime());
+        assertThat(series.size()).isGreaterThanOrEqualTo(77);
+        assertThat(ichimoku.getLast().at()).isEqualTo(series.last().openTime());
         assertThat(bollinger).hasSize(series.size() - BOLLINGER.period() + 1);
     }
 
@@ -124,50 +119,23 @@ class TradingViewCrossCheckTest {
     }
 
     /**
-     * 전환선과 기준선은 변위의 영향을 받지 않는다. <b>여기가 먼저 맞아야 한다.</b>
-     * 이 둘이 어긋나면 변위 논쟁 이전에 이동 최대·최소나 기간이 틀린 것이다.
+     * 선행스팬은 25봉 전에 계산된 값이다(트레이딩뷰 {@code offset = displacement − 1}).
+     * 구름 위치는 그 시점의 종가로 판정하므로 차트에서 캔들이 구름 위에 있는지와 맞대면 된다.
      */
-    private static void printIchimokuCommon(
+    private static void printIchimoku(
             CandleSeries series, List<IndicatorPoint<IchimokuValue>> points) {
-        System.out.printf("%n── 일목: 전환선·기준선 (변위와 무관) ──%n");
-        System.out.printf("%-12s %12s %12s %12s%n", "시각(UTC)", "종가", "전환선", "기준선");
+        System.out.printf("%n── 일목균형표 9 / 26 / 52, 변위 26 (실제 이동 25봉) ──%n");
+        System.out.printf("%-12s %11s %11s %11s %11s %11s %7s%n",
+                "시각(UTC)", "종가", "전환선", "기준선", "선행1", "선행2", "위치");
         Map<Instant, Candle> byTime = byOpenTime(series);
         for (IndicatorPoint<IchimokuValue> point : lastRows(points)) {
-            System.out.printf("%-12s %12s %12s %12s%n",
-                    UTC.format(point.at()),
-                    byTime.get(point.at()).close().value(),
-                    point.value().conversionLine().value(),
-                    point.value().baseLine().value());
-        }
-    }
-
-    /**
-     * 같은 시점의 선행스팬을 두 변위로 나란히 찍는다. 차트의 구름과 맞는 쪽이 옳은 규약이다.
-     *
-     * <p>구름 위치는 <b>그 시점의 종가</b>로 판정한다. 트레이딩뷰에서 캔들이 구름 위에 있는지
-     * 눈으로 본 것과 대조하면 된다.
-     */
-    private static void printLeadingSpans(
-            CandleSeries series,
-            List<IndicatorPoint<IchimokuValue>> displaced26,
-            List<IndicatorPoint<IchimokuValue>> displaced25) {
-        System.out.printf("%n── 일목: 선행스팬 — 변위 26 vs 25 ──%n");
-        System.out.printf("%-12s %11s %11s %8s │ %11s %11s %8s%n",
-                "시각(UTC)", "선행1(26)", "선행2(26)", "위치", "선행1(25)", "선행2(25)", "위치");
-        Map<Instant, Candle> byTime = byOpenTime(series);
-        Map<Instant, IchimokuValue> by25 = displaced25.stream()
-                .collect(Collectors.toMap(
-                        IndicatorPoint::at, IndicatorPoint::value));
-        for (IndicatorPoint<IchimokuValue> point : lastRows(displaced26)) {
-            IchimokuValue with26 = point.value();
-            IchimokuValue with25 = by25.get(point.at());
+            IchimokuValue value = point.value();
             var close = byTime.get(point.at()).close();
-            System.out.printf("%-12s %11s %11s %8s │ %11s %11s %8s%n",
-                    UTC.format(point.at()),
-                    with26.leadingSpanA().value(), with26.leadingSpanB().value(),
-                    with26.positionOf(close),
-                    with25.leadingSpanA().value(), with25.leadingSpanB().value(),
-                    with25.positionOf(close));
+            System.out.printf("%-12s %11s %11s %11s %11s %11s %7s%n",
+                    UTC.format(point.at()), close.value(),
+                    value.conversionLine().value(), value.baseLine().value(),
+                    value.leadingSpanA().value(), value.leadingSpanB().value(),
+                    value.positionOf(close));
         }
     }
 
@@ -190,12 +158,10 @@ class TradingViewCrossCheckTest {
                 ── 확인 방법 ──
                 트레이딩뷰에서 BINANCE:BTCUSDT.P 1시간 차트를 열고
                 Ichimoku Cloud(9/26/52/26) 와 Bollinger Bands(20/2) 를 올린다.
-                차트 시간대를 UTC 로 맞춘 뒤 위 시각의 값과 비교한다.
+                차트 시간대를 UTC 로 맞춘 뒤 위 시각에 십자선을 두고 값을 비교한다.
 
-                1) 전환선·기준선이 먼저 맞아야 한다. 어긋나면 변위가 아니라 공식 문제다.
-                2) 선행스팬은 26 열과 25 열 중 차트와 맞는 쪽을 고른다.
-                   25 가 맞으면 IchimokuCloud.standard() 의 변위를 25 로 바꾼다.
-                3) 결과는 docs/adr/014 에 기록한다.
+                선행스팬은 차트에서 25봉 앞에 그려진다. 십자선을 캔들 위에 두면
+                범례에 나오는 값이 위 표의 선행1·선행2 와 같아야 한다.
                 %n""");
     }
 
@@ -205,7 +171,6 @@ class TradingViewCrossCheckTest {
 
     private static Map<Instant, Candle> byOpenTime(CandleSeries series) {
         return series.candles().stream()
-                .collect(Collectors.toMap(
-                        Candle::openTime, Function.identity()));
+                .collect(Collectors.toMap(Candle::openTime, Function.identity()));
     }
 }
