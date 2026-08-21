@@ -76,7 +76,7 @@ public record PositionAnalysis(
 
 ### 청산가·최대손실은 계획이 아니라 체결 상태의 속성이다
 
-`PositionPlan.liquidationPrice()` 는 두지 않는다. **분할 진입 계획에는 단일 청산가가 존재하지 않기 때문이다.** 1차만 체결된 포지션과 전량 체결된 포지션은 평단이 다르고 따라서 청산가도 최대손실도 다른 값이다. 계획에 하나를 매달면 둘 중 하나가 사라진다.
+근거는 `docs/adr/009`. `PositionPlan.liquidationPrice()` 는 두지 않는다. **분할 진입 계획에는 단일 청산가가 존재하지 않기 때문이다.** 1차만 체결된 포지션과 전량 체결된 포지션은 평단이 다르고 따라서 청산가도 최대손실도 다른 값이다. 계획에 하나를 매달면 둘 중 하나가 사라진다.
 
 접근 경로는 `plan.analyze(budget, policy).afterFirstEntry().liquidationPrice()` 다. `fillStates` 는 1건 체결부터 전량까지 순서대로 담기므로 `filledCount` 를 인자로 받는 별도 메서드가 필요 없다.
 
