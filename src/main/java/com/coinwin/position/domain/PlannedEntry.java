@@ -1,5 +1,6 @@
 package com.coinwin.position.domain;
 
+import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 
@@ -12,8 +13,8 @@ import com.coinwin.common.domain.Price;
 public record PlannedEntry(Price price, Percentage allocation) {
 
     public PlannedEntry {
-        PositionValues.required(price, "진입가");
-        PositionValues.required(allocation, "분할 비중");
+        DomainValues.required(price, "진입가");
+        DomainValues.required(allocation, "분할 비중");
         if (allocation.value().signum() == 0) {
             throw new InvalidPositionPlanException("분할 비중이 0% 인 진입 계획은 의미가 없다");
         }

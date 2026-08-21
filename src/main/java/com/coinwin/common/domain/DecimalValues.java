@@ -16,7 +16,22 @@ final class DecimalValues {
 
     static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
 
+    static final BigDecimal HUNDRED = new BigDecimal("100");
+
     private DecimalValues() {
+    }
+
+    /**
+     * 전체 중 일부가 차지하는 백분율. {@link Money#percentOf} 와 {@link Percentage#ofRatio} 가
+     * 같은 식을 쓰므로 한 곳에 둔다.
+     *
+     * <p>곱한 뒤 나눈다. 나눈 뒤 곱하면 중간 반올림이 한 번 더 끼어 결과가 갈린다.
+     */
+    static BigDecimal ratio(BigDecimal part, BigDecimal whole, int scale) {
+        if (whole.signum() == 0) {
+            throw new InvalidValueException("0 을 전체로 한 비율은 성립하지 않는다");
+        }
+        return part.multiply(HUNDRED).divide(whole, scale, ROUNDING);
     }
 
     static BigDecimal normalize(BigDecimal value, int scale, String label) {

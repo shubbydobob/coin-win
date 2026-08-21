@@ -1,5 +1,6 @@
 package com.coinwin.position.domain;
 
+import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
@@ -20,8 +21,8 @@ public record RiskBudget(Money accountBalance, Percentage riskPercent) {
     private static final Percentage WHOLE_BALANCE = Percentage.of("100");
 
     public RiskBudget {
-        PositionValues.required(accountBalance, "계좌 잔고");
-        PositionValues.required(riskPercent, "리스크 비율");
+        DomainValues.required(accountBalance, "계좌 잔고");
+        DomainValues.required(riskPercent, "리스크 비율");
         if (accountBalance.value().signum() <= 0) {
             throw new InvalidValueException(
                     "계좌 잔고는 0 보다 커야 한다: " + accountBalance.value().toPlainString());

@@ -77,6 +77,20 @@ class PercentageTest {
     }
 
     @Test
+    void 개수의_비율도_백분율이다() {
+        // 1000 회 시뮬레이션 중 137 회가 손실로 끝났다면 손실 확률 13.7%
+        assertThat(Percentage.ofRatio(137, 1000)).isEqualTo(Percentage.of("13.7"));
+        assertThat(Percentage.ofRatio(1, 3)).isEqualTo(Percentage.of("33.3333"));
+    }
+
+    @Test
+    void 전체가_0인_개수_비율은_성립하지_않는다() {
+        assertThatThrownBy(() -> Percentage.ofRatio(0, 0))
+                .isInstanceOf(InvalidValueException.class)
+                .hasMessageContaining("0");
+    }
+
+    @Test
     void 소수로_바꾸면_100으로_나눈_값이_된다() {
         // 청산가 공식은 MMR 을 소수로 요구한다: 0.4% → 0.004
         assertThat(Percentage.of("0.4").asFraction()).isEqualByComparingTo("0.004");
