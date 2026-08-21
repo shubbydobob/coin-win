@@ -57,7 +57,9 @@ com.coinwin
 ├── indicator/
 │   ├── domain/ application/
 ├── backtest/
-│   ├── domain/ application/ api/
+│   ├── domain/                  # 대·전략·엔진. 포트도 캔들 조회도 모른다
+│   ├── application/             # BacktestService — @StoredCandles 포트 소비
+│   └── api/
 └── projection/
     ├── domain/ api/
 ```
@@ -93,7 +95,8 @@ api → application → domain
 ```
 common              ← 모든 모듈 (역방향 금지)
 backtest            → indicator, position,
-                      market.application.port.out, market.domain
+                      market.application.port.out, market.domain,
+                      journal.domain, projection.domain
 indicator           → market.domain
 journal             → position, indicator.domain
 position.application → market.application.port.in, market.domain
@@ -122,9 +125,21 @@ position.application → market.application.port.in, market.domain
 **`journal`은 지표를 계산하지 않는다.** 계산기도 `IchimokuValue`도 참조하지 않고 판정 결과만
 적는다. 그 이상을 끌어오게 되면 이 의존을 다시 봐야 한다.
 
+**`backtest → journal.domain, projection.domain`** 은 어휘를 나누기 위해서다. 백테스트가 낸
+거래와 실제로 한 매매가 둘 다 `ClosedTrade` 이므로 `JournalSummary` 를 양쪽에 그대로 씌울 수
+있다 — **검증한 전략과 실제 기록을 같은 기준으로 비교할 수 있다는 뜻이다.** 따로 정의하면
+"0 원은 승리가 아니다"(`TradeTally`), "반사실에서 펀딩비를 빼지 않는다"(`ClosedTrade`),
+"최대낙폭은 직전 고점 대비"(`EquityCurve`) 같은 규칙이 두 곳에서 갈라지고, 그러면 두 수치를
+나란히 놓는 것 자체가 무의미해진다. `journal.domain` 은 프레임워크 의존이 없으므로 이 의존이
+백테스트를 DB 나 Spring 에 묶지 않는다. 근거는 `docs/adr/018`.
+**방향은 한쪽뿐이다** — `journal` 은 `backtest` 를 모른다. `MarketContext` 의 지지·저항을
+`PriceZone` 으로 구조화하는 것은 새 방향을 만드는 별개의 결정이므로 하지 않았다.
+
 **모듈 간 의존은 ArchUnit이 강제하지 않는다.** 아래 6개 규칙 중 어느 것도 모듈 경계를 보지
-않는다 — 규칙 3(순환 참조)이 최악의 경우만 막는다. 이 표는 문서와 리뷰가 지킨다. 규칙으로
-세우는 것은 `backtest`가 여러 모듈을 조합하는 Phase 6에서 다시 볼 문제다.
+않는다 — 규칙 3(순환 참조)이 최악의 경우만 막는다. 이 표는 문서와 리뷰가 지킨다.
+Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 규칙으로 세우지 않았다 —
+규칙 5 가 `backtest → market.adapter` 라는 **가장 위험한 한 방향**을 이미 막고 있고, 나머지는
+전부 도메인 → 도메인이라 잘못 걸어도 프레임워크 오염이 아니라 응집도 문제에 그친다.
 
 ## ArchUnit 강제 규칙
 
@@ -138,6 +153,12 @@ position.application → market.application.port.in, market.domain
 6. `adapter.out` 구현체는 반드시 `application.port.out` 인터페이스를 구현
 
 4번과 5번이 없으면 헥사고날이 이름만 남고 계층형으로 무너진다.
+
+**`allowEmptyShould` 는 이제 하나도 없다.** 대상 패키지가 아직 없는 규칙을 통과시키던 임시
+플래그였고, 마지막 하나(규칙 5)가 Phase 6 에서 빠졌다. 여섯 규칙이 전부 실제 클래스를 센다.
+플래그가 되돌아오는 것은 사람의 기억이 아니라 테스트가 막는다 —
+`ArchitectureRulesTest.어떤_규칙도_빈_매칭을_허용하지_않는다` 가 `ArchitectureRules` 소스에
+`allowEmptyShould(` 가 없는지 매 빌드 검사한다.
 
 ## 포트 명명 규약
 

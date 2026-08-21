@@ -17,20 +17,22 @@ import com.tngtech.archunit.library.Architectures;
  * 픽스처(archfixture)에 <b>완전히 동일한 규칙 인스턴스</b>를 적용할 수 있다. 규칙을 복사해서
  * 두 벌 두면 위반 테스트가 아무것도 증명하지 못한다.
  *
- * <p><b>allowEmptyShould(true) 에 대하여.</b> 아직 존재하지 않는 패키지를 대상으로 하는 규칙은
- * 매칭 클래스가 0건이고, ArchUnit 은 이때 기본적으로 실패한다. 그래서 해당 규칙만 허용으로
- * 열어 두었다. 그 대가로 "아무것도 검사하지 않는 규칙"이 조용히 통과할 수 있는데, 바로 그것을
- * 막는 장치가 {@link ArchitectureRulesViolationTest} 다. 위반 픽스처에서 규칙이 실패하지 않으면
- * 빌드가 깨진다.
- *
- * <p><b>이 플래그는 임시다. 대상 패키지가 생기는 Phase 에서 반드시 제거한다.</b>
+ * <p><b>allowEmptyShould 는 이제 하나도 남아 있지 않다.</b> 아직 존재하지 않는 패키지를
+ * 대상으로 하는 규칙은 매칭 클래스가 0건이고 ArchUnit 은 이때 기본적으로 실패하므로, 대상
+ * 패키지가 생길 때까지만 규칙별로 열어 두었던 임시 플래그였다. 열려 있는 동안 "아무것도
+ * 검사하지 않는 규칙" 이 조용히 통과할 수 있었고, 그것을 막은 장치가
+ * {@link ArchitectureRulesViolationTest} 다.
  *
  * <ul>
- *   <li>규칙 1·3 — Phase 0 에서 제거 완료 ({@code common.domain} / {@code common.config} 존재)
- *   <li>규칙 4·6 — <b>Phase 3 에서 제거 완료</b> ({@code market.application} 과
+ *   <li>규칙 1·3 — Phase 0 에서 제거 ({@code common.domain} / {@code common.config} 존재)
+ *   <li>규칙 4·6 — Phase 3 에서 제거 ({@code market.application} 과
  *       {@code market.adapter.out} 의 어댑터 다섯이 실제로 검사 대상이 됐다)
- *   <li>규칙 5 — Phase 6 에서 제거 ({@code backtest} 생성 시). <b>마지막 플래그다.</b>
+ *   <li>규칙 5 — <b>Phase 6 에서 제거. 마지막이었다</b> ({@code backtest.domain} 생성)
  * </ul>
+ *
+ * <p>여섯 규칙이 전부 실제 클래스를 세고 있다는 뜻이다. 새 플래그를 추가하지 않는다 —
+ * 대상 패키지가 없는 규칙은 규칙이 아니라 예약이고, 예약은 문서에 적을 일이지 초록으로
+ * 통과시킬 일이 아니다.
  *
  * @see ArchitectureRulesTest 정상 코드가 규칙을 지키는지
  * @see ArchitectureRulesViolationTest 규칙이 위반을 실제로 잡는지
@@ -115,8 +117,7 @@ public final class ArchitectureRules {
         return noClasses()
                 .that().resideInAPackage(root + ".backtest..")
                 .should().dependOnClassesThat().resideInAPackage(root + ".market.adapter..")
-                .as("규칙 5: backtest 는 market.adapter 를 참조하지 않는다 (포트만 허용)")
-                .allowEmptyShould(true);
+                .as("규칙 5: backtest 는 market.adapter 를 참조하지 않는다 (포트만 허용)");
     }
 
     /** 규칙 6 — adapter.out 의 *Adapter 는 반드시 application.port.out 인터페이스를 구현한다. */

@@ -89,6 +89,27 @@ class PriceTest {
     }
 
     @Test
+    void 가격에_금액을_더하고_빼면_그만큼_옮겨진_가격이다() {
+        // 손절 버퍼: 대 하단에서 ATR 만큼 아래
+        assertThat(Price.of("59000").minus(Money.of("350.75"))).isEqualTo(Price.of("58649.25"));
+        assertThat(Price.of("59000").plus(Money.of("350.75"))).isEqualTo(Price.of("59350.75"));
+    }
+
+    @Test
+    void 음수_금액을_더하면_빼는_것과_같다() {
+        // Money 는 음수를 허용한다. 부호를 무시하면 버퍼가 반대로 붙는다
+        assertThat(Price.of("59000").plus(Money.of("-100"))).isEqualTo(Price.of("58900"));
+        assertThat(Price.of("59000").minus(Money.of("-100"))).isEqualTo(Price.of("59100"));
+    }
+
+    @Test
+    void 뺀_결과가_음수면_거부된다() {
+        assertThatThrownBy(() -> Price.of("100").minus(Money.of("100.01")))
+                .isInstanceOf(InvalidValueException.class)
+                .hasMessageContaining("가격");
+    }
+
+    @Test
     void 크기_비교는_스케일이_아니라_값으로_한다() {
         assertThat(Price.of("56000.0").isBelow(Price.of("56000.00"))).isFalse();
         assertThat(Price.of("56000").isAbove(Price.of("56000.00"))).isFalse();

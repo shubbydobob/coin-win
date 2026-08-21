@@ -51,6 +51,29 @@ public record Price(BigDecimal value) {
         return Price.of(value.multiply(factor));
     }
 
+    /**
+     * 가격 거리만큼 올린 가격. 손절 버퍼와 슬리피지가 이 형태다.
+     *
+     * <p>{@link Money} 를 받는 이유는 {@link #absoluteDifference} 가 돌려주는 것이 그것이기
+     * 때문이다. 가격에 가격을 더하는 것은 뜻이 없고, 가격에 <b>가격 거리</b>를 더하는 것은
+     * 뜻이 있다.
+     */
+    public Price plus(Money distance) {
+        DomainValues.required(distance, "가격 간격");
+        return Price.of(value.add(distance.value()));
+    }
+
+    /**
+     * 가격 거리만큼 내린 가격.
+     *
+     * <p>결과가 0 아래면 생성자가 거부한다. 손절가가 0 이하로 나오는 계획은 성립하지 않으므로
+     * 조용히 0 으로 깎지 않는다.
+     */
+    public Price minus(Money distance) {
+        DomainValues.required(distance, "가격 간격");
+        return Price.of(value.subtract(distance.value()));
+    }
+
     public boolean isBelow(Price other) {
         return value.compareTo(other.value) < 0;
     }

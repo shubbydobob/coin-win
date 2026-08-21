@@ -81,7 +81,23 @@ public record PositionPlan(
 
     /** 손익비가 기준 미달인가. 판단은 <b>반올림하지 않은</b> 손익비로 한다. */
     public boolean weakRiskReward() {
-        return exactRiskRewardRatio().compareTo(MINIMUM_RISK_REWARD) < 0;
+        return riskRewardBelow(MINIMUM_RISK_REWARD);
+    }
+
+    /**
+     * 손익비가 주어진 문턱값 미만인가.
+     *
+     * <p>Phase 6 백테스트가 문턱값을 파라미터로 받기 때문에 열어 둔다. 계획 검토 화면에서는
+     * 1.5 가 고정 기준이지만, 백테스트는 <b>그 기준이 실제로 성적을 개선하는지</b>를 재는 것이
+     * 목적이라 값을 바꿔 가며 돌려야 한다.
+     *
+     * <p>비교를 호출부에서 하지 않고 여기 두는 이유는 <b>반올림하지 않은 손익비를 써야 한다</b>는
+     * 규칙이 하나여야 하기 때문이다. {@link #riskRewardRatio()} 는 표시용 버림값이므로 그것으로
+     * 비교하면 경계에서 판정이 갈린다.
+     */
+    public boolean riskRewardBelow(BigDecimal threshold) {
+        DomainValues.required(threshold, "손익비 문턱값");
+        return exactRiskRewardRatio().compareTo(threshold) < 0;
     }
 
     private BigDecimal exactRiskRewardRatio() {
