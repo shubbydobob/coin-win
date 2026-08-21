@@ -1,6 +1,6 @@
 ---
 name: domain-model
-description: CoinWin 도메인 모델 명세. 포지션 사이징, 분할 진입, 청산가, 일목·볼린저 지표, 매매 기록 구조를 구현하거나 수정할 때 참조한다.
+description: CoinWin 도메인 모델 명세. 포지션 사이징, 분할 진입, 청산가, 복리·몬테카를로, 일목·볼린저 지표, 매매 기록 구조를 구현하거나 수정할 때 참조한다.
 ---
 
 # 도메인 모델
@@ -13,6 +13,24 @@ public record Quantity(BigDecimal value)    // 스케일 8 (BTC)
 public record Money(BigDecimal value)       // USDT, 스케일 2
 public record Percentage(BigDecimal value)  // 스케일 4
 ```
+
+계산 메서드는 값 객체 안에만 둔다. 반올림 정책이 밖으로 나가면 결과가 갈라진다.
+
+```java
+Money.dividedBy(Money) → Quantity        // 사이징: riskAmount / perUnitLoss
+Money.times(BigDecimal) → Money          // 무차원 배수. 복리 곡선의 한 점
+Money.minus(Money) → Money               // 음수 허용
+Money.percentOf(Money) → Percentage      // 낙폭: (고점 - 현재) / 고점
+Percentage.applyTo(Money|Quantity)       // 비율 적용
+Percentage.ofRatio(long, long)           // 개수의 비율. 손실 시행 / 전체 시행
+Percentage.asFraction() → BigDecimal     // 100 기준 → 1 기준
+Price.absoluteDifference(Price) → Money
+Price.multipliedBy(BigDecimal) → Price   // 청산가 계수
+Quantity.times(Money[, int parts]) → Money
+```
+
+`DomainValues.required(value, label)` 로 null 을 검사한다. `Objects.requireNonNull` 은
+`NullPointerException` 을 던져 500 이 되고, 잘못된 요청은 400 이어야 한다.
 
 ## 포지션 (`position/domain`)
 
@@ -151,6 +169,85 @@ SHORT: liq = entry × (1 + 1/leverage - MMR)
 ### `BigDecimal` 노출
 
 `riskRewardRatio()` 만 `BigDecimal` 을 반환한다. 손익비는 무차원 비(比)라 `Percentage` 도 `Money` 도 아니기 때문이다. 그 외 도메인 반환값은 전부 값 객체다.
+
+## 복리 / 몬테카를로 (`projection/domain`)
+
+> Phase 2 구현 완료. 아래는 실제 코드와 일치한다.
+
+```java
+public enum TradeOutcome { WIN, LOSS }
+
+// 승률·손익비·거래당 리스크 비율. 이 셋이 자산 곡선의 모양을 전부 결정한다.
+public record TradingEdge(
+        Percentage winRate, BigDecimal riskRewardRatio, Percentage riskPerTrade) {
+    BigDecimal factorFor(TradeOutcome outcome);   // 승리 1 + r×R, 패배 1 - r
+    BigDecimal expectancyPerTrade();              // R 배수 기댓값: 승률×R - 패률
+    TradeOutcome drawOutcome(RandomGenerator random);
+}
+
+public record TradeFrequency(int tradesPerWeek, int weeks) {
+    int totalTrades();                            // 상한 10,000
+}
+
+// 승패 순서 하나가 그리는 곡선. 첫 점은 거래 이전의 초기 자본이다.
+public record EquityCurve(List<Money> points) {
+    Money initialCapital();  Money finalEquity();
+    int trades();            Percentage maxDrawdown();
+    boolean lostMoney();
+}
+
+public record ProjectionSpec(Money initialCapital, TradingEdge edge, TradeFrequency frequency) {
+    EquityCurve project(List<TradeOutcome> outcomes);   // 확정된 순서
+    EquityCurve simulate(long seed);                    // 시드가 정한 순서
+}
+
+public record MonteCarloProjection(ProjectionSpec spec, int runs, long seed) {
+    ProjectionDistribution run();                       // 시행 상한 10,000
+}
+
+public record ProjectionOutcome(Money finalEquity, Percentage maxDrawdown) {}
+
+public record ProjectionDistribution(List<ProjectionOutcome> outcomes, Money initialCapital) {
+    int runs();
+    Money equityPercentile(int percentile);        // 0 최악, 50 중앙값, 100 최선
+    Percentage drawdownPercentile(int percentile); // 낙폭 기준으로 따로 정렬한다
+    Percentage lossProbability();                  // 초기 자본에 못 미친 시행의 비율
+}
+```
+
+### 순서는 최종 자산이 아니라 낙폭을 바꾼다
+
+근거는 `docs/adr/010`. 고정 비율 복리는 곱셈이고 곱셈은 교환법칙을 따른다. 승패 구성이
+같으면 순서가 어떻든 최종 자산이 같다. `[승,패,패,승]` 과 `[패,승,승,패]` 는 둘 다 1166.40 이고,
+갈리는 것은 낙폭 19% 대 10% 다. **그래서 분포에 최종 자산과 낙폭을 함께 싣는다.**
+사람이 계획을 그만두는 지점은 도착점이 아니라 낙폭이기 때문이다.
+
+### 각 점은 직전 점이 아니라 초기 자본에서 계산한다
+
+`points[i] = initialCapital.times(누적 배수)` 다. 직전 점에 배수를 곱해 나가면 점마다 센트
+반올림이 끼고, 5 거래 만에 1센트가 어긋난다(1159.28 대 1159.27). 그 오차가 쌓이면 순서만
+다른 두 경로의 최종 자산이 갈라지는데, 그것은 복리의 성질이 아니라 반올림의 잔재다.
+누적 배수는 `MathContext.DECIMAL128`, `Money` 스냅은 각 점당 한 번.
+
+### 결정론
+
+`SeededRandom` 이 알고리즘 이름(`L64X128MixRandom`)을 박아 둔다. 기본 구현에 맡기면 JDK 가
+바뀔 때 같은 시드가 다른 수열을 내고, 어제 본 시뮬레이션을 오늘 다시 만들 수 없다.
+
+승패 추첨은 `random.nextInt(1_000_000) < 승률×1_000_000` 이다. 실수 난수 비교는 경계에서
+구현에 따라 갈릴 수 있다. 해상도 백만은 `Percentage` 스케일 4 의 최소 단위와 맞춘 것이다.
+
+**몬테카를로는 난수원 하나를 모든 시행이 이어 쓴다.** 시행마다 새로 만들면 같은 시드에서
+같은 수열이 다시 시작되어 N 번이 전부 같은 경로가 된다.
+
+### 하지 않는 것
+
+- **파산 확률을 내지 않는다.** 고정 비율 사이징에서 자산은 산술적으로 0 이 되지 않아
+  임의의 문턱값을 도입해야 한다. 대신 손실 확률과 최악 낙폭을 낸다.
+- **곡선을 시행마다 보관하지 않는다.** 분포에 필요한 것은 최종 자산과 낙폭뿐이다.
+  곡선을 다시 보고 싶으면 그 시드로 `simulate(seed)` 를 다시 부른다 — 결정론이라 같은 곡선이 나온다.
+- 거래 내부의 왕복(손절가까지 밀렸다 익절로 끝나는 경우)은 모델에 없다. 여기서 나오는 낙폭은
+  **실제보다 얕다.** 거래 내부를 보려면 캔들이 필요하고 그것은 Phase 6 이다.
 
 ## 지표 (`indicator/domain`)
 
