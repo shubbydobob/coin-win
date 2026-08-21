@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# OMC 운영 산출물. 셸 작업 디렉터리가 frontend 일 때 여기에 떨어진다.
+.omc/

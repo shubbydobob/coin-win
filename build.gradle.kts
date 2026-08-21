@@ -1,3 +1,4 @@
+import com.github.gradle.node.npm.task.NpmTask
 import com.github.spotbugs.snom.Confidence
 import com.github.spotbugs.snom.Effort
 import com.github.spotbugs.snom.SpotBugsTask
@@ -9,6 +10,7 @@ plugins {
     alias(libs.plugins.springBoot)
     alias(libs.plugins.dependencyManagement)
     alias(libs.plugins.spotbugs)
+    alias(libs.plugins.node)
 }
 
 group = "com.coinwin"
@@ -226,7 +228,51 @@ tasks.jacocoTestCoverageVerification {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 프론트엔드 (Phase 8)
+//
+// 게이트는 하나다 — `.\gradlew.bat check` 가 자바와 프론트를 함께 검사한다. 게이트가 둘이면
+// 하나는 반드시 안 돌게 된다. 근거: docs/spec/phase8-frontend.md § 2 · § 9.1
+//
+// 플러그인이 지정 버전 Node 를 내려받는다. 로컬 설치본을 부르지 않으므로 Node 버전이
+// 사람마다 달라도 같은 결과가 나오고, Windows 의 npm.cmd 도 플러그인이 다룬다.
+// ---------------------------------------------------------------------------
+val frontendDir = layout.projectDirectory.dir("frontend")
+
+node {
+    version = libs.versions.node.get()
+    download = true
+    nodeProjectDir = frontendDir
+}
+
+val frontendCheck = tasks.register<NpmTask>("frontendCheck") {
+    group = "verification"
+    description = "프론트엔드 게이트 — tsc --noEmit · eslint · vitest run"
+    dependsOn(tasks.npmInstall)
+    npmCommand = listOf("run", "check")
+
+    // 입력이 그대로면 다시 돌지 않는다. 출력이 없는 검사이므로 표식 파일을 하나 남긴다 —
+    // 그것이 없으면 Gradle 이 매번 처음부터 돌리거나, 반대로 영원히 UP-TO-DATE 로 본다.
+    inputs.dir(frontendDir.dir("src"))
+    inputs.dir(frontendDir.dir("test"))
+    inputs.files(
+        frontendDir.file("package.json"),
+        frontendDir.file("package-lock.json"),
+        frontendDir.file("tsconfig.json"),
+        frontendDir.file("vite.config.ts"),
+        frontendDir.file("eslint.config.js"),
+    )
+    val marker = layout.buildDirectory.file("frontend/check.marker")
+    outputs.file(marker)
+    doLast {
+        val file = marker.get().asFile
+        file.parentFile.mkdirs()
+        file.writeText("ok")
+    }
+}
+
 tasks.check {
+    dependsOn(frontendCheck)
     dependsOn(tasks.jacocoTestCoverageVerification)
     // 리포트도 함께 갱신한다. 그러지 않으면 build/reports 의 커버리지 수치가
     // 마지막 수동 실행 시점에 멈춰 있어, 오래된 숫자를 현재 상태로 착각하게 된다.
