@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs 억제 필터.
+
+  빈 상태로 시작한다. 억제는 실제로 오탐이 발생했을 때, 왜 오탐인지 주석과 함께 추가한다.
+  "빌드를 통과시키기 위해" 추가하지 않는다.
+-->
+<FindBugsFilter>
+</FindBugsFilter>
