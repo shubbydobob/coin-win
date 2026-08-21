@@ -1,5 +1,6 @@
 package com.coinwin.journal.application.service;
 
+import com.coinwin.journal.application.TradeClosedEvent;
 import com.coinwin.journal.application.port.in.QueryJournalUseCase;
 import com.coinwin.journal.application.port.in.RecordTradeUseCase;
 import com.coinwin.journal.application.port.out.LoadTradesPort;
@@ -19,6 +20,7 @@ import com.coinwin.journal.domain.TradeQuery;
 import com.coinwin.position.domain.PositionPlan;
 import java.time.Clock;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
@@ -37,11 +39,14 @@ public class TradeJournalService implements RecordTradeUseCase, QueryJournalUseC
     private final SaveTradePort saveTrade;
     private final LoadTradesPort loadTrades;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    public TradeJournalService(SaveTradePort saveTrade, LoadTradesPort loadTrades, Clock clock) {
+    public TradeJournalService(SaveTradePort saveTrade, LoadTradesPort loadTrades, Clock clock,
+            ApplicationEventPublisher events) {
         this.saveTrade = saveTrade;
         this.loadTrades = loadTrades;
         this.clock = clock;
+        this.events = events;
     }
 
     @Override
@@ -70,6 +75,9 @@ public class TradeJournalService implements RecordTradeUseCase, QueryJournalUseC
         }
         ClosedTrade closed = open.close(closure);
         saveTrade.save(closed);
+        // 저장이 끝난 뒤에 알린다. 듣는 쪽이 없어도 아무 일도 일어나지 않는 것이 정상이다 —
+        // 이 모듈은 누가 듣는지 알지 못하고, 알아서도 안 된다(ADR 018 과 같은 이유의 반대 방향).
+        events.publishEvent(new TradeClosedEvent(closed.id()));
         return closed;
     }
 

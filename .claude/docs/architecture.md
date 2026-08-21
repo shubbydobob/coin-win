@@ -12,10 +12,17 @@
 | `indicator` | 계층형 | 외부 의존 없음. 순수 함수 |
 | `projection` | 계층형 | 외부 의존 없음 |
 | `backtest` | 계층형 | `market` 포트를 소비하는 쪽. 자체 포트 불필요 |
+| `ai` | 포트/어댑터 | LLM·벡터스토어를 `application` 밖에 묶어 두기 위해서 |
 
 `backtest`가 백테스트 시에는 과거 캔들 어댑터를, 실사용 시에는 실시간 어댑터를 같은 포트로 소비한다. 이 지점이 없었다면 전부 계층형으로 충분했다.
 
 **구현체가 하나뿐인 인터페이스는 만들지 않는다.**
+
+`ai`는 이 원칙의 경계에 있다. 검색 포트는 어댑터가 실제로 둘(pgvector / 인메모리)이라
+`journal`과 같지만, LLM 포트는 운영 구현이 OpenAI 하나뿐이다. 그럼에도 포트를 두는 이유는
+**테스트 더블이 아니라 격리**다 — 포트가 없으면 서비스가 `ChatClient`를 직접 들고, 그 순간
+"AI 없이 도는 테스트"라는 것이 성립하지 않는다. 키가 없을 때 앱이 그대로 뜨는 것도 같은
+경계 덕분이다.
 
 ## 패키지 구조
 
@@ -60,8 +67,26 @@ com.coinwin
 │   ├── domain/                  # 대·전략·엔진. 포트도 캔들 조회도 모른다
 │   ├── application/             # BacktestService — @StoredCandles 포트 소비
 │   └── api/
-└── projection/
-    ├── domain/ api/
+├── projection/
+│   ├── domain/ api/
+│
+└── ai/                          # ◆ 포트/어댑터
+    ├── config/                  # SpringAiEnabledOnlyWithApiKey — 계층 밖. 기동 시점 스위치
+    ├── domain/                  # DraftedFields, Narrative, JournalAnswer, TradeDocument
+    ├── application/
+    │   ├── port/in/             # DraftPlanUseCase, SummarizeUseCase,
+    │   │                        #   AskJournalUseCase, IndexTradesUseCase
+    │   ├── port/out/            # ExtractPlanPort, WriteSummaryPort, AnswerQuestionPort,
+    │   │                        #   IndexTradesPort, SearchTradesPort
+    │   └── service/             # PlanDraftService, SummaryService,
+    │                            #   JournalQaService, TradeIndexingService
+    └── adapter/
+        ├── in/web/              # AiController
+        ├── in/event/            # TradeClosedIndexListener — 청산 시 자동 색인
+        └── out/
+            ├── openai/          # 계획 추출 · 요약 · 답변 (+ 모델 응답 DTO)
+            ├── pgvector/        # PgVectorTradeIndexAdapter
+            └── memory/          # InMemoryTradeIndexAdapter
 ```
 
 ## 의존 방향
@@ -100,6 +125,9 @@ backtest            → indicator, position,
 indicator           → market.domain
 journal             → position, indicator.domain
 position.application → market.application.port.in, market.domain
+ai                  → position.domain, indicator.domain,
+                      journal.application.port.in, journal.domain
+backtest.api        → ai.application.port.in, ai.domain
 그 외 모듈 간 직접 참조 금지
 ```
 
@@ -125,6 +153,30 @@ position.application → market.application.port.in, market.domain
 **`journal`은 지표를 계산하지 않는다.** 계산기도 `IchimokuValue`도 참조하지 않고 판정 결과만
 적는다. 그 이상을 끌어오게 되면 이 의존을 다시 봐야 한다.
 
+**`backtest.api → ai`, 그리고 `ai`는 `backtest`를 모른다.** 이 방향은 선택이 아니라 순환이
+강제한 것이다. 처음에는 `ai`가 백테스트를 돌려 결과를 요약하게 두려 했는데, 그러면
+백테스트 쪽이 요약을 부르는 순간 `ai ↔ backtest`가 되고 ArchUnit 규칙 3이 빌드를 세운다.
+그래서 `SummaryFacts`를 **백테스트와 무관한 "숫자 딸린 사실 묶음"**으로 정의하고 사실을
+만드는 일을 부르는 쪽에 남겼다. 제약이 더 나은 모양을 만들었다 — 요약이 백테스트 전용이
+아니게 됐고, 나중에 어느 모듈이든 자기 수치를 문장으로 바꿀 수 있다. 요약 엔드포인트가
+`/api/ai`가 아니라 `/api/backtests/narrative`인 것도 같은 이유다.
+
+**`journal`은 `ai`를 모른다.** 청산 시 자동 색인이 필요하지만 서비스가 색인 유스케이스를
+직접 부르면 또 순환이다. `journal.application`이 `TradeClosedEvent`를 발행하고 `ai`가
+듣는다 — 듣는 쪽만 발행하는 쪽을 안다. 듣는 이가 없어도 아무 일도 일어나지 않는 것이
+정상이다. **인덱스는 파생이고 진실의 원천은 언제나 매매 기록이다.**
+
+**`ai → journal`** 은 문서를 만들기 위해서다. `TradeDocument.over(List<ClosedTrade>)`가
+목록을 받는 이유가 이 절의 요점이다 — "직전 거래는 손실이었다"는 거래 하나만 봐서는 알 수
+없고 시간순 전체 위에서만 계산된다. `indicator.domain`은 `BandPosition` 하나 때문이며
+`journal`이 같은 이유로 갖는 의존과 같다(`docs/adr/017`).
+
+**`ai → position.domain`** 은 계획 초안이 곧 `PositionPlan` 이기 때문이다. 파싱 결과를 따로
+정의하면 "롱의 손절가는 최저 진입가보다 낮다" 같은 규칙이 두 곳에 생기고, 그러면 초안이
+통과했는데 같은 값이 계획 API 에서 거부되는 일이 생긴다. **`ai` 는 계획 규칙을 갖지 않는다** —
+읽어낸 칸이 다 찼는지만 보고 나머지는 Phase 1 에 맡긴다. 그 경계가 무너지면(초안 전용 규칙이
+생기면) 이 의존을 다시 봐야 한다.
+
 **`backtest → journal.domain, projection.domain`** 은 어휘를 나누기 위해서다. 백테스트가 낸
 거래와 실제로 한 매매가 둘 다 `ClosedTrade` 이므로 `JournalSummary` 를 양쪽에 그대로 씌울 수
 있다 — **검증한 전략과 실제 기록을 같은 기준으로 비교할 수 있다는 뜻이다.** 따로 정의하면
@@ -148,7 +200,7 @@ Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 
 1. `domain` 패키지의 Spring / JPA / Jackson import 금지
 2. 계층 의존 방향 (`(api|adapter) → application → domain`)
 3. 패키지 순환 참조 0건
-4. `market.application` / `journal.application` → `adapter` 참조 금지
+4. `market.application` / `journal.application` / `ai.application` → `adapter` 참조 금지
 5. `backtest` → `market.adapter` 참조 금지 (포트만 허용)
 6. `adapter.out` 구현체는 반드시 `application.port.out` 인터페이스를 구현
 

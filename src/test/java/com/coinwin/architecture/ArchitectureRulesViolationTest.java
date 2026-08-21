@@ -83,6 +83,15 @@ class ArchitectureRulesViolationTest {
     }
 
     @Test
+    @DisplayName("규칙 4 는 ai.application → ai.adapter 참조도 잡는다")
+    void 규칙4는_ai에서도_application이_adapter를_참조하는_것을_잡는다() {
+        assertRuleRejects(
+                ArchitectureRules.hexagonalApplicationDoesNotSeeAdapters("archfixture.r4a"),
+                "archfixture.r4a",
+                "LeakyPlanDraftService");
+    }
+
+    @Test
     @DisplayName("규칙 5 는 backtest → market.adapter 참조를 잡는다")
     void 규칙5는_backtest가_adapter를_참조하는_것을_잡는다() {
         assertRuleRejects(

@@ -47,7 +47,7 @@ class ArchitectureRulesTest {
     }
 
     @Test
-    void 규칙4_market과_journal의_application은_adapter를_참조하지_않는다() {
+    void 규칙4_market과_journal과_ai의_application은_adapter를_참조하지_않는다() {
         ArchitectureRules.hexagonalApplicationDoesNotSeeAdapters(ROOT).check(productionClasses);
     }
 

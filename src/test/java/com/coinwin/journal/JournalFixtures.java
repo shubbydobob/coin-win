@@ -132,6 +132,17 @@ public final class JournalFixtures {
         return endingAt(longPlan(), new Legs("60000", "59000", "64000"), exitAt, reason);
     }
 
+    /**
+     * 청산가까지 지정해 시간축 위에 놓는 거래.
+     *
+     * <p>{@link #closedEndingAt(Instant, ExitReason)} 은 청산가가 익절가로 고정돼 있어 이유를
+     * 무엇으로 주든 <b>이익으로 끝난다.</b> 손실로 끝난 거래가 필요한 테스트는 이쪽을 쓴다.
+     */
+    public static ClosedTrade closedEndingAt(
+            Instant exitAt, ExitReason reason, String exitPrice) {
+        return endingAt(longPlan(), new Legs("60000", "59000", exitPrice), exitAt, reason);
+    }
+
     /** 숏 거래. 방향으로 거르는 조회를 검사할 때 쓴다. */
     public static ClosedTrade shortClosedEndingAt(Instant exitAt, ExitReason reason) {
         return endingAt(shortPlan(), new Legs("60000", "61000", "56000"), exitAt, reason);

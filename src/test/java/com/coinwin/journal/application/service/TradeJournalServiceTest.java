@@ -10,6 +10,7 @@ import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.journal.JournalFixtures;
 import com.coinwin.journal.adapter.out.memory.InMemoryTradeAdapter;
+import com.coinwin.journal.application.TradeClosedEvent;
 import com.coinwin.journal.domain.ClosedTrade;
 import com.coinwin.journal.domain.Exit;
 import com.coinwin.journal.domain.ExitReason;
@@ -25,6 +26,8 @@ import com.coinwin.journal.domain.TradeQuery;
 import com.coinwin.position.domain.Direction;
 import java.time.Clock;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -40,10 +43,14 @@ class TradeJournalServiceTest {
     private InMemoryTradeAdapter trades;
     private TradeJournalService service;
 
+    /** 발행된 이벤트. 청산이 <b>저장 뒤에</b> 알리는지 보려면 받아 둘 곳이 있어야 한다. */
+    private final List<Object> published = new ArrayList<>();
+
     @BeforeEach
     void 인메모리_어댑터로_서비스를_조립한다() {
         trades = new InMemoryTradeAdapter();
-        service = new TradeJournalService(trades, trades, Clock.fixed(PLANNED_AT, ZoneOffset.UTC));
+        service = new TradeJournalService(
+                trades, trades, Clock.fixed(PLANNED_AT, ZoneOffset.UTC), published::add);
     }
 
     /**
@@ -157,6 +164,28 @@ class TradeJournalServiceTest {
         assertThat(onlyShort.totalTrades()).isEqualTo(1);
         assertThat(onlyShort.broken().trades()).isEqualTo(1);
         assertThat(onlyShort.followed().isEmpty()).isTrue();
+    }
+
+    /**
+     * 청산은 <b>저장이 끝난 뒤</b> 알린다. 이 모듈은 누가 듣는지 모른다 — 듣는 쪽이 없어도
+     * 아무 일도 일어나지 않는 것이 정상이다.
+     */
+    @Test
+    void 청산하면_그_사실을_알린다() {
+        TradeId id = service.planTrade(JournalFixtures.longPlan()).id();
+        service.recordFills(id, JournalFixtures.bothLegsFilled(), JournalFixtures.context());
+
+        service.closeTrade(id, closure());
+
+        assertThat(published).containsExactly(new TradeClosedEvent(id));
+    }
+
+    @Test
+    void 계획과_체결만으로는_아무것도_알리지_않는다() {
+        TradeId id = service.planTrade(JournalFixtures.longPlan()).id();
+        service.recordFills(id, JournalFixtures.bothLegsFilled(), JournalFixtures.context());
+
+        assertThat(published).isEmpty();
     }
 
     private static TradeClosure closure() {

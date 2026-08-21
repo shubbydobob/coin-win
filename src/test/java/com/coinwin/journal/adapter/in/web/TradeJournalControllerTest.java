@@ -41,7 +41,7 @@ class TradeJournalControllerTest {
     void 컨트롤러를_조립한다() {
         store = new InMemoryTradeAdapter();
         TradeJournalService service = new TradeJournalService(
-                store, store, Clock.fixed(PLANNED_AT, ZoneOffset.UTC));
+                store, store, Clock.fixed(PLANNED_AT, ZoneOffset.UTC), event -> { });
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new TradeJournalController(service, service))
                 .setControllerAdvice(new DomainExceptionHandler())

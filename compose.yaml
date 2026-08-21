@@ -5,7 +5,8 @@
 # 두 곳이 갈리면 로컬에서 통과한 SQL 이 통합 테스트에서 방언 차이로 깨진다.
 services:
   db:
-    image: postgres:18-alpine
+    # Phase 7 에서 postgres:18-alpine 을 떠났다. RAG 인덱스가 vector 확장을 요구한다.
+    image: pgvector/pgvector:pg18
     container_name: coinwin-db
     environment:
       POSTGRES_DB: coinwin

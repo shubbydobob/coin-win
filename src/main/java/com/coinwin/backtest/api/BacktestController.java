@@ -1,5 +1,6 @@
 package com.coinwin.backtest.api;
 
+import com.coinwin.ai.application.port.in.SummarizeUseCase;
 import com.coinwin.backtest.api.BacktestResultResponse.ComparisonResponse;
 import com.coinwin.backtest.application.BacktestService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,8 +27,11 @@ public class BacktestController {
 
     private final BacktestService backtestService;
 
-    public BacktestController(BacktestService backtestService) {
+    private final SummarizeUseCase summarize;
+
+    public BacktestController(BacktestService backtestService, SummarizeUseCase summarize) {
         this.backtestService = backtestService;
+        this.summarize = summarize;
     }
 
     @Operation(
@@ -59,6 +63,29 @@ public class BacktestController {
     public ComparisonResponse compareIndicatorFilter(@RequestBody RunBacktestRequest request) {
         return ComparisonResponse.from(
                 backtestService.compareIndicatorFilter(request.toSpec()));
+    }
+
+    @Operation(
+            summary = "백테스트 결과 요약 (AI)",
+            description = """
+                    같은 조건으로 백테스트를 돌리고 그 수치를 한국어 몇 문장으로 옮긴다.
+                    요약에 나오는 수는 전부 응답의 facts 안에 있는 값이며,
+                    없는 수가 들어간 요약은 만들어지지 않고 503 이 된다.
+
+                    /api/ai 아래에 있지 않은 이유는 모듈 순환 때문이다 — ai 가 백테스트를
+                    직접 돌리면 backtest 와 ai 가 서로를 참조하게 되고 ArchUnit 규칙 3 이
+                    빌드를 세운다. 사실을 만들어 넘기는 쪽이 백테스트다.
+
+                    앞으로 어떻게 하라는 말은 하지 않는다. 근거는 docs/adr/005.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "503",
+                description = "AI 기능이 설정되지 않았거나(OPENAI_API_KEY), 모델이 원본에 없는 "
+                        + "수를 썼다. 둘 다 사용자가 고칠 것이 아니라 다시 시도할 일이다")
+    })
+    @PostMapping("/narrative")
+    public BacktestNarrativeResponse narrate(@RequestBody RunBacktestRequest request) {
+        return BacktestNarrativeResponse.from(
+                summarize.summarize(BacktestFacts.of(backtestService.run(request.toSpec()))));
     }
 
     @Operation(
