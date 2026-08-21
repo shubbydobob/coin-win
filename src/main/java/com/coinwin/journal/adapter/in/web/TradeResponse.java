@@ -31,10 +31,10 @@ public record TradeResponse(
         @Schema(description = "진입 전에 세운 계획")
         PlanResponse plan,
 
-        @Schema(description = "실제 진입 결과. PLANNED 상태에서는 null")
+        @Schema(description = "실제 진입 결과. PLANNED 상태에서는 null", nullable = true)
         EntryResultResponse entry,
 
-        @Schema(description = "청산 결과. CLOSED 상태에서만 존재")
+        @Schema(description = "청산 결과. CLOSED 상태에서만 존재", nullable = true)
         OutcomeResponse outcome) {
 
     static TradeResponse from(Trade trade) {
