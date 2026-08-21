@@ -81,6 +81,10 @@ tasks.withType<JavaCompile>().configureEach {
 // ---------------------------------------------------------------------------
 val integrationTag = "integration"
 
+// 트레이딩뷰 대조는 진짜 거래소를 때리고 값이 매번 다르다. 회귀 테스트가 될 수 없으므로
+// 기본 test 에서 걷어낸다. 근거는 docs/adr/015 — 외부 기준값은 사람이 한 번 대조한다.
+val crossCheckTag = "crosscheck"
+
 tasks.withType<Test>().configureEach {
     testLogging {
         events("passed", "skipped", "failed")
@@ -93,7 +97,19 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.test {
-    useJUnitPlatform { excludeTags(integrationTag) }
+    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag) }
+}
+
+tasks.register<Test>("crossCheck") {
+    group = "verification"
+    description = "실제 BTCUSDT 캔들의 지표값을 출력한다. 트레이딩뷰와 눈으로 대조하는 용도."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(crossCheckTag) }
+    // 출력을 보는 것이 목적이므로 -PshowTestOutput 없이도 항상 찍는다.
+    testLogging { showStandardStreams = true }
+    // 거래소 값이 매번 다르다. UP-TO-DATE 로 건너뛰면 대조할 표가 나오지 않는다.
+    outputs.upToDateWhen { false }
 }
 
 tasks.register<Test>("integrationTest") {
