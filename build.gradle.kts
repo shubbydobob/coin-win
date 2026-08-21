@@ -52,6 +52,14 @@ dependencies {
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
+    // Phase 5 — 매매 기록. 캔들과 달리 JPA 를 쓴다. 근거는 docs/adr/016.
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation(libs.querydsl.jpa)
+    // 클래스파이어 jpa: @Entity 를 읽어 Q 클래스를 만드는 프로세서다. 빼면 Q 클래스가 생기지 않는다.
+    annotationProcessor(variantOf(libs.querydsl.apt) { classifier("jpa") })
+    annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
+
     // 픽스처는 @Component 같은 최소 스텁만 필요하다.
     "archFixtureCompileOnly"("org.springframework:spring-context")
 

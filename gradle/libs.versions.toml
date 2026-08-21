@@ -29,14 +29,16 @@ testcontainers = "1.21.4"
 # 같은 이미지를 써야 "로컬에서 되는데 CI 에서 깨지는" 방언 차이가 생기지 않는다.
 postgresImage = "postgres:18-alpine"
 
-# Phase 5 (매매 기록) 에서 추가한다. 지금은 어떤 모듈도 참조하지 않는다.
-# 원본 com.querydsl 은 2024-11 이후 미유지 → io.github.openfeign.querydsl 사용
-# querydsl = "7.6"
+# Phase 5 (매매 기록). 원본 com.querydsl 은 2024-11 이후 미유지 → io.github.openfeign.querydsl.
+# JPA / Hibernate 자체의 버전은 Spring Boot BOM 이 관리하므로 여기에 적지 않는다.
+querydsl = "7.6"
 
 [libraries]
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 archunit-junit6 = { module = "com.tngtech.archunit:archunit-junit6", version.ref = "archunit" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+querydsl-jpa = { module = "io.github.openfeign.querydsl:querydsl-jpa", version.ref = "querydsl" }
+querydsl-apt = { module = "io.github.openfeign.querydsl:querydsl-apt", version.ref = "querydsl" }
 
 [plugins]
 springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }
