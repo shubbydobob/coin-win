@@ -20,7 +20,7 @@ class EntryRulesTest {
     @Test
     void 손절_버퍼는_음수일_수_없다() {
         assertThatThrownBy(() -> new EntryRules(new BigDecimal("-0.1"), ONE, false))
-                .isInstanceOf(InvalidBacktestException.class)
+                .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("버퍼");
     }
 
@@ -28,10 +28,10 @@ class EntryRulesTest {
     @Test
     void 최소_손익비는_0보다_커야_한다() {
         assertThatThrownBy(() -> new EntryRules(ONE, BigDecimal.ZERO, false))
-                .isInstanceOf(InvalidBacktestException.class)
+                .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("손익비");
         assertThatThrownBy(() -> new EntryRules(ONE, new BigDecimal("-1"), false))
-                .isInstanceOf(InvalidBacktestException.class);
+                .isInstanceOf(InvalidValueException.class);
     }
 
     @Test

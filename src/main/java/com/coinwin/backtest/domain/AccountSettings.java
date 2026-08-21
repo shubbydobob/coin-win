@@ -1,6 +1,7 @@
 package com.coinwin.backtest.domain;
 
 import com.coinwin.common.domain.DomainValues;
+import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.position.domain.RiskBudget;
@@ -21,11 +22,11 @@ public record AccountSettings(
         DomainValues.required(riskPercent, "거래당 리스크 비율");
         DomainValues.required(capitalMode, "잔고 모드");
         if (!initialCapital.isGreaterThan(Money.of("0"))) {
-            throw new InvalidBacktestException(
+            throw new InvalidValueException(
                     "초기 자본은 0 보다 커야 한다: " + initialCapital.value().toPlainString());
         }
         if (leverage < 1) {
-            throw new InvalidBacktestException("레버리지는 1 이상이어야 한다: " + leverage);
+            throw new InvalidValueException("레버리지는 1 이상이어야 한다: " + leverage);
         }
     }
 

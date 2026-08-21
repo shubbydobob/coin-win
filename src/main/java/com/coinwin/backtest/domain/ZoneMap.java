@@ -1,6 +1,7 @@
 package com.coinwin.backtest.domain;
 
 import com.coinwin.common.domain.DomainValues;
+import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.PriceBand;
@@ -76,14 +77,10 @@ public record ZoneMap(List<PriceZone> zones) {
 
     private static void assertSettings(Money tolerance, int minTouches) {
         if (tolerance.isNegative()) {
-            throw new InvalidBacktestException(
+            throw new InvalidValueException(
                     "군집 허용치는 음수일 수 없다: " + tolerance.value().toPlainString());
         }
-        if (minTouches < 2) {
-            throw new InvalidBacktestException(
-                    "대로 채택하려면 터치가 2회 이상이어야 한다. 하나는 선이지 대가 아니다: "
-                            + minTouches);
-        }
+        DomainValues.atLeast(minTouches, 2, "대의 터치 횟수");
     }
 
     /** 가격 오름차순. 같은 가격이면 발생 시각으로 갈라 입력 순서에 의존하지 않게 한다. */

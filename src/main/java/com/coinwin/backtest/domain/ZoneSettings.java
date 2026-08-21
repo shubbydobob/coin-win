@@ -1,6 +1,7 @@
 package com.coinwin.backtest.domain;
 
 import com.coinwin.common.domain.DomainValues;
+import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import java.math.BigDecimal;
 
@@ -21,7 +22,7 @@ public record ZoneSettings(
         DomainValues.atLeast(minTouches, 2, "최소 터치 횟수");
         DomainValues.atLeast(atrPeriod, 1, "ATR 기간");
         if (clusterMultiple.signum() < 0) {
-            throw new InvalidBacktestException(
+            throw new InvalidValueException(
                     "군집 배수는 음수일 수 없다: " + clusterMultiple.toPlainString());
         }
     }

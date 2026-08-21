@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.coinwin.backtest.BacktestFixtures;
+import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
 import com.coinwin.position.domain.Direction;
@@ -205,13 +206,13 @@ class ZoneMapTest {
     @Test
     void 최소_터치는_2_이상이어야_한다() {
         assertThatThrownBy(() -> ZoneMap.from(List.of(), TOLERANCE, 1))
-                .isInstanceOf(InvalidBacktestException.class)
+                .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("터치");
     }
 
     @Test
     void 허용치는_음수일_수_없다() {
         assertThatThrownBy(() -> ZoneMap.from(List.of(), Money.of("-1"), MIN_TOUCHES))
-                .isInstanceOf(InvalidBacktestException.class);
+                .isInstanceOf(InvalidValueException.class);
     }
 }

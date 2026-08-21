@@ -1,6 +1,7 @@
 package com.coinwin.backtest.domain;
 
 import com.coinwin.common.domain.DomainValues;
+import com.coinwin.common.domain.InvalidValueException;
 import java.math.BigDecimal;
 
 /**
@@ -18,11 +19,11 @@ public record EntryRules(
         DomainValues.required(stopBufferMultiple, "손절 버퍼 배수");
         DomainValues.required(minRiskReward, "최소 손익비");
         if (stopBufferMultiple.signum() < 0) {
-            throw new InvalidBacktestException(
+            throw new InvalidValueException(
                     "손절 버퍼 배수는 음수일 수 없다: " + stopBufferMultiple.toPlainString());
         }
         if (minRiskReward.signum() <= 0) {
-            throw new InvalidBacktestException(
+            throw new InvalidValueException(
                     "최소 손익비는 0 보다 커야 한다: " + minRiskReward.toPlainString());
         }
     }

@@ -35,7 +35,7 @@ class ZoneSettingsTest {
     @Test
     void 군집_배수는_음수일_수_없다() {
         assertThatThrownBy(() -> new ZoneSettings(5, new BigDecimal("-0.1"), 2, 14))
-                .isInstanceOf(InvalidBacktestException.class)
+                .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("군집");
     }
 

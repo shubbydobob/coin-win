@@ -3,6 +3,7 @@ package com.coinwin.backtest.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
 import org.junit.jupiter.api.Test;
@@ -54,10 +55,10 @@ class AccountSettingsTest {
     @Test
     void 초기_자본은_0보다_커야_하고_레버리지는_1_이상이어야_한다() {
         assertThatThrownBy(() -> new AccountSettings(Money.of("0"), RISK, 10, CapitalMode.FIXED))
-                .isInstanceOf(InvalidBacktestException.class)
+                .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("초기 자본");
         assertThatThrownBy(() -> new AccountSettings(START, RISK, 0, CapitalMode.FIXED))
-                .isInstanceOf(InvalidBacktestException.class)
+                .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("레버리지");
     }
 }
