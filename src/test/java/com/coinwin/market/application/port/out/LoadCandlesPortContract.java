@@ -2,17 +2,14 @@ package com.coinwin.market.application.port.out;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.coinwin.common.domain.Price;
-import com.coinwin.common.domain.Quantity;
+import com.coinwin.market.MarketFixtures;
 import com.coinwin.market.domain.Candle;
 import com.coinwin.market.domain.CandleInterval;
 import com.coinwin.market.domain.CandleQuery;
 import com.coinwin.market.domain.CandleSeries;
 import com.coinwin.market.domain.Symbol;
-import com.coinwin.market.domain.TimeRange;
 import java.time.Instant;
 import java.util.List;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,9 +24,8 @@ import org.junit.jupiter.api.Test;
  */
 public abstract class LoadCandlesPortContract {
 
-    protected static final Symbol SYMBOL = Symbol.BTC_USDT;
-    protected static final CandleInterval INTERVAL = CandleInterval.ONE_HOUR;
-    protected static final Instant T0 = Instant.parse("2026-08-01T00:00:00Z");
+    protected static final Symbol SYMBOL = MarketFixtures.SYMBOL;
+    protected static final CandleInterval INTERVAL = MarketFixtures.INTERVAL;
 
     /** 검사 대상 어댑터. */
     protected abstract LoadCandlesPort loadPort();
@@ -43,25 +39,15 @@ public abstract class LoadCandlesPortContract {
     protected abstract void givenCandlesExist(CandleSeries candles);
 
     protected static Instant hour(int index) {
-        return T0.plus(INTERVAL.length().multipliedBy(index));
-    }
-
-    /** 시각마다 종가가 달라 어느 캔들이 돌아왔는지 구분할 수 있게 한다. */
-    protected static Candle candleAt(int index) {
-        Price close = Price.of(String.valueOf(60000 + index));
-        return new Candle(hour(index), Price.of("60000"), Price.of("61000"),
-                Price.of("59000"), close, Quantity.of("1.5"));
+        return MarketFixtures.hour(index);
     }
 
     protected static CandleSeries candles(int fromIndex, int toIndexExclusive) {
-        return new CandleSeries(IntStream.range(fromIndex, toIndexExclusive)
-                .mapToObj(LoadCandlesPortContract::candleAt)
-                .toList());
+        return MarketFixtures.candles(fromIndex, toIndexExclusive);
     }
 
     protected static CandleQuery query(int fromIndex, int toIndexExclusive) {
-        return new CandleQuery(SYMBOL, INTERVAL,
-                new TimeRange(hour(fromIndex), hour(toIndexExclusive)));
+        return MarketFixtures.query(fromIndex, toIndexExclusive);
     }
 
     @Test

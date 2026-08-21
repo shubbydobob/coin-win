@@ -4,6 +4,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.market.application.port.out.LoadCandlesPort;
 import com.coinwin.market.application.port.out.SaveCandlesPort;
+import com.coinwin.market.application.port.out.StoredCandles;
 import com.coinwin.market.domain.Candle;
 import com.coinwin.market.domain.CandleInterval;
 import com.coinwin.market.domain.CandleQuery;
@@ -33,6 +34,7 @@ import org.springframework.stereotype.Repository;
  * 주므로, 먼저 받은 값을 지키면 틀린 종가가 영구히 남는다.
  */
 @Repository
+@StoredCandles
 public class JdbcCandleAdapter implements LoadCandlesPort, SaveCandlesPort {
 
     private static final String SELECT_RANGE = """

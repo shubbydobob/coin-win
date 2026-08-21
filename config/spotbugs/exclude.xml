@@ -26,4 +26,17 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!-- 같은 이유. RestClient 는 불변이고 스레드 안전하도록 만들어진 타입이다. -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.binance.BinanceCandleAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.binance.BinanceMarketMetricsAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

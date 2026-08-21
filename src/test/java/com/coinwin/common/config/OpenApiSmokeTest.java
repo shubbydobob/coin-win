@@ -24,6 +24,15 @@ class OpenApiSmokeTest {
 
     private static final String MONTE_CARLO_OPERATION = "$.paths['/api/projections/monte-carlo'].post";
 
+    private static final String CANDLES_OPERATION =
+            "$.paths['/api/markets/{symbol}/candles'].get";
+
+    private static final String SYNC_OPERATION =
+            "$.paths['/api/markets/{symbol}/candles/sync'].post";
+
+    private static final String METRICS_OPERATION =
+            "$.paths['/api/markets/{symbol}/metrics'].get";
+
     @Autowired
     private WebApplicationContext context;
 
@@ -55,6 +64,23 @@ class OpenApiSmokeTest {
                 .andExpect(jsonPath(MONTE_CARLO_OPERATION + ".summary").exists())
                 .andExpect(jsonPath(MONTE_CARLO_OPERATION + ".responses.['400'].description").exists())
                 .andExpect(jsonPath(MONTE_CARLO_OPERATION + ".responses.['422'].description").exists());
+    }
+
+    /**
+     * 이 테스트가 초록이라는 것은 문서만이 아니라 <b>컨텍스트 전체가 뜬다</b>는 뜻이기도 하다.
+     * Phase 3 에서 캔들 어댑터·바이낸스 클라이언트·시장 데이터 서비스가 붙었으므로, 주입이
+     * 어긋나면(같은 포트 구현체가 둘인데 한정자가 없다든지) 여기서 먼저 깨진다.
+     */
+    @Test
+    void 시장_데이터_엔드포인트가_문서화된다() throws Exception {
+        mockMvc().perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(CANDLES_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(CANDLES_OPERATION + ".responses.['400'].description").exists())
+                .andExpect(jsonPath(SYNC_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(SYNC_OPERATION + ".responses.['503'].description").exists())
+                .andExpect(jsonPath(METRICS_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(METRICS_OPERATION + ".responses.['503'].description").exists());
     }
 
     @Test
