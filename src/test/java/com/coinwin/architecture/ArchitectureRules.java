@@ -58,18 +58,31 @@ public final class ArchitectureRules {
                 .as("규칙 1: domain 패키지는 Spring / JPA / Jackson 에 의존하지 않는다");
     }
 
-    /** 규칙 2 — 계층 의존 방향 api → application → domain. */
+    /**
+     * 규칙 2 — 계층 의존 방향 {@code (api|adapter) → application → domain}.
+     *
+     * <p>{@code adapter} 를 {@code api} 와 별개의 바깥 층으로 둔다. Phase 3 이전에는
+     * {@code adapter.in} 만 {@code Api} 층에 얹혀 있었는데, 그 상태로 {@code adapter.out} 이
+     * 생기면 <b>어느 층에도 속하지 않은 클래스</b>가 되어 application·domain 접근이 전부
+     * 위반으로 잡힌다. 아웃바운드 어댑터가 포트를 구현하는 것은 헥사고날의 정의 그 자체이므로
+     * 규칙 쪽이 틀린 것이었다.
+     *
+     * <p>바깥 두 층은 <b>아무에게도 참조되지 않는다.</b> {@code Adapter} 에 걸린 이 조건이
+     * 규칙 4(application 이 adapter 를 모른다)를 계층 차원에서 한 번 더 받친다.
+     */
     public static ArchRule layerDependenciesPointInward(String root) {
         return Architectures.layeredArchitecture()
                 .consideringOnlyDependenciesInAnyPackage(root + "..")
-                .layer("Api").definedBy(root + "..api..", root + "..adapter.in..")
+                .layer("Api").definedBy(root + "..api..")
+                .layer("Adapter").definedBy(root + "..adapter..")
                 .layer("Application").definedBy(root + "..application..")
                 .layer("Domain").definedBy(root + "..domain..")
                 .withOptionalLayers(true)
                 .whereLayer("Api").mayNotBeAccessedByAnyLayer()
-                .whereLayer("Application").mayOnlyBeAccessedByLayers("Api")
-                .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Api")
-                .as("규칙 2: 계층 의존은 api → application → domain 방향으로만 흐른다");
+                .whereLayer("Adapter").mayNotBeAccessedByAnyLayer()
+                .whereLayer("Application").mayOnlyBeAccessedByLayers("Api", "Adapter")
+                .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Api", "Adapter")
+                .as("규칙 2: 계층 의존은 (api|adapter) → application → domain 방향으로만 흐른다");
     }
 
     /** 규칙 3 — 패키지 순환 참조 0건. */

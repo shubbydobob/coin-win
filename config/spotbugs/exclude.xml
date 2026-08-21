@@ -4,6 +4,26 @@
 
   빈 상태로 시작한다. 억제는 실제로 오탐이 발생했을 때, 왜 오탐인지 주석과 함께 추가한다.
   "빌드를 통과시키기 위해" 추가하지 않는다.
+
+  억제는 클래스와 필드까지 좁혀서 적는다. 패키지 단위로 넓게 열면 나중에 진짜 문제가
+  같은 그물에 걸려 조용히 빠져나간다. 어댑터가 늘 때마다 한 줄씩 늘어나는 것이 정상이다.
 -->
 <FindBugsFilter>
+
+  <!--
+    EI_EXPOSE_REP2 — "외부에서 받은 가변 객체를 필드에 저장한다".
+
+    생성자 주입한 Spring 협력 객체에 대해서는 오탐이다. JdbcTemplate 은 스레드 안전한
+    싱글턴이고, 복사본을 저장하라는 이 경고의 처방이 애초에 성립하지 않는다. 주입하지
+    않으려면 어댑터가 DataSource 를 스스로 만들어야 하는데 그것이 훨씬 나쁘다.
+
+    억제 범위를 필드 하나로 좁힌 이유: 같은 클래스가 나중에 호출자에게서 받은 List 를
+    그대로 들고 있게 되면 그때는 진짜 문제이고, 그 경고는 여전히 잡혀야 한다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.persistence.JdbcCandleAdapter"/>
+    <Field name="jdbc"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

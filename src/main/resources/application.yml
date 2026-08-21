@@ -23,10 +23,6 @@ springdoc:
 
 coinwin:
   market:
-    # 캔들 저장소 구현 선택. postgres | memory
-    # 어댑터가 스스로 @ConditionalOnProperty 로 붙고 떨어진다. application 층은 이 설정을
-    # 알지 못한다 (ArchUnit 규칙 4).
-    candle-store: postgres
     binance:
       # 공개 엔드포인트만 쓴다. API 키가 필요 없다. 근거: .claude/docs/scope.md
       base-url: ${COINWIN_BINANCE_URL:https://fapi.binance.com}
