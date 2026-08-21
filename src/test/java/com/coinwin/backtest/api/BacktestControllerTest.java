@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.coinwin.ai.application.port.out.WriteSummaryPort;
+import com.coinwin.ai.application.service.SummaryService;
 import com.coinwin.backtest.BacktestFixtures;
 import com.coinwin.backtest.application.BacktestService;
 import com.coinwin.common.api.DomainExceptionHandler;
@@ -14,6 +16,7 @@ import com.coinwin.market.adapter.out.memory.InMemoryCandleAdapter;
 import com.coinwin.market.domain.CandleInterval;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.position.domain.FixedMaintenanceMarginPolicy;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -54,12 +57,19 @@ class BacktestControllerTest {
 
     @BeforeEach
     void setUp() {
+        mockMvc = mockMvcSummarizedBy(Optional.of(facts -> "거래가 없었다."));
+    }
+
+    /** 요약 어댑터를 갈아 끼운 컨트롤러. 빈 {@code Optional} 은 키가 없는 상태다. */
+    private static MockMvc mockMvcSummarizedBy(Optional<WriteSummaryPort> writeSummary) {
         InMemoryCandleAdapter candles = new InMemoryCandleAdapter();
         candles.save(new Symbol("BTCUSDT"), CandleInterval.ONE_HOUR,
                 BacktestFixtures.zigzag(30, 8, 59000, 61000));
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new BacktestController(new BacktestService(
-                        candles, new FixedMaintenanceMarginPolicy(Percentage.of("0.4")))))
+        BacktestService backtests = new BacktestService(
+                candles, new FixedMaintenanceMarginPolicy(Percentage.of("0.4")));
+        return MockMvcBuilders
+                .standaloneSetup(new BacktestController(
+                        backtests, new SummaryService(writeSummary)))
                 .setControllerAdvice(new DomainExceptionHandler())
                 .build();
     }
@@ -121,5 +131,40 @@ class BacktestControllerTest {
     void 알_수_없는_캔들_주기는_400이다() throws Exception {
         실행("", REQUEST.replace("\"interval\": \"1h\"", "\"interval\": \"7초\""))
                 .andExpect(status().isBadRequest());
+    }
+
+    /** 요약과 함께 <b>그 요약이 쓸 수 있었던 수치 전부</b>가 내려와야 대조가 가능하다. */
+    @Test
+    void 요약은_원본_수치와_함께_내려온다() throws Exception {
+        실행("/narrative", REQUEST)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.narrative").value("거래가 없었다."))
+                .andExpect(jsonPath("$.facts['거래 수']").exists())
+                // jsonPath 표현식은 포맷 문자열로 처리된다. 레이블의 % 를 그대로 쓰면
+                // 단언이 아니라 UnknownFormatConversionException 이 난다.
+                .andExpect(jsonPath("$.facts['최대낙폭(%%)']").exists())
+                .andExpect(jsonPath("$.conditions['종목']").value("BTCUSDT"));
+    }
+
+    /**
+     * 원본에 없는 수를 쓴 요약은 응답이 되지 않는다. 사용자가 고칠 것이 없으므로 503 이다 —
+     * 요약의 입력에는 사용자의 자유 텍스트가 한 글자도 없다.
+     */
+    @Test
+    void 지어낸_수가_들어간_요약은_503이다() throws Exception {
+        mockMvc = mockMvcSummarizedBy(Optional.of(facts -> "평단 64321.00 에서 잡았다."));
+
+        실행("/narrative", REQUEST)
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail", containsString("64321")));
+    }
+
+    @Test
+    void 키가_없으면_요약은_503이다() throws Exception {
+        mockMvc = mockMvcSummarizedBy(Optional.<WriteSummaryPort>empty());
+
+        실행("/narrative", REQUEST)
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail", containsString("OPENAI_API_KEY")));
     }
 }
