@@ -16,6 +16,10 @@ import com.coinwin.position.domain.Direction;
  * <p>슬리피지는 <b>청산에만</b> 붙는다. 미리 걸어 둔 지정가는 그 가격에 체결되거나 안 되거나
  * 둘 중 하나다.
  *
+ * <p><b>구체적인 요율은 여기 없다.</b> 어느 거래소가 얼마를 받는지는 도메인이 알 일이 아니고,
+ * 요율을 상수로 박으면 {@code backtest} 가 특정 거래소에 묶인다 — Phase 6 완료 조건이
+ * 금지하는 것이 정확히 그것이다. 기본값은 요청을 받는 가장자리({@code backtest/api})가 준다.
+ *
  * @param makerFee 진입 수수료율
  * @param takerFee 청산 수수료율
  * @param slippage 청산 체결가가 불리한 쪽으로 밀리는 비율
@@ -26,11 +30,6 @@ public record CostModel(Percentage makerFee, Percentage takerFee, Percentage sli
         DomainValues.required(makerFee, "maker 수수료율");
         DomainValues.required(takerFee, "taker 수수료율");
         DomainValues.required(slippage, "슬리피지율");
-    }
-
-    /** 바이낸스 USDT 무기한 선물 기본 수수료. */
-    public static CostModel binanceDefaults() {
-        return new CostModel(Percentage.of("0.02"), Percentage.of("0.05"), Percentage.of("0.02"));
     }
 
     /**

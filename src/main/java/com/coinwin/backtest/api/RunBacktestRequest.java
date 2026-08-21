@@ -17,7 +17,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** 백테스트 한 번의 입력. 이 요청이 같으면 응답도 같다. */
+/**
+ * 백테스트 한 번의 입력. 이 요청이 같으면 응답도 같다.
+ *
+ * <p>비용 기본값이 <b>도메인이 아니라 여기</b> 있다. 어느 거래소가 얼마를 받는지는 계산 규칙이
+ * 아니라 우리가 어디서 거래하는가의 문제이고, 그것을 {@code backtest/domain} 에 박으면 모듈이
+ * 특정 거래소에 묶인다.
+ */
 @Schema(description = "지지·저항 반전 백테스트 실행 조건. 같은 요청은 언제나 같은 결과를 낸다")
 public record RunBacktestRequest(
         @Schema(description = "대상 종목. 저장된 캔들이 있어야 한다", example = "BTCUSDT")
@@ -47,13 +53,17 @@ public record RunBacktestRequest(
         @Schema(description = "비용. 생략하면 바이낸스 기본값(maker 0.02% / taker 0.05%)")
         CostsRequest costs) {
 
+    /** 바이낸스 USDT 무기한 선물 기준. 요청에 비용이 없으면 이것을 쓴다. */
+    private static final CostModel DEFAULT_COSTS = new CostModel(
+            Percentage.of("0.02"), Percentage.of("0.05"), Percentage.of("0.02"));
+
     public BacktestSpec toSpec() {
         return new BacktestSpec(
                 new CandleQuery(new Symbol(symbol), CandleInterval.ofCode(interval),
                         new TimeRange(from, to)),
                 new StrategySettings(zones.toSettings(), rules.toRules()),
                 account.toSettings(),
-                costs == null ? CostModel.binanceDefaults() : costs.toModel());
+                costs == null ? DEFAULT_COSTS : costs.toModel());
     }
 
     @Schema(description = "대를 만드는 설정. 전부 봉 수이거나 ATR 배수라 주기에 종속되지 않는다")

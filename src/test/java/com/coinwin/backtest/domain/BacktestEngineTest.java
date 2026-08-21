@@ -29,6 +29,9 @@ class BacktestEngineTest {
             new Symbol("BTCUSDT"), CandleInterval.ONE_HOUR,
             new TimeRange(BacktestFixtures.T0, BacktestFixtures.T0.plus(Duration.ofDays(60))));
 
+    private static final CostModel CHARGED = new CostModel(
+            Percentage.of("0.02"), Percentage.of("0.05"), Percentage.of("0.02"));
+
     /** 240봉. 일목 워밍업 77봉을 넘기고 대가 여러 번 형성된다. */
     private static final CandleSeries SERIES = BacktestFixtures.zigzag(30, 8, 59000, 61000);
 
@@ -37,7 +40,7 @@ class BacktestEngineTest {
                 new StrategySettings(ZoneSettings.standard(),
                         new EntryRules(BigDecimal.ONE, new BigDecimal("1.5"), false)),
                 new AccountSettings(Money.of("800"), Percentage.of("2"), 10, CapitalMode.FIXED),
-                CostModel.binanceDefaults());
+                CHARGED);
     }
 
     private static BacktestResult run(BacktestSpec spec) {

@@ -267,6 +267,8 @@ public record ProjectionDistribution(List<ProjectionOutcome> outcomes, Money ini
   곡선을 다시 보고 싶으면 그 시드로 `simulate(seed)` 를 다시 부른다 — 결정론이라 같은 곡선이 나온다.
 - 거래 내부의 왕복(손절가까지 밀렸다 익절로 끝나는 경우)은 모델에 없다. 여기서 나오는 낙폭은
   **실제보다 얕다.** 거래 내부를 보려면 캔들이 필요하고 그것은 Phase 6 이다.
+  → Phase 6 의 `BacktestResult` 가 **같은 `EquityCurve`** 로 낙폭을 내므로 두 수치를 나란히
+  놓으면 이 한계가 수치로 확인된다. 같은 정의를 쓰는 것이 그 비교의 전제다(`docs/adr/018`).
 
 ## 지표 (`indicator/domain`)
 
@@ -465,6 +467,11 @@ public record JournalSummary(TradeTally followed, TradeTally broken,
 구조화한 것은 `BandPosition` 둘뿐이고 근거는 자유 텍스트(500자)다. 비워 두면 거부한다 —
 근거 없는 기록은 사후 분석에 쓸 수 없고, 그것이 이 모듈의 존재 이유다. 근거는 `docs/adr/017`.
 
+> **Phase 6 이후에도 그대로 둔다.** 대의 정의(`PriceZone`)가 확정됐으므로 이제 구조화할 수
+> 있지만, 그것은 `journal → backtest` 라는 새 방향을 만드는 별개의 결정이다. 백테스트는
+> 반대 방향으로 `MarketContext` 를 소비하고 있고(`docs/adr/018`), 양방향이 되면 순환이 된다.
+> 백테스트가 채우는 근거는 `PriceZone.describeAs` 가 낸 문장이다.
+
 ### 거래 간격은 겹치면 빼고 센다
 
 `timeSincePreviousTrade` 는 겹치는 두 거래에 대해 **예외를 던진다** — 답이 없는 질문에 0 을
@@ -484,6 +491,161 @@ LoadTradesPort.findActive()                    // 계획 + 열림
 구현체는 `InMemoryTradeAdapter` 와 `JpaTradeAdapter` 둘이고 **하나의 계약 스위트
 (`TradeRepositoryContract`)를 둘 다 통과한다.** 그래서 애플리케이션 서비스 테스트를 DB 없이
 인메모리로 돌려도 된다. 저장은 JPA + QueryDSL 이며 근거는 `docs/adr/016`.
+
+## 백테스트 (`backtest/domain`)
+
+> Phase 6 구현 완료. 아래는 실제 코드와 일치한다.
+
+```java
+// 대 — 피벗 군집
+public enum PivotKind { SWING_HIGH, SWING_LOW }
+public record Pivot(Instant at, Instant confirmedAt, Price price, PivotKind kind) {
+    boolean isKnownAt(Instant moment);        // 확정 시각이 지났는가
+}
+public record PivotDetector(int lookback) { List<Pivot> over(CandleSeries); }
+
+public enum ZoneRole {                        // 저장하지 않는다. 종가가 정한다
+    SUPPORT(LONG), RESISTANCE(SHORT);
+    static Optional<ZoneRole> of(BandPosition closePosition);
+    ZoneRole opposite();  Direction entryDirection();  String label();
+}
+public record PriceZone(PriceBand band, int touches) {
+    Optional<ZoneRole> roleAt(Price close);
+    Price nearEdgeFor(Direction);  Price farEdgeFor(Direction);
+    Money width();  String describeAs(ZoneRole);
+}
+public record ZoneMap(List<PriceZone> zones) {
+    static ZoneMap from(List<Pivot> known, Money tolerance, int minTouches);
+    Optional<PriceZone> nearestSupport(Price close);
+    Optional<PriceZone> nearestResistance(Price close);
+    boolean containsPrice(Price price);
+}
+
+// 신호
+public record MarketSnapshot(Instant at, Price close, Money atr, ZoneMap zones) {}
+public record IndicatorReading(BandPosition ichimoku, BandPosition bollinger) {
+    boolean agreesWith(Direction direction);
+}
+public record TradeSignal(Direction direction, PositionPlan plan, MarketContext context) {}
+public record ZoneReversalStrategy(EntryRules rules) {
+    Optional<TradeSignal> signalAt(MarketSnapshot, IndicatorReading, int leverage);
+}
+
+// 체결
+public record Trigger(Price price, Approach approach) {   // FALLING / RISING
+    static Trigger adverse(Direction, Price);   // 진입가·손절가
+    static Trigger benign(Direction, Price);    // 익절가
+    Optional<Price> fillIn(Candle candle);
+}
+
+// 설정과 결과
+public record ZoneSettings(int pivotLookback, BigDecimal clusterMultiple,
+                           int minTouches, int atrPeriod) {
+    static ZoneSettings standard();           // 5 / 0.5 / 2 / 14
+    Money toleranceFor(Money atr);
+}
+public record EntryRules(BigDecimal stopBufferMultiple, BigDecimal minRiskReward,
+                         boolean indicatorFilter) {}
+public enum CapitalMode { FIXED, COMPOUND }
+public record AccountSettings(Money initialCapital, Percentage riskPercent,
+                              int leverage, CapitalMode capitalMode) {
+    Money balanceFor(Money equity);  RiskBudget budgetFor(Money equity);
+    boolean canTradeWith(Money equity);
+}
+public record CostModel(Percentage makerFee, Percentage takerFee, Percentage slippage) {
+    static CostModel binanceDefaults();  static CostModel free();
+    Money entryFee(Money notional);  Money exitFee(Money notional);
+    Price applyExitSlippage(Price price, Direction direction);
+}
+public record BacktestSpec(CandleQuery query, StrategySettings strategy,
+                           AccountSettings account, CostModel costs) {
+    BacktestSpec withIndicatorFilter(boolean);  withCosts(CostModel);  withCapitalMode(CapitalMode);
+}
+public record BacktestEngine(MaintenanceMarginPolicy policy) {
+    BacktestResult run(BacktestSpec spec, CandleSeries series);
+}
+public record BacktestResult(BacktestSpec spec, List<ClosedTrade> trades, EquityCurve equity) {
+    TradeTally tally();  JournalSummary journal();
+    Percentage winRate();  Optional<BigDecimal> profitFactor();
+    Money netPnl();  Money finalEquity();  Percentage maxDrawdown();
+}
+public record BacktestComparison(BacktestResult baseline, BacktestResult variant) {
+    Money pnlDifference();  int tradeDifference();
+}
+```
+
+### 전략 한 문장
+
+**피벗 군집으로 만든 대의 근단에서 반전 방향으로 50% 분할 진입하고, 대 원단 너머에서
+손절하며, 반대편 최근접 대에서 익절한다.** 돌파 매매는 하지 않는다. 명세는
+`docs/spec/phase6-backtest.md`.
+
+### 역할은 저장하지 않고 종가에서 파생한다
+
+한 번 뚫린 대는 역할이 전환된다. 이것을 돌파 감지 후 플래그를 뒤집는 방식으로 구현하면
+"언제 뚫린 것으로 보는가"(종가인가 고가인가, 몇 봉 유지해야 하는가) 라는 **두 번째 정의**가
+필요해지고, 그 상태가 재실행 사이에 남으면 결정론이 깨진다. `roleAt(close)` 로 매번 다시
+물으면 그 질문 자체가 사라진다 — 지금 가격이 위면 지지, 아래면 저항. 역할 전환이 공짜다.
+
+### 봉 안의 사건 순서는 언제나 보유자에게 불리한 쪽이다
+
+OHLC 로는 내부 경로를 알 수 없다. 손절·익절이 같은 봉에 모두 닿으면 **손절**이고, 진입가와
+손절가가 모두 닿으면 **진입한 뒤 손절**이다. "진입가에서 더 가까운 쪽이 먼저 닿았을 것" 같은
+추정은 그럴듯하지만 근거가 없고 갭으로 시작한 봉에서는 확실히 틀린다. 보수 가정은
+**백테스트가 실제보다 좋게 나오는 것을 구조적으로 막는다.**
+
+체결가는 규칙 하나로 정해진다 — **봉이 트리거를 이미 지나쳐서 열렸으면 시가, 아니면 트리거
+가격.** 진입 지정가·손절·익절 네 경우가 전부 여기 맞는다.
+
+### 룩어헤드는 `MarketTimeline` 한 곳에서 막는다
+
+전략은 캔들 목록을 받지 않고 `MarketSnapshot` 만 본다 — 미래를 참조할 통로 자체가 없다.
+위험한 곳이 셋이다.
+
+1. **피벗은 `t − lookback` 까지만 확정된다.** `Pivot.confirmedAt` 이 그것을 들고 있고
+   `isKnownAt` 이 거른다. 발생 시각만 들고 있으면 아직 확정되지 않은 극값이 섞인다.
+2. **후행스팬을 쓰지 않는다.** 시점 `t` 의 `laggingSpan` 에는 `t+25` 봉의 종가가 담긴다.
+   쓰는 것은 구름 위치뿐이고 그것은 선행스팬으로만 계산된다.
+3. **인덱스 산술로 맞추지 않는다.** 지표마다 워밍업이 달라 시각을 키로 맞춘다.
+
+강제는 **접미사 불변 테스트**가 한다 — 뒤에서 K봉을 떼도 겹치는 구간의 거래가 같아야 한다.
+원인이 무엇이든 미래를 한 번 보면 앞 구간의 판단이 달라진다.
+
+### 명세와 달라진 것 넷
+
+**`Pivot` 에 `confirmedAt` 이 있다.** 명세는 `(at, price, kind)` 였다. 발생 시각과 알 수 있게 된
+시각을 한 필드로 뭉개면 룩어헤드를 막을 방법이 없다.
+
+**롱·숏 후보가 동시에 서면 근단이 가까운 쪽 하나만 무장한다.** 명세 초안은 "둘 다 버린다"
+였는데, 가격은 거의 항상 어떤 지지 위이면서 어떤 저항 아래이므로 그 규칙은 **모든 거래를
+없앤다.** 실제로 근거가 없는 것은 거리가 정확히 같을 때뿐이다.
+
+**`PriceZone` 에 `lastPivotAt` 을 두지 않았다.** 그것을 요구하는 테스트가 없다.
+
+**게이트 7종이 두 곳에 나뉜다.** 시장 논리(1~5)는 `ZoneReversalStrategy`, 계좌 논리(6~7:
+청산가 너머 손절, 증거금 초과)는 예산을 가진 엔진이 본다. 그래야 같은 캔들을 여러 잔고로
+돌려도 신호가 바뀌지 않고, 온오프 비교가 성립한다.
+
+### 재사용 — `journal` 과 `projection` 의 어휘를 그대로 쓴다
+
+`ClosedTrade` · `ExecutedEntries` · `Exit` · `TradeCosts` · `ExitReason` · `MarketContext` ·
+`TradeTally` · `JournalSummary` · `EquityCurve` 를 전부 재사용한다. 근거는 `docs/adr/018` —
+**백테스트가 낸 거래와 실제로 한 매매가 같은 어휘여야 같은 기준으로 비교된다.**
+
+그 대가로 `MarketContext.rationale` 을 대가 스스로 채운다(`PriceZone.describeAs`).
+`TradeId` 는 `random()` 이 아니라 **진입 시각에서 유도**한다 — 난수를 쓰면 같은 스펙의 두
+실행이 달라져 완료 조건이 그 자리에서 무너진다.
+
+### 하지 않는 것
+
+- **펀딩비를 모델링하지 않는다.** 캔들만으로 재현할 수 없다. `TradeCosts.funding` 에 0 으로
+  **드러나게** 두어 한계가 결과에 보이게 한다. 수수료에 섞으면 그 한계가 사라진다.
+- **동시 포지션은 1개.** 열려 있는 동안 새 신호를 버린다. 자본 배분 규칙이 없어 결정론이
+  간단해지고 `JournalSummary` 의 `overlaps` 가 0 이 된다.
+- **손실이 없는 표본에 손익비를 내지 않는다.** `profitFactor()` 가 비어 있다. 무한대나 큰
+  수를 돌려주면 표시하는 쪽이 그것을 실제 성적으로 읽는다.
+- **워밍업이 모자라면 조용히 0 건을 내지 않는다.** `InsufficientCandlesException` 이다 —
+  "신호가 없었다" 와 "판단할 근거조차 없었다" 는 다른 사실이고 대응도 다르다.
 
 ## 시장 (`market/domain`)
 

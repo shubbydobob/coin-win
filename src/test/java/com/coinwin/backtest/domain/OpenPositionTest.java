@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.coinwin.backtest.BacktestFixtures;
 import com.coinwin.common.domain.Money;
+import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.indicator.domain.BandPosition;
@@ -38,6 +39,8 @@ class OpenPositionTest {
 
     private static final Quantity TOTAL = Quantity.of("0.1");
     private static final CostModel FREE = CostModel.free();
+    private static final CostModel CHARGED = new CostModel(
+            Percentage.of("0.02"), Percentage.of("0.05"), Percentage.of("0.02"));
 
     private static ArmedOrder order(PositionPlan plan) {
         return new ArmedOrder(new TradeSignal(plan.direction(), plan, CONTEXT), TOTAL,
@@ -145,8 +148,8 @@ class OpenPositionTest {
 
         ClosedTrade free = halfFilled().closeIn(candle, FREE).orElseThrow();
         OpenPosition charged = OpenPosition.opened(order(LONG_PLAN), Price.of("59200"),
-                BacktestFixtures.hour(1), CostModel.binanceDefaults());
-        ClosedTrade paid = charged.closeIn(candle, CostModel.binanceDefaults()).orElseThrow();
+                BacktestFixtures.hour(1), CHARGED);
+        ClosedTrade paid = charged.closeIn(candle, CHARGED).orElseThrow();
 
         assertThat(paid.closure().exit().price()).isEqualTo(Price.of("61987.60"));
         assertThat(paid.realizedPnl().value()).isLessThan(free.realizedPnl().value());
@@ -157,7 +160,7 @@ class OpenPositionTest {
     @Test
     void 펀딩비는_0으로_남는다() {
         ClosedTrade closed = halfFilled()
-                .closeIn(bar("60000/62500/59500/62200"), CostModel.binanceDefaults()).orElseThrow();
+                .closeIn(bar("60000/62500/59500/62200"), CHARGED).orElseThrow();
 
         assertThat(closed.closure().costs().funding()).isEqualTo(Money.of("0"));
         assertThat(closed.closure().costs().fees().value().signum()).isPositive();

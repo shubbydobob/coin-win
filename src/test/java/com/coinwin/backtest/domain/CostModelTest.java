@@ -12,14 +12,9 @@ import org.junit.jupiter.api.Test;
 
 class CostModelTest {
 
-    private static final CostModel BINANCE = CostModel.binanceDefaults();
-
-    @Test
-    void 기본값은_maker_0_02_taker_0_05_슬리피지_0_02_퍼센트다() {
-        assertThat(BINANCE.makerFee()).isEqualTo(Percentage.of("0.02"));
-        assertThat(BINANCE.takerFee()).isEqualTo(Percentage.of("0.05"));
-        assertThat(BINANCE.slippage()).isEqualTo(Percentage.of("0.02"));
-    }
+    /** 실제 요율. 도메인에 상수로 두지 않으므로 테스트가 직접 만든다. */
+    private static final CostModel CHARGED = new CostModel(
+            Percentage.of("0.02"), Percentage.of("0.05"), Percentage.of("0.02"));
 
     /**
      * 진입은 대 경계에 미리 걸어 두는 지정가라 maker, 청산은 트리거 체결이라 taker 다.
@@ -29,8 +24,8 @@ class CostModelTest {
     void 진입은_maker_청산은_taker_로_계산한다() {
         Money notional = Money.of("10000");
 
-        assertThat(BINANCE.entryFee(notional)).isEqualTo(Money.of("2"));
-        assertThat(BINANCE.exitFee(notional)).isEqualTo(Money.of("5"));
+        assertThat(CHARGED.entryFee(notional)).isEqualTo(Money.of("2"));
+        assertThat(CHARGED.exitFee(notional)).isEqualTo(Money.of("5"));
     }
 
     /** 슬리피지는 체결가를 <b>불리한 쪽</b>으로 민다. 롱 청산은 팔아야 하므로 낮게 체결된다. */
@@ -39,8 +34,8 @@ class CostModelTest {
         Price price = Price.of("60000");
 
         // 60000 × 0.02% = 12
-        assertThat(BINANCE.applyExitSlippage(price, Direction.LONG)).isEqualTo(Price.of("59988"));
-        assertThat(BINANCE.applyExitSlippage(price, Direction.SHORT)).isEqualTo(Price.of("60012"));
+        assertThat(CHARGED.applyExitSlippage(price, Direction.LONG)).isEqualTo(Price.of("59988"));
+        assertThat(CHARGED.applyExitSlippage(price, Direction.SHORT)).isEqualTo(Price.of("60012"));
     }
 
     /**
