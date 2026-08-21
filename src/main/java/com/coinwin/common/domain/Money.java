@@ -38,4 +38,17 @@ public record Money(BigDecimal value) {
         }
         return Quantity.of(value.divide(divisor.value, Quantity.SCALE, DecimalValues.ROUNDING));
     }
+
+    /**
+     * 배수를 적용한 금액. 레버리지 역수처럼 <b>무차원 배수</b>에만 쓴다.
+     *
+     * <p>{@code margin = notional × (1 / leverage)}
+     */
+    public Money multipliedBy(BigDecimal factor) {
+        return Money.of(value.multiply(factor));
+    }
+
+    public boolean isGreaterThan(Money other) {
+        return value.compareTo(other.value) > 0;
+    }
 }

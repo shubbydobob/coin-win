@@ -56,4 +56,43 @@ class PriceTest {
     void BigDecimal로도_생성할_수_있고_결과는_문자열_생성과_같다() {
         assertThat(Price.of(new BigDecimal("64000.5"))).isEqualTo(Price.of("64000.50"));
     }
+
+    @Test
+    void 두_가격의_간격은_1단위당_금액이다() {
+        // |평단 59,000 - 손절 56,000| = 1 BTC 당 3,000 USDT 손실
+        assertThat(Price.of("59000").absoluteDifference(Price.of("56000")))
+                .isEqualTo(Money.of("3000"));
+    }
+
+    @Test
+    void 간격은_어느_쪽에서_빼도_같다() {
+        assertThat(Price.of("56000").absoluteDifference(Price.of("59000")))
+                .isEqualTo(Price.of("59000").absoluteDifference(Price.of("56000")));
+    }
+
+    @Test
+    void 가격은_1단위의_금액으로_바꿀_수_있다() {
+        assertThat(Price.of("59000").asAmount()).isEqualTo(Money.of("59000"));
+    }
+
+    @Test
+    void 배수를_곱하면_가격이_된다() {
+        // 청산가 계수 0.904 = 1 - 1/10 + 0.4%
+        assertThat(Price.of("60000").multipliedBy(new BigDecimal("0.904")))
+                .isEqualTo(Price.of("54240"));
+    }
+
+    @Test
+    void 음수가_되는_배수는_거부된다() {
+        assertThatThrownBy(() -> Price.of("60000").multipliedBy(new BigDecimal("-0.5")))
+                .isInstanceOf(InvalidValueException.class);
+    }
+
+    @Test
+    void 크기_비교는_스케일이_아니라_값으로_한다() {
+        assertThat(Price.of("56000.0").isBelow(Price.of("56000.00"))).isFalse();
+        assertThat(Price.of("56000").isAbove(Price.of("56000.00"))).isFalse();
+        assertThat(Price.of("55999.99").isBelow(Price.of("56000"))).isTrue();
+        assertThat(Price.of("56000.01").isAbove(Price.of("56000"))).isTrue();
+    }
 }

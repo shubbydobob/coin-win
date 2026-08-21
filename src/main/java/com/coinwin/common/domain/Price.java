@@ -25,4 +25,37 @@ public record Price(BigDecimal value) {
     public static Price of(String value) {
         return new Price(DecimalValues.parse(value, LABEL));
     }
+
+    /**
+     * 두 가격의 간격. 1단위(1 BTC)당 금액이므로 {@link Money} 다.
+     *
+     * <p>{@code |평단 - 손절가|} 가 포지션 사이징의 분모다. 부호는 방향이 결정하므로
+     * 여기서는 절대값만 낸다.
+     */
+    public Money absoluteDifference(Price other) {
+        return Money.of(value.subtract(other.value).abs());
+    }
+
+    /** 가격은 1단위의 금액이다. 명목가 계산에서 수량과 곱하기 위해 변환한다. */
+    public Money asAmount() {
+        return Money.of(value);
+    }
+
+    /**
+     * 배수를 적용한 가격. 청산가 계수처럼 <b>무차원 배수</b>에만 쓴다.
+     *
+     * <p>금액이나 비율을 곱하는 용도가 아니다. 그런 계산은 각각 {@link Quantity#times}
+     * 와 {@link Percentage#applyTo} 가 맡는다.
+     */
+    public Price multipliedBy(BigDecimal factor) {
+        return Price.of(value.multiply(factor));
+    }
+
+    public boolean isBelow(Price other) {
+        return value.compareTo(other.value) < 0;
+    }
+
+    public boolean isAbove(Price other) {
+        return value.compareTo(other.value) > 0;
+    }
 }

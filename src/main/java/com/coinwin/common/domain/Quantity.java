@@ -23,4 +23,14 @@ public record Quantity(BigDecimal value) {
     public static Quantity of(String value) {
         return new Quantity(DecimalValues.parse(value, LABEL));
     }
+
+    /**
+     * 총액 = 수량 × 단가.
+     *
+     * <p>명목가({@code 수량 × 평단})와 최대손실({@code 수량 × 1단위당 손실})이 같은 형태다.
+     * 두 계산이 갈라지지 않도록 한 메서드로 둔다.
+     */
+    public Money times(Money unitAmount) {
+        return Money.of(value.multiply(unitAmount.value()));
+    }
 }
