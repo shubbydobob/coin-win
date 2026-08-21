@@ -1,6 +1,7 @@
 package com.coinwin.common.api;
 
 import com.coinwin.common.domain.DomainException;
+import com.coinwin.common.domain.ExternalDataUnavailableException;
 import com.coinwin.common.domain.InvalidValueException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -29,6 +30,15 @@ public class DomainExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ProblemDetail onDomainRuleViolation(DomainException exception) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "도메인 규칙 위반", exception);
+    }
+
+    /**
+     * 거래소가 닿지 않는 것은 요청이 잘못된 것도(400) 계획이 성립하지 않는 것도(422) 아니다.
+     * 잠시 뒤 다시 하면 되는 일이므로 503 이다.
+     */
+    @ExceptionHandler(ExternalDataUnavailableException.class)
+    public ProblemDetail onExternalDataUnavailable(ExternalDataUnavailableException exception) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "외부 데이터를 가져오지 못했다", exception);
     }
 
     private ProblemDetail problem(HttpStatus status, String title, DomainException exception) {

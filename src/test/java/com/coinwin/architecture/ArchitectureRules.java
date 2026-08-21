@@ -27,8 +27,9 @@ import com.tngtech.archunit.library.Architectures;
  *
  * <ul>
  *   <li>규칙 1·3 — Phase 0 에서 제거 완료 ({@code common.domain} / {@code common.config} 존재)
- *   <li>규칙 4·6 — Phase 3 에서 제거 ({@code market.application}, {@code market.adapter.out} 생성 시)
- *   <li>규칙 5 — Phase 6 에서 제거 ({@code backtest} 생성 시)
+ *   <li>규칙 4·6 — <b>Phase 3 에서 제거 완료</b> ({@code market.application} 과
+ *       {@code market.adapter.out} 의 어댑터 다섯이 실제로 검사 대상이 됐다)
+ *   <li>규칙 5 — Phase 6 에서 제거 ({@code backtest} 생성 시). <b>마지막 플래그다.</b>
  * </ul>
  *
  * @see ArchitectureRulesTest 정상 코드가 규칙을 지키는지
@@ -58,18 +59,31 @@ public final class ArchitectureRules {
                 .as("규칙 1: domain 패키지는 Spring / JPA / Jackson 에 의존하지 않는다");
     }
 
-    /** 규칙 2 — 계층 의존 방향 api → application → domain. */
+    /**
+     * 규칙 2 — 계층 의존 방향 {@code (api|adapter) → application → domain}.
+     *
+     * <p>{@code adapter} 를 {@code api} 와 별개의 바깥 층으로 둔다. Phase 3 이전에는
+     * {@code adapter.in} 만 {@code Api} 층에 얹혀 있었는데, 그 상태로 {@code adapter.out} 이
+     * 생기면 <b>어느 층에도 속하지 않은 클래스</b>가 되어 application·domain 접근이 전부
+     * 위반으로 잡힌다. 아웃바운드 어댑터가 포트를 구현하는 것은 헥사고날의 정의 그 자체이므로
+     * 규칙 쪽이 틀린 것이었다.
+     *
+     * <p>바깥 두 층은 <b>아무에게도 참조되지 않는다.</b> {@code Adapter} 에 걸린 이 조건이
+     * 규칙 4(application 이 adapter 를 모른다)를 계층 차원에서 한 번 더 받친다.
+     */
     public static ArchRule layerDependenciesPointInward(String root) {
         return Architectures.layeredArchitecture()
                 .consideringOnlyDependenciesInAnyPackage(root + "..")
-                .layer("Api").definedBy(root + "..api..", root + "..adapter.in..")
+                .layer("Api").definedBy(root + "..api..")
+                .layer("Adapter").definedBy(root + "..adapter..")
                 .layer("Application").definedBy(root + "..application..")
                 .layer("Domain").definedBy(root + "..domain..")
                 .withOptionalLayers(true)
                 .whereLayer("Api").mayNotBeAccessedByAnyLayer()
-                .whereLayer("Application").mayOnlyBeAccessedByLayers("Api")
-                .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Api")
-                .as("규칙 2: 계층 의존은 api → application → domain 방향으로만 흐른다");
+                .whereLayer("Adapter").mayNotBeAccessedByAnyLayer()
+                .whereLayer("Application").mayOnlyBeAccessedByLayers("Api", "Adapter")
+                .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Api", "Adapter")
+                .as("규칙 2: 계층 의존은 (api|adapter) → application → domain 방향으로만 흐른다");
     }
 
     /** 규칙 3 — 패키지 순환 참조 0건. */
@@ -93,8 +107,7 @@ public final class ArchitectureRules {
                 .should().dependOnClassesThat().resideInAnyPackage(
                         root + ".market.adapter..",
                         root + ".journal.adapter..")
-                .as("규칙 4: market / journal 의 application 은 adapter 를 알지 못한다")
-                .allowEmptyShould(true);
+                .as("규칙 4: market / journal 의 application 은 adapter 를 알지 못한다");
     }
 
     /** 규칙 5 — backtest 는 market 의 포트만 소비하고 어댑터를 직접 참조하지 않는다. */
@@ -114,8 +127,7 @@ public final class ArchitectureRules {
                 .and().areNotInterfaces()
                 .and().areNotMemberClasses()
                 .should(implementAnOutboundPort())
-                .as("규칙 6: adapter.out 구현체는 application.port.out 인터페이스를 구현한다")
-                .allowEmptyShould(true);
+                .as("규칙 6: adapter.out 구현체는 application.port.out 인터페이스를 구현한다");
     }
 
     private static ArchCondition<JavaClass> implementAnOutboundPort() {

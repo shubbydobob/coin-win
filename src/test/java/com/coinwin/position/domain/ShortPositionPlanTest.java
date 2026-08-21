@@ -33,8 +33,10 @@ class ShortPositionPlanTest {
     void 숏_포지션의_청산가는_평단보다_위에_있다() {
         PositionAnalysis 분석 = 숏_50퍼센트_분할().analyze(BUDGET, MMR04);
 
-        assertThat(분석.afterFirstEntry().liquidationPrice()).isEqualTo(Price.of("65760"));
-        assertThat(분석.whenFullyFilled().liquidationPrice()).isEqualTo(Price.of("66856"));
+        // 1차 평단 60,000 → 60000×(1+1/10) / (1+0.004) = 66000/1.004 = 65737.0517...
+        // 전량 평단 61,000 → 61000×(1+1/10) / (1+0.004) = 67100/1.004 = 66832.6693...
+        assertThat(분석.afterFirstEntry().liquidationPrice()).isEqualTo(Price.of("65737.05"));
+        assertThat(분석.whenFullyFilled().liquidationPrice()).isEqualTo(Price.of("66832.67"));
     }
 
     @Test

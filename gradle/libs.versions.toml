@@ -17,6 +17,18 @@ spotbugs = "4.10.4"
 spotbugsPlugin = "6.5.11"
 jacoco = "0.8.15"
 
+# Phase 3 (시장 데이터). PostgreSQL 드라이버와 Flyway 는 Spring Boot BOM 이 버전을 관리하므로
+# 여기에 적지 않는다 — 버전이 아예 없는 것이 한 곳에 모으는 것보다 낫다.
+#
+# Testcontainers 는 예외다. Boot 4.1 의 BOM 은 spring-boot-testcontainers 는 관리하지만
+# org.testcontainers:* 자체는 관리하지 않는다("Could not find org.testcontainers:postgresql:.").
+# 그래서 여기에 명시한다.
+testcontainers = "1.21.4"
+
+# 컨테이너 이미지 태그도 BOM 이 모르므로 여기에 둔다. compose.yaml 과 통합 테스트가
+# 같은 이미지를 써야 "로컬에서 되는데 CI 에서 깨지는" 방언 차이가 생기지 않는다.
+postgresImage = "postgres:18-alpine"
+
 # Phase 5 (매매 기록) 에서 추가한다. 지금은 어떤 모듈도 참조하지 않는다.
 # 원본 com.querydsl 은 2024-11 이후 미유지 → io.github.openfeign.querydsl 사용
 # querydsl = "7.6"
@@ -24,6 +36,7 @@ jacoco = "0.8.15"
 [libraries]
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 archunit-junit6 = { module = "com.tngtech.archunit:archunit-junit6", version.ref = "archunit" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 
 [plugins]
 springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }

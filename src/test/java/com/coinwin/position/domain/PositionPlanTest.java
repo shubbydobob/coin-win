@@ -77,9 +77,10 @@ class PositionPlanTest {
     void 분할_1차만_체결된_상태의_청산가는_전량_체결과_다르다() {
         PositionAnalysis 분석 = 롱_50퍼센트_분할().analyze(BUDGET, MMR_04);
 
-        // 계수 = 1 - 1/10 + 0.4% = 0.904
-        assertThat(분석.afterFirstEntry().liquidationPrice()).isEqualTo(Price.of("54240"));
-        assertThat(분석.whenFullyFilled().liquidationPrice()).isEqualTo(Price.of("53336"));
+        // 1차 평단 60,000 → 60000×(1-1/10) / (1-0.004) = 54000/0.996 = 54216.8674...
+        // 전량 평단 59,000 → 59000×(1-1/10) / (1-0.004) = 53100/0.996 = 53313.2530...
+        assertThat(분석.afterFirstEntry().liquidationPrice()).isEqualTo(Price.of("54216.87"));
+        assertThat(분석.whenFullyFilled().liquidationPrice()).isEqualTo(Price.of("53313.25"));
     }
 
     /** 이 모듈의 존재 이유. 1차 체결 시점에 보이는 손실은 최종 손실이 아니다. */
@@ -127,8 +128,8 @@ class PositionPlanTest {
 
         PositionAnalysis 분석 = 롱_50퍼센트_분할().analyze(BUDGET, mmr1퍼센트);
 
-        // 계수 = 1 - 1/10 + 1% = 0.91 → 59000 × 0.91
-        assertThat(분석.whenFullyFilled().liquidationPrice()).isEqualTo(Price.of("53690"));
+        // 59000×(1-1/10) / (1-0.01) = 53100/0.99 = 53636.3636...
+        assertThat(분석.whenFullyFilled().liquidationPrice()).isEqualTo(Price.of("53636.36"));
     }
 
     @Test
@@ -182,7 +183,7 @@ class PositionPlanTest {
     void 유지증거금률_정책이_없으면_분석할_수_없다() {
         assertThatThrownBy(() -> 롱_50퍼센트_분할().analyze(BUDGET, null))
                 .isInstanceOf(InvalidValueException.class)
-                .hasMessageContaining("유지증거금률");
+                .hasMessageContaining("유지증거금");
     }
 
     @Test

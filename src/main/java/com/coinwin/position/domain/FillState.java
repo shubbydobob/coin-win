@@ -1,10 +1,8 @@
 package com.coinwin.position.domain;
 
 import com.coinwin.common.domain.Money;
-import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
-import java.math.BigDecimal;
 
 /**
  * 분할 진입 중 {@code filledEntries} 건까지 체결됐을 때의 포지션 상태.
@@ -25,29 +23,22 @@ public record FillState(
      *
      * <p>{@code totalQuantity} 는 전량 체결을 전제로 손절가가 결정한 수량이다. 부분 체결
      * 수량은 그 총량에 체결된 비중을 적용해 얻는다 — 부분 체결 시점에 다시 사이징하지 않는다.
+     *
+     * <p>유지증거금 규칙을 <b>체결 상태마다 다시</b> 묻는다. 부분 체결과 전량 체결은 명목가가
+     * 다르고, 명목가가 다르면 레버리지 구간이 다를 수 있기 때문이다. 계획 하나에 MMR 하나를
+     * 물리면 그 차이가 사라진다.
      */
-    static FillState of(PositionPlan plan, int filledEntries, Quantity totalQuantity, Percentage mmr) {
+    static FillState of(PositionPlan plan, int filledEntries, Quantity totalQuantity,
+            MaintenanceMarginPolicy policy) {
         Price average = plan.averageEntryPriceIfPartial(filledEntries);
         Quantity filled = plan.entries().allocationFilledAfter(filledEntries).applyTo(totalQuantity);
+        PositionExposure exposure =
+                new PositionExposure(plan.direction(), average, filled, plan.leverage());
         return new FillState(
                 filledEntries,
                 average,
                 filled,
-                average.multipliedBy(liquidationFactor(plan, mmr)),
+                exposure.liquidationPrice(policy.requirementFor(exposure.notional())),
                 filled.times(average.absoluteDifference(plan.stopLoss())));
-    }
-
-    /**
-     * {@code LONG: 1 - 1/leverage + MMR}, {@code SHORT: 1 + 1/leverage - MMR}.
-     *
-     * <p>평단에 곱하면 청산가가 된다. MMR 은 주입받는다 — 고정 근사치를 여기에 박아 두면
-     * Phase 3 에서 구간별 MMR 로 바뀔 때 공식과 입력 중 무엇이 틀렸는지 구분할 수 없다.
-     */
-    private static BigDecimal liquidationFactor(PositionPlan plan, Percentage mmr) {
-        BigDecimal inverseLeverage = plan.inverseLeverage();
-        return switch (plan.direction()) {
-            case LONG -> BigDecimal.ONE.subtract(inverseLeverage).add(mmr.asFraction());
-            case SHORT -> BigDecimal.ONE.add(inverseLeverage).subtract(mmr.asFraction());
-        };
     }
 }

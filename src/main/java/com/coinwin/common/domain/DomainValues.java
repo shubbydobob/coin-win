@@ -1,5 +1,7 @@
 package com.coinwin.common.domain;
 
+import java.math.BigDecimal;
+
 /**
  * 도메인 인자 검사. 프레임워크 없이 도메인 예외만 던진다.
  *
@@ -31,5 +33,21 @@ public final class DomainValues {
                     label + "은(는) " + minimum + " 이상이어야 한다: " + value);
         }
         return value;
+    }
+
+    /**
+     * 문자열을 {@link BigDecimal} 로 읽는다. 형식 오류는 도메인 예외가 된다.
+     *
+     * <p>{@code common} 의 네 값 객체는 {@code DecimalValues} 를 직접 쓰지만 그것은 패키지
+     * 전용이다. {@code market.domain} 의 {@code FundingRate} 처럼 <b>다른 모듈이 자기 스케일
+     * 정책을 가진 값 객체</b>를 만들 때 파싱만 다시 구현하지 않도록 이 두 메서드를 연다.
+     */
+    public static BigDecimal decimal(String value, String label) {
+        return DecimalValues.parse(value, label);
+    }
+
+    /** null 검사 + 스케일 정규화. 반올림은 HALF_UP 하나뿐이다. 음수를 허용한다. */
+    public static BigDecimal scaled(BigDecimal value, int scale, String label) {
+        return DecimalValues.normalize(value, scale, label);
     }
 }
