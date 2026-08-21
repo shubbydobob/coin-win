@@ -57,6 +57,28 @@ class PositionAnalysisTest {
         assertThat(분석.riskRewardRatio()).isEqualByComparingTo("1.50");
     }
 
+    /**
+     * 문턱값을 받는 판정도 <b>반올림하지 않은</b> 손익비로 한다. Phase 6 백테스트가 문턱값을
+     * 파라미터로 돌리는데, 그때 표시용 버림값과 비교하게 되면 경계에서 판정이 갈린다.
+     */
+    @Test
+    void 문턱값을_받는_손익비_판정도_반올림하지_않은_값으로_한다() {
+        PositionPlan 계획 = 손익비_계획("74999");   // 실제 1.4999, 표시 1.49
+
+        assertThat(계획.riskRewardBelow(new BigDecimal("1.5"))).isTrue();
+        assertThat(계획.riskRewardBelow(new BigDecimal("1.4999"))).isFalse();
+        assertThat(계획.riskRewardBelow(new BigDecimal("1.49"))).isFalse();
+    }
+
+    /** 기본 경고는 문턱값 1.5 를 넣은 것과 같아야 한다. 두 경로가 갈리면 규칙이 둘이 된다. */
+    @Test
+    void 기본_경고는_문턱값_1_5_판정과_같다() {
+        assertThat(손익비_계획("74999").weakRiskReward())
+                .isEqualTo(손익비_계획("74999").riskRewardBelow(new BigDecimal("1.5")));
+        assertThat(손익비_계획("75000").weakRiskReward())
+                .isEqualTo(손익비_계획("75000").riskRewardBelow(new BigDecimal("1.5")));
+    }
+
     @Test
     void 표시용_손익비는_기준을_넘은_것처럼_보이지_않게_버림한다() {
         // 1.4999 를 1.50 으로 표시하면 경고와 화면이 서로 모순된다

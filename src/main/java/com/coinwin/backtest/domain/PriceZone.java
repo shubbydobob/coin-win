@@ -61,4 +61,20 @@ public record PriceZone(PriceBand band, int touches) {
     public Money width() {
         return band.width();
     }
+
+    /**
+     * 이 대를 사람이 읽을 문장으로. {@code MarketContext.rationale} 이 비어 있으면 거부되고
+     * (ADR 017), 백테스트에는 손으로 쓸 사람이 없으므로 대가 자기를 설명한다.
+     *
+     * <p>구간과 터치 횟수를 싣는 이유는 <b>그 둘이 대의 정체 전부</b>이기 때문이다. 사후에
+     * 기록을 볼 때 "왜 여기서 들어갔는가" 에 답하는 데 다른 값이 필요 없다.
+     */
+    public String describeAs(ZoneRole role) {
+        DomainValues.required(role, "대의 역할");
+        return "%s대 %s~%s (터치 %d회) 근단 반전 진입".formatted(
+                role.label(),
+                band.lower().value().toPlainString(),
+                band.upper().value().toPlainString(),
+                touches);
+    }
 }

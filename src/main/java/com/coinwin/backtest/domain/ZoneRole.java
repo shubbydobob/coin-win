@@ -26,6 +26,16 @@ public enum ZoneRole {
         this.entryDirection = entryDirection;
     }
 
+    /** 반대 역할. 롱의 익절 목표는 저항, 숏의 익절 목표는 지지다. */
+    public ZoneRole opposite() {
+        return this == SUPPORT ? RESISTANCE : SUPPORT;
+    }
+
+    /** 기록용 한글 이름. {@code MarketContext.rationale} 에 실린다. */
+    public String label() {
+        return this == SUPPORT ? "지지" : "저항";
+    }
+
     /**
      * 대 대비 종가의 위치가 역할을 정한다.
      *
