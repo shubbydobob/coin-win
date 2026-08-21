@@ -37,6 +37,43 @@ class PositionAnalysisTest {
         assertThat(분석.weakRiskReward()).isTrue();
     }
 
+    /**
+     * 표시용 손익비를 반올림한 뒤 1.5 와 비교하면 이 구간이 통째로 빠져나간다.
+     * 1.495 는 HALF_UP 으로 1.50 이 되어 경고가 꺼진다.
+     */
+    @Test
+    void 손익비_1_495는_반올림하면_1_50이지만_여전히_경고_대상이다() {
+        PositionAnalysis 분석 = 손익비_계획("74950").analyze(BUDGET, MMR04);
+
+        assertThat(분석.weakRiskReward()).isTrue();
+        assertThat(분석.riskRewardRatio()).isEqualByComparingTo("1.49");
+    }
+
+    @Test
+    void 손익비가_정확히_1_5면_경고하지_않는다() {
+        PositionAnalysis 분석 = 손익비_계획("75000").analyze(BUDGET, MMR04);
+
+        assertThat(분석.weakRiskReward()).isFalse();
+        assertThat(분석.riskRewardRatio()).isEqualByComparingTo("1.50");
+    }
+
+    @Test
+    void 표시용_손익비는_기준을_넘은_것처럼_보이지_않게_버림한다() {
+        // 1.4999 를 1.50 으로 표시하면 경고와 화면이 서로 모순된다
+        assertThat(손익비_계획("74999").riskRewardRatio()).isEqualByComparingTo("1.49");
+        assertThat(손익비_계획("74999").weakRiskReward()).isTrue();
+    }
+
+    /** 손절 거리를 10,000 으로 고정해 익절가만 바꾸면 손익비가 그대로 나온다. */
+    private static PositionPlan 손익비_계획(String takeProfit) {
+        return new PositionPlan(
+                Direction.LONG,
+                EntryLadder.of(PlannedEntry.of("60000", "100")),
+                Price.of("50000"),
+                Price.of(takeProfit),
+                3);
+    }
+
     @Test
     void 손익비가_충분하면_경고하지_않는다() {
         PositionPlan plan = new PositionPlan(
@@ -83,14 +120,14 @@ class PositionAnalysisTest {
     @Test
     void 체결_상태가_하나도_없는_결과는_성립하지_않는다() {
         assertThatThrownBy(() -> new PositionAnalysis(
-                List.of(), Money.of("31.47"), Money.of("800"), new BigDecimal("2.33")))
+                List.of(), Money.of("31.47"), Money.of("800"), new BigDecimal("2.33"), false))
                 .isInstanceOf(InvalidPositionPlanException.class);
     }
 
     @Test
     void null_체결_상태는_거부된다() {
         assertThatThrownBy(() -> new PositionAnalysis(
-                null, Money.of("31.47"), Money.of("800"), new BigDecimal("2.33")))
+                null, Money.of("31.47"), Money.of("800"), new BigDecimal("2.33"), false))
                 .isInstanceOf(InvalidValueException.class);
     }
 
@@ -100,7 +137,7 @@ class PositionAnalysisTest {
                 Price.of("54240"), Money.of("16"));
 
         PositionAnalysis 분석 = new PositionAnalysis(
-                List.of(단일), Money.of("60"), Money.of("800"), new BigDecimal("2.00"));
+                List.of(단일), Money.of("60"), Money.of("800"), new BigDecimal("2.00"), false);
 
         assertThat(분석.afterFirstEntry()).isEqualTo(분석.whenFullyFilled());
     }

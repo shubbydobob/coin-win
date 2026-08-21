@@ -54,6 +54,10 @@ public record Percentage(BigDecimal value) {
         return value.divide(HUNDRED, SCALE + 2, DecimalValues.ROUNDING);
     }
 
+    public boolean isGreaterThan(Percentage other) {
+        return value.compareTo(other.value) > 0;
+    }
+
     private BigDecimal apply(BigDecimal amount, int scale) {
         return amount.multiply(value).divide(HUNDRED, scale, DecimalValues.ROUNDING);
     }

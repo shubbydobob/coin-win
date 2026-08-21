@@ -71,6 +71,12 @@ class PercentageTest {
     }
 
     @Test
+    void 크기_비교는_스케일이_아니라_값으로_한다() {
+        assertThat(Percentage.of("100.0001").isGreaterThan(Percentage.of("100"))).isTrue();
+        assertThat(Percentage.of("100").isGreaterThan(Percentage.of("100.0000"))).isFalse();
+    }
+
+    @Test
     void 소수로_바꾸면_100으로_나눈_값이_된다() {
         // 청산가 공식은 MMR 을 소수로 요구한다: 0.4% → 0.004
         assertThat(Percentage.of("0.4").asFraction()).isEqualByComparingTo("0.004");

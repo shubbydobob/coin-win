@@ -30,6 +30,9 @@ public record PositionPlan(
 
     private static final int RATIO_SCALE = 2;
 
+    /** 손익비 경고 기준. 미달이어도 거부하지 않는다 — 판단은 사람이 한다. */
+    private static final BigDecimal MINIMUM_RISK_REWARD = new BigDecimal("1.5");
+
     public PositionPlan {
         PositionValues.required(direction, "방향");
         PositionValues.required(entries, "분할 진입 계획");
@@ -62,15 +65,29 @@ public record PositionPlan(
 
     /** {@code margin = 명목가 / leverage}. 이 돈이 없으면 계획을 열 수 없다. */
     public Money requiredMargin(RiskBudget budget) {
-        Money notional = totalQuantity(budget).times(averageEntryPrice().asAmount());
-        return notional.multipliedBy(inverseLeverage());
+        return totalQuantity(budget).times(averageEntryPrice().asAmount(), leverage);
     }
 
-    /** 손익비 = {@code |익절가 - 평단| / |평단 - 손절가|}. */
+    /**
+     * 표시용 손익비. {@code |익절가 - 평단| / |평단 - 손절가|} 를 <b>버림</b>으로 낸다.
+     *
+     * <p>반올림이 아니라 버림인 이유는 {@link #weakRiskReward()} 와 어긋나지 않기 위해서다.
+     * 실제 손익비 1.495 를 반올림하면 1.50 이 되어, 경고는 켜져 있는데 화면에는 기준을
+     * 넘은 것처럼 보인다. 버림이면 "표시값이 1.50 이상" 과 "기준 충족" 이 정확히 일치한다.
+     */
     public BigDecimal riskRewardRatio() {
+        return exactRiskRewardRatio().setScale(RATIO_SCALE, RoundingMode.DOWN);
+    }
+
+    /** 손익비가 기준 미달인가. 판단은 <b>반올림하지 않은</b> 손익비로 한다. */
+    public boolean weakRiskReward() {
+        return exactRiskRewardRatio().compareTo(MINIMUM_RISK_REWARD) < 0;
+    }
+
+    private BigDecimal exactRiskRewardRatio() {
         Price average = averageEntryPrice();
         return average.absoluteDifference(takeProfit).value()
-                .divide(average.absoluteDifference(stopLoss).value(), RATIO_SCALE, RoundingMode.HALF_UP);
+                .divide(average.absoluteDifference(stopLoss).value(), MathContext.DECIMAL64);
     }
 
     /**
@@ -87,8 +104,8 @@ public record PositionPlan(
                 .mapToObj(filled -> FillState.of(this, filled, total, mmr))
                 .toList();
         states.forEach(this::assertStopIsReachedBeforeLiquidation);
-        return new PositionAnalysis(
-                states, requiredMargin(budget), budget.accountBalance(), riskRewardRatio());
+        return new PositionAnalysis(states, requiredMargin(budget), budget.accountBalance(),
+                riskRewardRatio(), weakRiskReward());
     }
 
     /** {@code 1 / leverage}. 청산가 계수와 증거금이 같은 값을 쓰므로 한 곳에 둔다. */

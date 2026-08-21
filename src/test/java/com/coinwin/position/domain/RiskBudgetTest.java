@@ -29,6 +29,17 @@ class RiskBudgetTest {
         assertThatCode(() -> RiskBudget.of("800", "100")).doesNotThrowAnyException();
     }
 
+    /**
+     * 100.0001% 의 리스크 금액은 800.0008 인데, 금액으로 비교하면 스케일 2 에서 800.00 으로
+     * 반올림되어 잔고와 같아진다. 판정을 비율로 해야 이 경계가 잡힌다.
+     */
+    @Test
+    void 잔고를_아주_조금_넘는_비율도_거부된다() {
+        assertThatThrownBy(() -> RiskBudget.of("800", "100.0001"))
+                .isInstanceOf(RiskExceedsBalanceException.class)
+                .hasMessageContaining("100.0001");
+    }
+
     @Test
     void 잔고가_0이면_거부된다() {
         assertThatThrownBy(() -> RiskBudget.of("0", "2"))

@@ -12,6 +12,13 @@ import com.coinwin.common.domain.Percentage;
  */
 public record RiskBudget(Money accountBalance, Percentage riskPercent) {
 
+    /**
+     * 잔고 전액. 리스크 금액이 잔고를 넘는다는 것은 곧 비율이 100% 를 넘는다는 뜻이므로,
+     * 판정은 금액이 아니라 비율로 한다. 금액으로 비교하면 스케일 2 로 반올림된 뒤 비교되어
+     * 100.0001% 같은 경계값이 빠져나간다.
+     */
+    private static final Percentage WHOLE_BALANCE = Percentage.of("100");
+
     public RiskBudget {
         PositionValues.required(accountBalance, "계좌 잔고");
         PositionValues.required(riskPercent, "리스크 비율");
@@ -19,9 +26,9 @@ public record RiskBudget(Money accountBalance, Percentage riskPercent) {
             throw new InvalidValueException(
                     "계좌 잔고는 0 보다 커야 한다: " + accountBalance.value().toPlainString());
         }
-        Money risk = riskPercent.applyTo(accountBalance);
-        if (risk.isGreaterThan(accountBalance)) {
-            throw new RiskExceedsBalanceException(risk, accountBalance);
+        if (riskPercent.isGreaterThan(WHOLE_BALANCE)) {
+            throw new RiskExceedsBalanceException(
+                    riskPercent, riskPercent.applyTo(accountBalance), accountBalance);
         }
     }
 

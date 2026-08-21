@@ -57,6 +57,22 @@ class PositionPlanTest {
         assertThat(롱_50퍼센트_분할().requiredMargin(BUDGET)).isEqualTo(Money.of("31.47"));
     }
 
+    /**
+     * 명목가를 금액 스케일 2 로 스냅한 뒤 나누면 결과가 1센트 위로 밀린다.
+     * 정확한 명목가 314.6665233333 / 2 = 157.33 이지, 314.67 / 2 = 157.34 가 아니다.
+     */
+    @Test
+    void 증거금은_명목가를_반올림하기_전에_나눈다() {
+        PositionPlan plan = new PositionPlan(
+                Direction.LONG,
+                EntryLadder.of(PlannedEntry.of("59000.01", "100")),
+                Price.of("56000.01"),
+                Price.of("70000"),
+                2);
+
+        assertThat(plan.requiredMargin(BUDGET)).isEqualTo(Money.of("157.33"));
+    }
+
     @Test
     void 분할_1차만_체결된_상태의_청산가는_전량_체결과_다르다() {
         PositionAnalysis 분석 = 롱_50퍼센트_분할().analyze(BUDGET, MMR_04);
