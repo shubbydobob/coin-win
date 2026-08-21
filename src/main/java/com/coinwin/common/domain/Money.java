@@ -38,4 +38,8 @@ public record Money(BigDecimal value) {
         }
         return Quantity.of(value.divide(divisor.value, Quantity.SCALE, DecimalValues.ROUNDING));
     }
+
+    public boolean isGreaterThan(Money other) {
+        return value.compareTo(other.value) > 0;
+    }
 }

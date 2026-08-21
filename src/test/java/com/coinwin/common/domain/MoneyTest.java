@@ -60,4 +60,11 @@ class MoneyTest {
                 .isInstanceOf(InvalidValueException.class)
                 .hasMessageContaining("0");
     }
+
+    @Test
+    void 크기_비교는_스케일이_아니라_값으로_한다() {
+        assertThat(Money.of("959.20").isGreaterThan(Money.of("800"))).isTrue();
+        assertThat(Money.of("800.0").isGreaterThan(Money.of("800.00"))).isFalse();
+        assertThat(Money.of("-1").isGreaterThan(Money.of("0"))).isFalse();
+    }
 }

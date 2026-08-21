@@ -54,4 +54,32 @@ class PercentageTest {
         assertThat(Percentage.of("1.5").applyTo(Money.of("333.33")))
                 .isEqualTo(Money.of("5.00"));
     }
+
+    @Test
+    void 수량에_적용하면_해당_비중만큼의_수량이_된다() {
+        // 총수량 0.00533333 BTC 중 1차 체결분 50%
+        assertThat(Percentage.of("50").applyTo(Quantity.of("0.00533333")))
+                .isEqualTo(Quantity.of("0.00266667"));
+    }
+
+    @Test
+    void 수량_적용_결과는_수량_스케일_8자리에서_HALF_UP으로_반올림된다() {
+        assertThat(Percentage.of("30").applyTo(Quantity.of("0.00000001")))
+                .isEqualTo(Quantity.of("0.00000000"));
+        assertThat(Percentage.of("50").applyTo(Quantity.of("0.00000001")))
+                .isEqualTo(Quantity.of("0.00000001"));
+    }
+
+    @Test
+    void 크기_비교는_스케일이_아니라_값으로_한다() {
+        assertThat(Percentage.of("100.0001").isGreaterThan(Percentage.of("100"))).isTrue();
+        assertThat(Percentage.of("100").isGreaterThan(Percentage.of("100.0000"))).isFalse();
+    }
+
+    @Test
+    void 소수로_바꾸면_100으로_나눈_값이_된다() {
+        // 청산가 공식은 MMR 을 소수로 요구한다: 0.4% → 0.004
+        assertThat(Percentage.of("0.4").asFraction()).isEqualByComparingTo("0.004");
+        assertThat(Percentage.of("100").asFraction()).isEqualByComparingTo("1");
+    }
 }
