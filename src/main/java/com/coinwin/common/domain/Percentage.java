@@ -9,9 +9,8 @@ import java.math.BigDecimal;
  */
 public record Percentage(BigDecimal value) {
 
-    private static final int SCALE = 4;
+    static final int SCALE = 4;
     private static final String LABEL = "비율";
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     public Percentage {
         value = DecimalValues.normalizeNonNegative(value, SCALE, LABEL);
@@ -23,6 +22,15 @@ public record Percentage(BigDecimal value) {
 
     public static Percentage of(String value) {
         return new Percentage(DecimalValues.parse(value, LABEL));
+    }
+
+    /**
+     * 개수의 비율. {@code 손실로 끝난 시행 / 전체 시행} 처럼 금액이 아닌 것들의 비율에 쓴다.
+     * 금액 비율은 {@link Money#percentOf} 다.
+     */
+    public static Percentage ofRatio(long part, long whole) {
+        return Percentage.of(DecimalValues.ratio(
+                BigDecimal.valueOf(part), BigDecimal.valueOf(whole), SCALE));
     }
 
     /**
@@ -51,7 +59,7 @@ public record Percentage(BigDecimal value) {
      * 100 으로 나누는 자리가 흩어진다.
      */
     public BigDecimal asFraction() {
-        return value.divide(HUNDRED, SCALE + 2, DecimalValues.ROUNDING);
+        return value.divide(DecimalValues.HUNDRED, SCALE + 2, DecimalValues.ROUNDING);
     }
 
     public boolean isGreaterThan(Percentage other) {
@@ -59,6 +67,6 @@ public record Percentage(BigDecimal value) {
     }
 
     private BigDecimal apply(BigDecimal amount, int scale) {
-        return amount.multiply(value).divide(HUNDRED, scale, DecimalValues.ROUNDING);
+        return amount.multiply(value).divide(DecimalValues.HUNDRED, scale, DecimalValues.ROUNDING);
     }
 }

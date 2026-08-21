@@ -22,6 +22,8 @@ class OpenApiSmokeTest {
 
     private static final String ANALYSIS_OPERATION = "$.paths['/api/position-plans/analysis'].post";
 
+    private static final String MONTE_CARLO_OPERATION = "$.paths['/api/projections/monte-carlo'].post";
+
     @Autowired
     private WebApplicationContext context;
 
@@ -46,10 +48,24 @@ class OpenApiSmokeTest {
     }
 
     @Test
+    void 복리_시뮬레이션_MONTE_CARLO_OPERATION도_요약과_오류_응답까지_문서화된다() throws Exception {
+        mockMvc().perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/projections/equity-curve'].post.summary").exists())
+                .andExpect(jsonPath(MONTE_CARLO_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(MONTE_CARLO_OPERATION + ".responses.['400'].description").exists())
+                .andExpect(jsonPath(MONTE_CARLO_OPERATION + ".responses.['422'].description").exists());
+    }
+
+    @Test
     void 요청과_응답_스키마에_예제가_붙어_있다() throws Exception {
         mockMvc().perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.components.schemas.AnalyzePositionRequest.example").exists())
-                .andExpect(jsonPath("$.components.schemas.PositionAnalysisResponse.example").exists());
+                .andExpect(jsonPath("$.components.schemas.PositionAnalysisResponse.example").exists())
+                .andExpect(jsonPath("$.components.schemas.MonteCarloRequest.example").exists())
+                .andExpect(jsonPath("$.components.schemas.MonteCarloResponse.example").exists())
+                .andExpect(jsonPath("$.components.schemas.EquityCurveRequest.example").exists())
+                .andExpect(jsonPath("$.components.schemas.EquityCurveResponse.example").exists());
     }
 }

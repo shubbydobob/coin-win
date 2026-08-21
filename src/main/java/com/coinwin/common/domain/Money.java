@@ -42,4 +42,29 @@ public record Money(BigDecimal value) {
     public boolean isGreaterThan(Money other) {
         return value.compareTo(other.value) > 0;
     }
+
+    /**
+     * 무차원 배수를 적용한 금액. 복리 자산 곡선의 각 점이 {@code 초기 자본 × 누적 배수} 다.
+     *
+     * <p>직전 점에 배수를 곱해 나가는 방식이 아니라 <b>원금에서 한 번에</b> 계산하라고 이
+     * 메서드가 존재한다. 점마다 센트로 반올림한 값을 다시 곱하면 오차가 거래 수만큼 쌓인다.
+     */
+    public Money times(BigDecimal factor) {
+        return Money.of(value.multiply(DomainValues.required(factor, "배수")));
+    }
+
+    /** 두 금액의 차. 결과는 음수일 수 있다 — 손실이 그렇다. */
+    public Money minus(Money other) {
+        return Money.of(value.subtract(DomainValues.required(other, "금액").value()));
+    }
+
+    /**
+     * 전체 금액 대비 이 금액의 비율. 최대낙폭이 {@code (고점 - 현재) / 고점} 이다.
+     *
+     * @throws InvalidValueException 전체가 0 이거나 이 금액이 음수인 경우
+     */
+    public Percentage percentOf(Money whole) {
+        return Percentage.of(DecimalValues.ratio(
+                value, DomainValues.required(whole, "전체 금액").value, Percentage.SCALE));
+    }
 }

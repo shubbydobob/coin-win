@@ -1,5 +1,6 @@
 package com.coinwin.position.domain;
 
+import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Money;
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,7 +22,7 @@ public record PositionAnalysis(
         boolean weakRiskReward) {
 
     public PositionAnalysis {
-        PositionValues.required(fillStates, "체결 상태");
+        DomainValues.required(fillStates, "체결 상태");
         if (fillStates.isEmpty()) {
             throw new InvalidPositionPlanException("체결 상태가 하나도 없는 산출 결과는 성립하지 않는다");
         }

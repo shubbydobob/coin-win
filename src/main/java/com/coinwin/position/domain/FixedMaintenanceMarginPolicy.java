@@ -1,5 +1,6 @@
 package com.coinwin.position.domain;
 
+import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Percentage;
 
 /**
@@ -20,7 +21,7 @@ public record FixedMaintenanceMarginPolicy(Percentage rate) implements Maintenan
     public static final Percentage BTC_USDT_APPROXIMATE_RATE = Percentage.of("0.4");
 
     public FixedMaintenanceMarginPolicy {
-        PositionValues.required(rate, "유지증거금률");
+        DomainValues.required(rate, "유지증거금률");
     }
 
     public static FixedMaintenanceMarginPolicy btcUsdtApproximation() {

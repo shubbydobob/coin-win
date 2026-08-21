@@ -1,5 +1,6 @@
 package com.coinwin.position.domain;
 
+import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
@@ -34,10 +35,10 @@ public record PositionPlan(
     private static final BigDecimal MINIMUM_RISK_REWARD = new BigDecimal("1.5");
 
     public PositionPlan {
-        PositionValues.required(direction, "방향");
-        PositionValues.required(entries, "분할 진입 계획");
-        PositionValues.required(stopLoss, "손절가");
-        PositionValues.required(takeProfit, "익절가");
+        DomainValues.required(direction, "방향");
+        DomainValues.required(entries, "분할 진입 계획");
+        DomainValues.required(stopLoss, "손절가");
+        DomainValues.required(takeProfit, "익절가");
         if (leverage < 1) {
             throw new InvalidValueException("레버리지는 1 이상이어야 한다: " + leverage);
         }
@@ -59,7 +60,7 @@ public record PositionPlan(
      * 비중으로 나눈 것이지, 부분 체결 시점에 다시 계산한 값이 아니다.
      */
     public Quantity totalQuantity(RiskBudget budget) {
-        PositionValues.required(budget, "리스크 예산");
+        DomainValues.required(budget, "리스크 예산");
         return budget.riskAmount().dividedBy(averageEntryPrice().absoluteDifference(stopLoss));
     }
 
@@ -98,7 +99,7 @@ public record PositionPlan(
      * 대개 부분 체결 상태다.
      */
     public PositionAnalysis analyze(RiskBudget budget, MaintenanceMarginPolicy policy) {
-        Percentage mmr = PositionValues.required(policy, "유지증거금률 정책").rate();
+        Percentage mmr = DomainValues.required(policy, "유지증거금률 정책").rate();
         Quantity total = totalQuantity(budget);
         List<FillState> states = IntStream.rangeClosed(1, entries.size())
                 .mapToObj(filled -> FillState.of(this, filled, total, mmr))

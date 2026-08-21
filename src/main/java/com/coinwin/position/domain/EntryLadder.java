@@ -1,5 +1,6 @@
 package com.coinwin.position.domain;
 
+import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
@@ -19,7 +20,7 @@ public record EntryLadder(List<PlannedEntry> entries) {
     private static final BigDecimal WHOLE = new BigDecimal("100");
 
     public EntryLadder {
-        PositionValues.required(entries, "분할 진입 계획");
+        DomainValues.required(entries, "분할 진입 계획");
         if (entries.isEmpty()) {
             throw new InvalidPositionPlanException("분할 진입 계획은 최소 1건이어야 한다");
         }
