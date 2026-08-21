@@ -33,6 +33,14 @@ class OpenApiSmokeTest {
     private static final String METRICS_OPERATION =
             "$.paths['/api/markets/{symbol}/metrics'].get";
 
+    private static final String PLAN_TRADE_OPERATION = "$.paths['/api/trades'].post";
+
+    private static final String FILLS_OPERATION = "$.paths['/api/trades/{id}/fills'].post";
+
+    private static final String CLOSURE_OPERATION = "$.paths['/api/trades/{id}/closure'].post";
+
+    private static final String SUMMARY_OPERATION = "$.paths['/api/trades/summary'].get";
+
     @Autowired
     private WebApplicationContext context;
 
@@ -83,6 +91,24 @@ class OpenApiSmokeTest {
                 .andExpect(jsonPath(METRICS_OPERATION + ".responses.['503'].description").exists());
     }
 
+    /**
+     * Phase 5 에서 JPA 어댑터·QueryDSL 팩토리·시계 빈이 붙었다. 이 테스트가 초록이라는 것은
+     * 그 셋이 실제로 조립된다는 뜻이다 — 같은 포트를 구현한 인메모리 어댑터가 컨텍스트에
+     * 함께 올라가 주입이 갈리는 상황이 없는지까지 여기서 걸린다.
+     */
+    @Test
+    void 매매_기록_엔드포인트가_문서화된다() throws Exception {
+        mockMvc().perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(PLAN_TRADE_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(PLAN_TRADE_OPERATION + ".responses.['422'].description").exists())
+                .andExpect(jsonPath(FILLS_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(FILLS_OPERATION + ".responses.['404'].description").exists())
+                .andExpect(jsonPath(CLOSURE_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(CLOSURE_OPERATION + ".responses.['404'].description").exists())
+                .andExpect(jsonPath(SUMMARY_OPERATION + ".summary").exists());
+    }
+
     @Test
     void 요청과_응답_스키마에_예제가_붙어_있다() throws Exception {
         mockMvc().perform(get("/v3/api-docs"))
@@ -92,6 +118,9 @@ class OpenApiSmokeTest {
                 .andExpect(jsonPath("$.components.schemas.MonteCarloRequest.example").exists())
                 .andExpect(jsonPath("$.components.schemas.MonteCarloResponse.example").exists())
                 .andExpect(jsonPath("$.components.schemas.EquityCurveRequest.example").exists())
-                .andExpect(jsonPath("$.components.schemas.EquityCurveResponse.example").exists());
+                .andExpect(jsonPath("$.components.schemas.EquityCurveResponse.example").exists())
+                .andExpect(jsonPath("$.components.schemas.TradePlanRequest.example").exists())
+                .andExpect(jsonPath("$.components.schemas.RecordFillsRequest.example").exists())
+                .andExpect(jsonPath("$.components.schemas.CloseTradeRequest.example").exists());
     }
 }

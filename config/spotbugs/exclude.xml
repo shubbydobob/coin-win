@@ -39,4 +39,19 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!--
+    같은 이유 — Phase 5 의 JPA 어댑터. EntityManager 는 Spring 이 주입하는 스레드 바인딩
+    프록시이고 JPAQueryFactory 는 그 프록시를 감싼 얇은 팩토리다. 둘 다 복사하라는 처방이
+    성립하지 않는다. 특히 EntityManager 는 복사본을 만드는 순간 트랜잭션 경계 밖의
+    영속성 컨텍스트가 생겨 저장이 조용히 반영되지 않는다.
+  -->
+  <Match>
+    <Class name="com.coinwin.journal.adapter.out.persistence.JpaTradeAdapter"/>
+    <Or>
+      <Field name="entityManager"/>
+      <Field name="queryFactory"/>
+    </Or>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

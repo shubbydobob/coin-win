@@ -69,6 +69,19 @@ class ArchitectureRulesViolationTest {
                 "LeakyService");
     }
 
+    /**
+     * 규칙 4 는 두 모듈 이름을 <b>손으로 적어</b> 열거한다. market 픽스처만 있으면 journal 쪽
+     * 항목에 오타가 나거나 통째로 빠져도 규칙이 계속 초록이다. 그래서 모듈마다 픽스처를 둔다.
+     */
+    @Test
+    @DisplayName("규칙 4 는 journal.application → journal.adapter 참조도 잡는다")
+    void 규칙4는_journal에서도_application이_adapter를_참조하는_것을_잡는다() {
+        assertRuleRejects(
+                ArchitectureRules.hexagonalApplicationDoesNotSeeAdapters("archfixture.r4j"),
+                "archfixture.r4j",
+                "LeakyJournalService");
+    }
+
     @Test
     @DisplayName("규칙 5 는 backtest → market.adapter 참조를 잡는다")
     void 규칙5는_backtest가_adapter를_참조하는_것을_잡는다() {
@@ -85,5 +98,18 @@ class ArchitectureRulesViolationTest {
                 ArchitectureRules.outboundAdaptersImplementPorts("archfixture.r6"),
                 "archfixture.r6",
                 "OrphanAdapter");
+    }
+
+    /**
+     * 규칙 6 의 패턴은 모듈 이름을 가리지 않으므로 journal 은 자동으로 검사 대상이 된다.
+     * 이 테스트가 증명하는 것은 <b>그 자동이 실제로 작동한다</b>는 사실이다.
+     */
+    @Test
+    @DisplayName("규칙 6 은 journal 의 고아 어댑터도 잡는다")
+    void 규칙6은_journal의_고아_어댑터도_잡는다() {
+        assertRuleRejects(
+                ArchitectureRules.outboundAdaptersImplementPorts("archfixture.r6j"),
+                "archfixture.r6j",
+                "OrphanTradeAdapter");
     }
 }

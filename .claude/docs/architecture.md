@@ -44,11 +44,13 @@ com.coinwin
 │   ├── domain/
 │   ├── application/
 │   │   ├── port/in/             # RecordTradeUseCase, QueryJournalUseCase
-│   │   ├── port/out/            # TradeRepositoryPort
-│   │   └── service/
+│   │   ├── port/out/            # LoadTradesPort, SaveTradePort
+│   │   └── service/             # TradeJournalService
 │   └── adapter/
-│       ├── in/web/
-│       └── out/{persistence,memory}/
+│       ├── in/web/              # TradeJournalController
+│       └── out/
+│           ├── persistence/     # JpaTradeAdapter (+ 엔티티·매퍼·QueryDSL 조건)
+│           └── memory/          # InMemoryTradeAdapter
 │
 ├── position/                    # 계층형
 │   ├── domain/ application/ api/
@@ -93,7 +95,7 @@ common              ← 모든 모듈 (역방향 금지)
 backtest            → indicator, position,
                       market.application.port.out, market.domain
 indicator           → market.domain
-journal             → position
+journal             → position, indicator.domain
 position.application → market.application.port.in, market.domain
 그 외 모듈 간 직접 참조 금지
 ```
@@ -111,6 +113,18 @@ position.application → market.application.port.in, market.domain
 `position/application`에서 `market`의 인바운드 포트를 소비한다. 근거는 `docs/adr/008`.
 아웃바운드가 아니라 인바운드를 쓰는 이유는, "구간표를 어디서 얻는가"가 `market`의 정책이기
 때문이다.
+
+**`journal → indicator.domain`** 은 `BandPosition` 하나 때문이다. 진입 시점에 가격이 구름과
+밴드의 어느 쪽에 있었는지를 기록하는데, 그 세 값은 Phase 4 에서 이미 확정돼 있다. `journal`에
+같은 뜻의 enum 을 또 두면 "경계는 구간에 포함된다"는 규칙이 한쪽만 바뀌는 순간 두 모듈이
+다른 답을 낸다. `common`으로 올리지 않은 이유는 `Candle`과 같다 — `common`이 반올림 정책을
+가진 값 객체 모음에서 공용 모델 전반으로 넓어진다. 근거는 `docs/adr/017`.
+**`journal`은 지표를 계산하지 않는다.** 계산기도 `IchimokuValue`도 참조하지 않고 판정 결과만
+적는다. 그 이상을 끌어오게 되면 이 의존을 다시 봐야 한다.
+
+**모듈 간 의존은 ArchUnit이 강제하지 않는다.** 아래 6개 규칙 중 어느 것도 모듈 경계를 보지
+않는다 — 규칙 3(순환 참조)이 최악의 경우만 막는다. 이 표는 문서와 리뷰가 지킨다. 규칙으로
+세우는 것은 `backtest`가 여러 모듈을 조합하는 Phase 6에서 다시 볼 문제다.
 
 ## ArchUnit 강제 규칙
 

@@ -59,6 +59,21 @@ public record Money(BigDecimal value) {
     }
 
     /**
+     * 두 금액의 합. 음수를 허용하므로 뺄셈과 대칭이다.
+     *
+     * <p>거래 비용({@code 수수료 + 펀딩비})과 집계의 손익 누계가 이 형태다. 펀딩비는 받는
+     * 쪽일 때 음수이므로, 부호를 따지지 않고 그대로 더하는 것이 맞다.
+     */
+    public Money plus(Money other) {
+        return Money.of(value.add(DomainValues.required(other, "금액").value()));
+    }
+
+    /** 손실인가. {@code compareTo(ZERO) < 0} 을 호출부마다 쓰면 0 의 취급이 갈린다. */
+    public boolean isNegative() {
+        return value.signum() < 0;
+    }
+
+    /**
      * 전체 금액 대비 이 금액의 비율. 최대낙폭이 {@code (고점 - 현재) / 고점} 이다.
      *
      * @throws InvalidValueException 전체가 0 이거나 이 금액이 음수인 경우

@@ -356,29 +356,134 @@ public record BollingerBands(int period, BigDecimal multiplier) {
 
 ## 매매 기록 (`journal/domain`)
 
+> Phase 5 구현 완료. 아래는 실제 코드와 일치한다.
+
 ```java
-public record TradeRecord(
-    TradeId id,
-    PositionPlan plan,
-    List<Fill> fills,
-    ExitReason exitReason,
-    Money realizedPnl,
-    MarketContext contextAtEntry,   // 진입 시점 지지·저항·지표 상태
-    Instant openedAt,
-    Instant closedAt
-) {
-    boolean followedPlan();
-    Money lossIfStopHonored();      // 반사실: 손절 지켰다면
-    Duration timeSincePreviousTrade(TradeRecord previous);
+public record TradeId(UUID value) { static TradeId random(); static TradeId of(String); }
+
+// 체결은 가격·수량·시각이다. 계획의 PlannedEntry(가격·비중)와 다른 타입이다
+public record Fill(Price price, Quantity quantity, Instant at) { Money notional(); }
+
+// 진입 체결 전체. 순서가 체결 순서이며 시간 역순은 거부한다
+public record ExecutedEntries(List<Fill> fills) {
+    int count();
+    Price averagePrice();            // 수량 가중 — EntryLadder 의 비중 가중과 다르다
+    Quantity totalQuantity();
+    Instant firstFilledAt();  Instant lastFilledAt();
 }
 
-public enum ExitReason {
-    PLANNED_STOP, PLANNED_TARGET, MANUAL_EARLY, HELD_PAST_STOP, LIQUIDATED
+public record Exit(Price price, Instant at) {}              // 전량 청산만 담는다
+public record TradeCosts(Money fees, Money funding) {       // funding 은 음수 가능
+    static TradeCosts none();  Money total();
+}
+public record TradeClosure(Exit exit, ExitReason reason, TradeCosts costs) {
+    boolean honorsPlan();
+}
+
+public enum ExitReason {                    // 계획 준수 판정을 이 enum 이 소유한다
+    PLANNED_STOP(true), PLANNED_TARGET(true),
+    MANUAL_EARLY(false), HELD_PAST_STOP(false), LIQUIDATED(false);
+    boolean honorsPlan();
+}
+
+public record MarketContext(Price priceAtEntry, BandPosition ichimokuPosition,
+                            BandPosition bollingerPosition, String rationale) {
+    boolean filtersAgree();
+}
+
+public sealed interface Trade permits PlannedTrade, OpenTrade, ClosedTrade {
+    TradeId id();  PositionPlan plan();  Instant plannedAt();
+}
+
+public record PlannedTrade(TradeId id, PositionPlan plan, Instant plannedAt) implements Trade {
+    OpenTrade fill(ExecutedEntries entries, MarketContext context);
+}
+
+public record OpenTrade(TradeId id, PositionPlan plan, ExecutedEntries entries,
+                        MarketContext context, Instant plannedAt) implements Trade {
+    Instant openedAt();  Price averageEntryPrice();  Quantity quantity();
+    boolean fullyFilled();
+    ClosedTrade close(TradeClosure closure);
+}
+
+public record ClosedTrade(TradeId id, PositionPlan plan, ExecutedEntries entries,
+                          MarketContext context, Instant plannedAt,
+                          TradeClosure closure) implements Trade {
+    Instant openedAt();  Instant closedAt();  Duration holdingPeriod();
+    boolean followedPlan();
+    Money grossPnl();  Money realizedPnl();
+    Money lossIfStopHonored();       // 반사실: 손절 지켰다면
+    Money costOfDeviation();         // 실제 - 반사실. 음수면 어긴 대가
+    boolean opensAfter(ClosedTrade previous);
+    Duration timeSincePreviousTrade(ClosedTrade previous);
+}
+
+// 조회 조건. 비어 있으면 전체. matches() 를 도메인이 소유한다
+public record TradeQuery(Optional<Instant> closedFrom, Optional<Instant> closedTo,
+                         Optional<Direction> direction, Optional<ExitReason> exitReason,
+                         Optional<Boolean> followedPlan) {
+    static TradeQuery all();
+    TradeQuery closedBetween(Instant, Instant);  TradeQuery withDirection(Direction);
+    TradeQuery withExitReason(ExitReason);       TradeQuery withFollowedPlan(Boolean);
+    boolean matches(ClosedTrade trade);          // 반열림 [from, to)
+}
+
+public record TradeTally(int trades, Money realizedPnl, int wins) {
+    Percentage winRate();  int losses();  boolean isEmpty();
+}
+public record TradeIntervals(int gaps, Duration shortest, Duration average, int overlaps) {}
+
+public record JournalSummary(TradeTally followed, TradeTally broken,
+                             Money lossIfEveryStopHonored, TradeIntervals intervals) {
+    static JournalSummary of(List<ClosedTrade> trades);   // ClosedTrade 만 받는다
+    int totalTrades();  Money totalRealizedPnl();
+    Percentage planAdherence();  Money costOfDeviation();
 }
 ```
 
 `followedPlan()`과 `lossIfStopHonored()`가 이 모듈의 핵심이다.
 **손익과 계획 준수 여부를 분리해서 집계할 수 있어야 한다.** 규칙을 지키고 진 거래와 규칙을 어기고 이긴 거래는 다른 데이터다.
+
+### 명세와 달라진 것 넷
+
+**단일 `TradeRecord` 가 아니라 sealed 3형제다.** 이 모듈은 계획 → 체결 → 청산 세 번을 쓴다.
+한 타입에 `Optional<Money> realizedPnl` 을 두면 미청산 거래를 걸러 내는 분기가 집계·조회·표시에
+흩어지고, 그중 한 곳에서 `orElse(ZERO)` 를 쓰는 순간 미청산 거래가 손익 0 인 거래로 집계에
+섞인다. `JournalSummary.of` 가 `List<ClosedTrade>` 만 받으므로 **필터를 빠뜨리면 컴파일이 안 된다.**
+
+**시각을 필드로 두지 않는다.** `openedAt` 은 `entries.firstFilledAt()` 이고 `closedAt` 은
+`closure.exit().at()` 이다. 평단·손익도 전부 파생값이다. 두 곳에 적힌 같은 사실은 갈라진다.
+
+**손익은 입력받지 않고 계산한다.** 받는 것은 재현할 수 없는 것(`TradeCosts`)뿐이다.
+`lossIfStopHonored()` 는 `grossPnl()` 과 **같은 공식**에 청산가 대신 계획 손절가를 넣고
+**수수료만** 뺀다 — 손절을 지켰다면 보유 기간이 짧아 펀딩비가 달랐을 것이고, 오래 들고 있어서
+낸 펀딩비는 반사실 쪽이 아니라 **어긴 대가의 일부**다. 그래서 반사실은 실제 청산가와 보유
+기간에 좌우되지 않는다.
+
+**`MarketContext` 의 지지·저항은 구조화하지 않았다.** 저항대의 코드 정의는 Phase 6 의 첫
+작업이므로 지금 스키마를 박으면 정의가 확정되는 순간 이미 쌓인 기록을 못 쓰게 된다.
+구조화한 것은 `BandPosition` 둘뿐이고 근거는 자유 텍스트(500자)다. 비워 두면 거부한다 —
+근거 없는 기록은 사후 분석에 쓸 수 없고, 그것이 이 모듈의 존재 이유다. 근거는 `docs/adr/017`.
+
+### 거래 간격은 겹치면 빼고 센다
+
+`timeSincePreviousTrade` 는 겹치는 두 거래에 대해 **예외를 던진다** — 답이 없는 질문에 0 을
+돌려주지 않는다. 반면 `TradeIntervals.over` 는 그 쌍을 빼고 `overlaps` 로 센다. 기록 하나가
+어긋났다는 이유로 나머지 수치까지 못 보게 되는 것이 더 나쁘기 때문이다. 두 곳이 같은 술어
+(`opensAfter`)를 쓰므로 경계 규칙은 하나다.
+
+### 포트와 어댑터
+
+```java
+SaveTradePort.save(Trade)                      // 세 상태 모두. 같은 식별자면 덮어쓴다
+LoadTradesPort.findById(TradeId)               // Optional<Trade>
+LoadTradesPort.findClosed(TradeQuery)          // List<ClosedTrade>, 진입 시각 오름차순
+LoadTradesPort.findActive()                    // 계획 + 열림
+```
+
+구현체는 `InMemoryTradeAdapter` 와 `JpaTradeAdapter` 둘이고 **하나의 계약 스위트
+(`TradeRepositoryContract`)를 둘 다 통과한다.** 그래서 애플리케이션 서비스 테스트를 DB 없이
+인메모리로 돌려도 된다. 저장은 JPA + QueryDSL 이며 근거는 `docs/adr/016`.
 
 ## 시장 (`market/domain`)
 

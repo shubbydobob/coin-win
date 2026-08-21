@@ -15,6 +15,19 @@ spring:
   flyway:
     enabled: false
 
+  # Phase 5 에서 JPA 가 들어오면서 접속 0회 전제가 한 번 더 위협받았다. Hibernate 는 기동할 때
+  # 방언을 알아내려고 JDBC 메타데이터를 읽는데 그것이 곧 접속이다. 방언을 직접 알려 주고
+  # 메타데이터 조회를 꺼서 DB 없이도 컨텍스트가 뜨게 한다. 통합 테스트는 이 값을 덮어쓴다.
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        boot:
+          allow_jdbc_metadata_access: false
+
 coinwin:
   market:
     binance:
