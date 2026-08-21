@@ -27,13 +27,21 @@ testcontainers = "1.21.4"
 
 # 컨테이너 이미지 태그도 BOM 이 모르므로 여기에 둔다. compose.yaml 과 통합 테스트가
 # 같은 이미지를 써야 "로컬에서 되는데 CI 에서 깨지는" 방언 차이가 생기지 않는다.
-postgresImage = "postgres:18-alpine"
+#
+# Phase 7 에서 postgres:18-alpine 을 떠났다. RAG 인덱스가 vector 확장을 요구하는데
+# 공식 이미지에는 없다. pgvector 이미지는 같은 pg18 위에 확장만 얹은 것이다.
+postgresImage = "pgvector/pgvector:pg18"
 
 # Phase 5 (매매 기록). 원본 com.querydsl 은 2024-11 이후 미유지 → io.github.openfeign.querydsl.
 # JPA / Hibernate 자체의 버전은 Spring Boot BOM 이 관리하므로 여기에 적지 않는다.
 querydsl = "7.6"
 
+# Phase 7 (Spring AI). 2.0 라인이 Boot 4.0/4.1 · Framework 7 용이다. 1.1.x 는 Boot 3.5 용이라
+# 이 프로젝트에서 쓸 수 없다. 개별 스타터 버전은 BOM 이 관리하므로 여기에 적지 않는다.
+springAi = "2.0.1"
+
 [libraries]
+spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "springAi" }
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 archunit-junit6 = { module = "com.tngtech.archunit:archunit-junit6", version.ref = "archunit" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }

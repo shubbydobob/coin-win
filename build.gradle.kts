@@ -60,6 +60,11 @@ dependencies {
     annotationProcessor("jakarta.annotation:jakarta.annotation-api")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 
+    // Phase 7 — Spring AI. 근거는 docs/adr/005 (범위)와 docs/spec/phase7-spring-ai.md (배선).
+    implementation(platform(libs.spring.ai.bom))
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
+    implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
+
     // 픽스처는 @Component 같은 최소 스텁만 필요하다.
     "archFixtureCompileOnly"("org.springframework:spring-context")
 
@@ -93,6 +98,11 @@ val integrationTag = "integration"
 // 기본 test 에서 걷어낸다. 근거는 docs/adr/015 — 외부 기준값은 사람이 한 번 대조한다.
 val crossCheckTag = "crosscheck"
 
+// AI 호출은 결정론적이지 않고, 네트워크와 키와 비용을 요구한다. 기본 test 는 스텁으로만
+// 돌고 실제 모델 대조는 사람이 돌린다. crossCheck 와 같은 이유, 같은 형태다.
+// 근거: docs/spec/phase7-spring-ai.md § 9.2
+val liveAiTag = "liveAi"
+
 tasks.withType<Test>().configureEach {
     testLogging {
         events("passed", "skipped", "failed")
@@ -105,7 +115,7 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.test {
-    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag) }
+    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag, liveAiTag) }
 }
 
 tasks.register<Test>("crossCheck") {
@@ -117,6 +127,17 @@ tasks.register<Test>("crossCheck") {
     // 출력을 보는 것이 목적이므로 -PshowTestOutput 없이도 항상 찍는다.
     testLogging { showStandardStreams = true }
     // 거래소 값이 매번 다르다. UP-TO-DATE 로 건너뛰면 대조할 표가 나오지 않는다.
+    outputs.upToDateWhen { false }
+}
+
+tasks.register<Test>("liveAi") {
+    group = "verification"
+    description = "실제 OpenAI 를 부른다. OPENAI_API_KEY 가 필요하고 비용이 든다."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(liveAiTag) }
+    testLogging { showStandardStreams = true }
+    // 모델 응답이 매번 다르다. UP-TO-DATE 로 건너뛰면 대조할 것이 나오지 않는다.
     outputs.upToDateWhen { false }
 }
 

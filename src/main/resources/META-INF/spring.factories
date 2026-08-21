@@ -1,0 +1,4 @@
+# 환경 후처리기는 자동 구성과 달리 .imports 파일이 아니라 여기에 등록한다.
+# Boot 4.1 의 spring.factories 키도 org.springframework.boot.EnvironmentPostProcessor 다.
+org.springframework.boot.EnvironmentPostProcessor=\
+com.coinwin.ai.config.SpringAiEnabledOnlyWithApiKey
