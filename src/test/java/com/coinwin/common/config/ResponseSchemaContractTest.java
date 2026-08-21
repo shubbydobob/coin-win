@@ -97,8 +97,19 @@ class ResponseSchemaContractTest {
                 .toList();
     }
 
-    /** 3.1 은 {@code type: [T, "null"]} 로 내지만 {@code $ref} 필드는 합성 스키마로 나온다. */
+    /**
+     * 소비자가 실제로 "null 이 올 수 있다" 로 읽는 모양인지 본다.
+     *
+     * <p>스칼라는 {@code type: [T, "null"]} 이면 된다. <b>{@code $ref} 는 그렇지 않다.</b>
+     * swagger-core 는 {@code nullable = true} 를 {@code $ref} 옆에 {@code "type": "null"} 형제로
+     * 붙이는데, 그것은 "null 이면서 동시에 T" 라는 뜻이라 openapi-typescript 가 그냥 무시하고
+     * {@code T} 를 낸다. 통과하는 것처럼 보이면서 타입이 거짓말을 하는 자리이므로 여기서
+     * <b>세지 않는다</b> — 합성({@code anyOf} / {@code oneOf})으로 표현돼야 한다.
+     */
     private static boolean acceptsNull(JsonNode property) {
+        if (!property.path("$ref").isMissingNode()) {
+            return anyAcceptsNull(property.path("anyOf")) || anyAcceptsNull(property.path("oneOf"));
+        }
         return hasNullType(property.path("type"))
                 || anyAcceptsNull(property.path("anyOf"))
                 || anyAcceptsNull(property.path("oneOf"));

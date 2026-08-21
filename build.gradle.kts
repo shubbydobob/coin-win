@@ -109,6 +109,11 @@ val crossCheckTag = "crosscheck"
 // 근거: docs/spec/phase7-spring-ai.md § 9.2
 val liveAiTag = "liveAi"
 
+// 스키마 덤프는 frontend/openapi.json 을 덮어쓴다. 기본 test 에서 함께 돌면 낡음 검사가
+// 자기가 방금 쓴 파일을 읽고 언제나 통과한다 — 게이트가 있는 것처럼 보이면서 아무것도
+// 지키지 않는다. 근거: docs/spec/phase8-frontend.md § 5.2
+val schemaTag = "schema"
+
 tasks.withType<Test>().configureEach {
     testLogging {
         events("passed", "skipped", "failed")
@@ -121,7 +126,17 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.test {
-    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag, liveAiTag) }
+    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag, liveAiTag, schemaTag) }
+}
+
+val openApiSchemaDump = tasks.register<Test>("openApiSchemaDump") {
+    description = "frontend/openapi.json 을 현재 자바 코드에서 다시 만든다. 낡음 검사와 같은 경로."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(schemaTag) }
+    testLogging { showStandardStreams = true }
+    // 재생성을 부른 사람은 파일이 실제로 다시 쓰이기를 기대한다.
+    outputs.upToDateWhen { false }
 }
 
 tasks.register<Test>("crossCheck") {
@@ -245,17 +260,38 @@ node {
     nodeProjectDir = frontendDir
 }
 
+// 재생성은 한 번에 끝나야 한다. 두 명령으로 나누면 두 번째를 잊고, 그러면 openapi.json 만
+// 새것이고 schema.d.ts 는 낡은 상태가 된다 — 이 Phase 가 없애려던 바로 그 상태다.
+// 흐름: 자바 DTO → /v3/api-docs → openapi.json → openapi-typescript → schema.d.ts
+val openApiTypes = tasks.register<NpmTask>("openApiTypes") {
+    description = "openapi.json 에서 src/api/schema.d.ts 를 다시 만든다."
+    dependsOn(tasks.npmInstall, openApiSchemaDump)
+    npmCommand = listOf("run", "gen:api")
+    outputs.upToDateWhen { false }
+}
+
+tasks.register("openApiSchema") {
+    group = "build"
+    description = "커밋된 OpenAPI 스키마와 타입을 현재 자바 코드에서 다시 만든다."
+    dependsOn(openApiSchemaDump, openApiTypes)
+}
+
 val frontendCheck = tasks.register<NpmTask>("frontendCheck") {
     group = "verification"
     description = "프론트엔드 게이트 — tsc --noEmit · eslint · vitest run"
     dependsOn(tasks.npmInstall)
     npmCommand = listOf("run", "check")
 
+    // 스키마가 낡았다면 타입 오류의 원인이 그것이므로, 그쪽이 먼저 실패하는 편이 읽기 쉽다.
+    // 낡음 검사는 기본 test 안에 있다(OpenApiSchemaFreshnessTest).
+    shouldRunAfter(tasks.test)
+
     // 입력이 그대로면 다시 돌지 않는다. 출력이 없는 검사이므로 표식 파일을 하나 남긴다 —
     // 그것이 없으면 Gradle 이 매번 처음부터 돌리거나, 반대로 영원히 UP-TO-DATE 로 본다.
     inputs.dir(frontendDir.dir("src"))
     inputs.dir(frontendDir.dir("test"))
     inputs.files(
+        frontendDir.file("openapi.json"),
         frontendDir.file("package.json"),
         frontendDir.file("package-lock.json"),
         frontendDir.file("tsconfig.json"),

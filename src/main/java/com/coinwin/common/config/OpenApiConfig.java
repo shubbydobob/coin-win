@@ -3,6 +3,9 @@ package com.coinwin.common.config;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.Schema;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +21,8 @@ public class OpenApiConfig {
 
     private static final String RESPONSE_SUFFIX = "Response";
 
+    private static final String NULL_TYPE = "null";
+
     @Bean
     public OpenAPI coinWinOpenApi() {
         return new OpenAPI().info(new Info()
@@ -30,7 +35,8 @@ public class OpenApiConfig {
     }
 
     /**
-     * 응답 스키마의 모든 프로퍼티를 {@code required} 로 세운다.
+     * 응답 스키마가 사실대로 말하게 한다 — 모든 프로퍼티를 {@code required} 로 세우고,
+     * {@code nullable} 이 소비자에게 읽히지 않는 모양으로 나온 것을 고친다.
      *
      * <p>springdoc 은 {@code required} 를 내지 않는다. 그대로 두면 소비자 쪽 생성 타입에서
      * 모든 필드가 optional 이 되고, <b>항상 있는 값과 진짜 null 인 값이 구별되지 않는다.</b>
@@ -50,15 +56,44 @@ public class OpenApiConfig {
      * <p>근거: {@code docs/spec/phase8-frontend.md} § 5.4
      */
     @Bean
-    public OpenApiCustomizer responseFieldsAreRequired() {
+    public OpenApiCustomizer honestResponseSchemas() {
         return openApi -> openApi.getComponents().getSchemas()
-                .forEach(OpenApiConfig::markPropertiesRequired);
+                .forEach(OpenApiConfig::makeHonest);
     }
 
-    private static void markPropertiesRequired(String name, Schema<?> schema) {
-        if (!name.endsWith(RESPONSE_SUFFIX) || schema.getProperties() == null) {
+    private static void makeHonest(String name, Schema<?> schema) {
+        Map<String, Schema> properties = schema.getProperties();
+        if (!name.endsWith(RESPONSE_SUFFIX) || properties == null) {
             return;
         }
-        schema.getProperties().keySet().forEach(schema::addRequiredItem);
+        properties.keySet().forEach(schema::addRequiredItem);
+        properties.replaceAll((field, property) -> composeNullableRef(property));
+    }
+
+    /**
+     * {@code $ref} 옆에 형제로 붙은 {@code "type": "null"} 을 {@code anyOf} 로 옮긴다.
+     *
+     * <p>swagger-core 는 {@code nullable = true} 를 스칼라에는 {@code type: [T, "null"]} 로
+     * 제대로 내지만, {@code $ref} 필드에는 형제 키로 붙인다. 그 모양은 <b>"null 이면서 동시에
+     * T"</b> 라는 뜻이라 코드 생성기가 무시하고 {@code T} 를 낸다 —
+     * <b>애너테이션은 붙어 있는데 타입은 여전히 거짓말을 하는</b> 자리다.
+     *
+     * <p>여기에 필드 목록을 두지 않는 것이 요점이다. "어느 필드가 null 인가" 는 DTO 의
+     * 애너테이션에만 있고, 이 메서드는 그것을 <b>어떻게 표기하는가</b>만 고친다. 목록을 두면
+     * 필드 지식이 두 곳에 생긴다.
+     */
+    private static Schema<?> composeNullableRef(Schema<?> property) {
+        if (property.get$ref() == null || !hasNullType(property)) {
+            return property;
+        }
+        Schema<?> target = new Schema<>().$ref(property.get$ref());
+        Schema<?> nothing = new Schema<>().types(Set.of(NULL_TYPE));
+        return new Schema<>()
+                .description(property.getDescription())
+                .anyOf(List.of(target, nothing));
+    }
+
+    private static boolean hasNullType(Schema<?> property) {
+        return property.getTypes() != null && property.getTypes().contains(NULL_TYPE);
     }
 }
