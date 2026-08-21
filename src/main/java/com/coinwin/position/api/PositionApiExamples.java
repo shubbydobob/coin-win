@@ -29,14 +29,14 @@ final class PositionApiExamples {
                   "filledEntries": 1,
                   "averageEntryPrice": 60000.00,
                   "quantity": 0.00266667,
-                  "liquidationPrice": 54240.00,
+                  "liquidationPrice": 54216.87,
                   "maxLoss": 10.67
                 },
                 {
                   "filledEntries": 2,
                   "averageEntryPrice": 59000.00,
                   "quantity": 0.00533333,
-                  "liquidationPrice": 53336.00,
+                  "liquidationPrice": 53313.25,
                   "maxLoss": 16.00
                 }
               ],

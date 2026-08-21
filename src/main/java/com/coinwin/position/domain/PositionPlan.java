@@ -3,7 +3,6 @@ package com.coinwin.position.domain;
 import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.common.domain.Money;
-import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import java.math.BigDecimal;
@@ -99,19 +98,14 @@ public record PositionPlan(
      * 대개 부분 체결 상태다.
      */
     public PositionAnalysis analyze(RiskBudget budget, MaintenanceMarginPolicy policy) {
-        Percentage mmr = DomainValues.required(policy, "유지증거금률 정책").rate();
+        DomainValues.required(policy, "유지증거금 정책");
         Quantity total = totalQuantity(budget);
         List<FillState> states = IntStream.rangeClosed(1, entries.size())
-                .mapToObj(filled -> FillState.of(this, filled, total, mmr))
+                .mapToObj(filled -> FillState.of(this, filled, total, policy))
                 .toList();
         states.forEach(this::assertStopIsReachedBeforeLiquidation);
         return new PositionAnalysis(states, requiredMargin(budget), budget.accountBalance(),
                 riskRewardRatio(), weakRiskReward());
-    }
-
-    /** {@code 1 / leverage}. 청산가 계수와 증거금이 같은 값을 쓰므로 한 곳에 둔다. */
-    BigDecimal inverseLeverage() {
-        return BigDecimal.ONE.divide(BigDecimal.valueOf(leverage), MathContext.DECIMAL64);
     }
 
     private void assertStopIsReachedBeforeLiquidation(FillState state) {

@@ -18,7 +18,7 @@ public record FillStateResponse(
         BigDecimal quantity,
 
         @Schema(description = "이 평단에서의 청산가. 분할 진입은 체결이 진행될수록 이 값이 움직인다",
-                example = "54240.00")
+                example = "54216.87")
         BigDecimal liquidationPrice,
 
         @Schema(description = "이 시점에 손절가에 닿았을 때의 손실 (USDT)", example = "10.67")

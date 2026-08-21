@@ -20,9 +20,9 @@ class StopBeyondLiquidationTest {
 
     @Test
     void 롱_1차_체결_상태의_청산가가_손절가보다_먼저_닿으면_거부된다() {
-        // 3배 → 계수 1 - 1/3 + 0.4% = 0.670666...
-        // 1차 평단 60,000 → 청산가 40,240 (손절 40,000 보다 먼저 닿는다)
-        // 전량 평단 59,000 → 청산가 39,569.33 (여기서만 보면 안전해 보인다)
+        // 3배 → 1차 평단 60,000: 60000×(1-1/3) / (1-0.004) = 40000/0.996 = 40160.64
+        //   손절 40,000 보다 먼저 닿는다.
+        // 전량 평단 59,000: 59000×(1-1/3) / 0.996 = 39491.30 → 여기서만 보면 안전해 보인다.
         PositionPlan plan = new PositionPlan(
                 Direction.LONG,
                 EntryLadder.of(PlannedEntry.of("60000", "50"), PlannedEntry.of("58000", "50")),
@@ -33,13 +33,13 @@ class StopBeyondLiquidationTest {
         assertThatThrownBy(() -> plan.analyze(BUDGET, MMR04))
                 .isInstanceOf(StopBeyondLiquidationException.class)
                 .hasMessageContaining("1건 체결")
-                .hasMessageContaining("40240.00");
+                .hasMessageContaining("40160.64");
     }
 
     @Test
     void 숏_1차_체결_상태의_청산가가_손절가보다_먼저_닿으면_거부된다() {
-        // 3배 → 계수 1 + 1/3 - 0.4% = 1.329333...
-        // 1차 평단 60,000 → 청산가 79,760 (손절 90,000 보다 먼저 닿는다)
+        // 3배 → 1차 평단 60,000: 60000×(1+1/3) / (1+0.004) = 80000/1.004 = 79681.27
+        //   손절 90,000 보다 먼저 닿는다.
         PositionPlan plan = new PositionPlan(
                 Direction.SHORT,
                 EntryLadder.of(PlannedEntry.of("60000", "50"), PlannedEntry.of("62000", "50")),
@@ -50,7 +50,7 @@ class StopBeyondLiquidationTest {
         assertThatThrownBy(() -> plan.analyze(BUDGET, MMR04))
                 .isInstanceOf(StopBeyondLiquidationException.class)
                 .hasMessageContaining("1건 체결")
-                .hasMessageContaining("79760.00");
+                .hasMessageContaining("79681.27");
     }
 
     @Test

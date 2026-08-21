@@ -1,0 +1,25 @@
+{
+  "symbol": "BTCUSDT",
+  "recordedAt": "2026-08-21",
+  "source": "Binance USDS-M Futures 레버리지·마진 구간표 (BTCUSDT 무기한)",
+  "note": [
+    "이 파일이 청산가의 유일한 외부 입력이다.",
+    "/fapi/v1/leverageBracket 은 공개 엔드포인트가 아니라 HMAC 서명을 요구한다(401).",
+    "scope.md 전제상 API 키를 쓰지 않으므로 자동 갱신 경로를 두지 않았다. 갱신은 이 파일 교체다.",
+    "maintenanceMarginRate 는 백분율이다. 바이낸스 원본은 비율(0.004)로 준다.",
+    "maintenanceAmount 는 구간 경계에서 유지증거금이 끊기지 않게 하는 이음매이며,",
+    "a(i+1) = a(i) + 이전상한 × (r(i+1) - r(i)) 를 만족한다. LeverageBrackets 가 그것을 검사한다."
+  ],
+  "brackets": [
+    { "tier": 1,  "notionalCap": "50000",      "maintenanceMarginRate": "0.4",  "maintenanceAmount": "0" },
+    { "tier": 2,  "notionalCap": "600000",     "maintenanceMarginRate": "0.5",  "maintenanceAmount": "50" },
+    { "tier": 3,  "notionalCap": "3000000",    "maintenanceMarginRate": "1.0",  "maintenanceAmount": "3050" },
+    { "tier": 4,  "notionalCap": "12000000",   "maintenanceMarginRate": "2.5",  "maintenanceAmount": "48050" },
+    { "tier": 5,  "notionalCap": "70000000",   "maintenanceMarginRate": "5.0",  "maintenanceAmount": "348050" },
+    { "tier": 6,  "notionalCap": "100000000",  "maintenanceMarginRate": "10.0", "maintenanceAmount": "3848050" },
+    { "tier": 7,  "notionalCap": "230000000",  "maintenanceMarginRate": "12.5", "maintenanceAmount": "6348050" },
+    { "tier": 8,  "notionalCap": "480000000",  "maintenanceMarginRate": "15.0", "maintenanceAmount": "12098050" },
+    { "tier": 9,  "notionalCap": "600000000",  "maintenanceMarginRate": "25.0", "maintenanceAmount": "60098050" },
+    { "tier": 10, "notionalCap": "1200000000", "maintenanceMarginRate": "50.0", "maintenanceAmount": "210098050" }
+  ]
+}
