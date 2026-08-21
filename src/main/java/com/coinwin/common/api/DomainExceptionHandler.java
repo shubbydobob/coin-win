@@ -3,6 +3,7 @@ package com.coinwin.common.api;
 import com.coinwin.common.domain.DomainException;
 import com.coinwin.common.domain.ExternalDataUnavailableException;
 import com.coinwin.common.domain.InvalidValueException;
+import com.coinwin.common.domain.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -30,6 +31,17 @@ public class DomainExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ProblemDetail onDomainRuleViolation(DomainException exception) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "도메인 규칙 위반", exception);
+    }
+
+    /**
+     * 요청은 흠이 없고 가리키는 대상만 없는 경우. 400 도 422 도 아니라 404 다.
+     *
+     * <p>없는 거래 식별자로 조회한 것을 422 로 돌려주면 "규칙을 어겼다" 는 뜻이 되어, 부르는
+     * 쪽이 재시도해야 할지 요청을 고쳐야 할지 판단할 수 없다.
+     */
+    @ExceptionHandler(NotFoundException.class)
+    public ProblemDetail onNotFound(NotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, "대상을 찾을 수 없다", exception);
     }
 
     /**
