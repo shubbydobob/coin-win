@@ -52,8 +52,13 @@ public record AverageTrueRange(int period) {
   값 몇 개를 눈으로 맞대는 것보다 강하다. 근거는 `docs/adr/015` 의 판단을 그대로 따른다.
 - golden test 기준값은 **닫힌 식이 나오는 합성 캔들**에서 얻는다. 진폭이 일정한 캔들열의 TR 은
   상수이고, 상수열의 RMA 는 초깃값과 같다 — 손으로 검산되는 값이 나온다.
-- 워밍업: 첫 TR 이 index 1(직전 종가 필요), 첫 ATR 이 index `period`. 모자라면
+- 워밍업: **첫 ATR 은 index `period − 1`** 이다. `period` 가 아니다 — `ta.tr(true)` 가 첫 봉에도
+  값을 내기 때문이다(직전 종가가 없으면 고가−저가). 캔들이 `period` 개 미만이면
   `InsufficientCandlesException`.
+
+  > 이 문서의 초안은 "첫 ATR 이 index `period`" 라고 적고 있었다. **Pine 원문 대조가 그것을
+  > 잡았다.** 한 칸 밀린 구현도 그럴듯한 숫자를 내므로 값을 눈으로 봐서는 알 수 없다.
+  > Phase 4 의 일목 변위와 정확히 같은 종류의 오류다.
 
 ---
 
