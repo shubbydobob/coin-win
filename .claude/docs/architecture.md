@@ -72,14 +72,21 @@ com.coinwin
 │
 └── ai/                          # ◆ 포트/어댑터
     ├── config/                  # SpringAiEnabledOnlyWithApiKey — 계층 밖. 기동 시점 스위치
-    ├── domain/                  # DraftedFields, PlanField, 파싱 실패 예외
+    ├── domain/                  # DraftedFields, Narrative, JournalAnswer, TradeDocument
     ├── application/
-    │   ├── port/in/             # DraftPlanUseCase
-    │   ├── port/out/            # ExtractPlanPort
-    │   └── service/             # PlanDraftService
+    │   ├── port/in/             # DraftPlanUseCase, SummarizeUseCase,
+    │   │                        #   AskJournalUseCase, IndexTradesUseCase
+    │   ├── port/out/            # ExtractPlanPort, WriteSummaryPort, AnswerQuestionPort,
+    │   │                        #   IndexTradesPort, SearchTradesPort
+    │   └── service/             # PlanDraftService, SummaryService,
+    │                            #   JournalQaService, TradeIndexingService
     └── adapter/
         ├── in/web/              # AiController
-        └── out/openai/          # OpenAiExtractPlanAdapter (+ 모델 응답 DTO)
+        ├── in/event/            # TradeClosedIndexListener — 청산 시 자동 색인
+        └── out/
+            ├── openai/          # 계획 추출 · 요약 · 답변 (+ 모델 응답 DTO)
+            ├── pgvector/        # PgVectorTradeIndexAdapter
+            └── memory/          # InMemoryTradeIndexAdapter
 ```
 
 ## 의존 방향
@@ -118,7 +125,9 @@ backtest            → indicator, position,
 indicator           → market.domain
 journal             → position, indicator.domain
 position.application → market.application.port.in, market.domain
-ai                  → position.domain, common
+ai                  → position.domain, indicator.domain,
+                      journal.application.port.in, journal.domain
+backtest.api        → ai.application.port.in, ai.domain
 그 외 모듈 간 직접 참조 금지
 ```
 
@@ -143,6 +152,24 @@ ai                  → position.domain, common
 가진 값 객체 모음에서 공용 모델 전반으로 넓어진다. 근거는 `docs/adr/017`.
 **`journal`은 지표를 계산하지 않는다.** 계산기도 `IchimokuValue`도 참조하지 않고 판정 결과만
 적는다. 그 이상을 끌어오게 되면 이 의존을 다시 봐야 한다.
+
+**`backtest.api → ai`, 그리고 `ai`는 `backtest`를 모른다.** 이 방향은 선택이 아니라 순환이
+강제한 것이다. 처음에는 `ai`가 백테스트를 돌려 결과를 요약하게 두려 했는데, 그러면
+백테스트 쪽이 요약을 부르는 순간 `ai ↔ backtest`가 되고 ArchUnit 규칙 3이 빌드를 세운다.
+그래서 `SummaryFacts`를 **백테스트와 무관한 "숫자 딸린 사실 묶음"**으로 정의하고 사실을
+만드는 일을 부르는 쪽에 남겼다. 제약이 더 나은 모양을 만들었다 — 요약이 백테스트 전용이
+아니게 됐고, 나중에 어느 모듈이든 자기 수치를 문장으로 바꿀 수 있다. 요약 엔드포인트가
+`/api/ai`가 아니라 `/api/backtests/narrative`인 것도 같은 이유다.
+
+**`journal`은 `ai`를 모른다.** 청산 시 자동 색인이 필요하지만 서비스가 색인 유스케이스를
+직접 부르면 또 순환이다. `journal.application`이 `TradeClosedEvent`를 발행하고 `ai`가
+듣는다 — 듣는 쪽만 발행하는 쪽을 안다. 듣는 이가 없어도 아무 일도 일어나지 않는 것이
+정상이다. **인덱스는 파생이고 진실의 원천은 언제나 매매 기록이다.**
+
+**`ai → journal`** 은 문서를 만들기 위해서다. `TradeDocument.over(List<ClosedTrade>)`가
+목록을 받는 이유가 이 절의 요점이다 — "직전 거래는 손실이었다"는 거래 하나만 봐서는 알 수
+없고 시간순 전체 위에서만 계산된다. `indicator.domain`은 `BandPosition` 하나 때문이며
+`journal`이 같은 이유로 갖는 의존과 같다(`docs/adr/017`).
 
 **`ai → position.domain`** 은 계획 초안이 곧 `PositionPlan` 이기 때문이다. 파싱 결과를 따로
 정의하면 "롱의 손절가는 최저 진입가보다 낮다" 같은 규칙이 두 곳에 생기고, 그러면 초안이

@@ -46,6 +46,10 @@ class OpenApiSmokeTest {
     /** 요약은 /api/ai 아래가 아니라 여기 있다. 모듈 순환을 피한 결과다. */
     private static final String NARRATIVE_OPERATION = "$.paths['/api/backtests/narrative'].post";
 
+    private static final String QUERY_OPERATION = "$.paths['/api/ai/journal-query'].post";
+
+    private static final String REINDEX_OPERATION = "$.paths['/api/ai/reindex'].post";
+
     @Autowired
     private WebApplicationContext context;
 
@@ -130,7 +134,10 @@ class OpenApiSmokeTest {
                         .exists())
                 .andExpect(jsonPath(NARRATIVE_OPERATION + ".summary").exists())
                 .andExpect(jsonPath(NARRATIVE_OPERATION + ".responses.['503'].description")
-                        .exists());
+                        .exists())
+                .andExpect(jsonPath(QUERY_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(QUERY_OPERATION + ".responses.['503'].description").exists())
+                .andExpect(jsonPath(REINDEX_OPERATION + ".summary").exists());
     }
 
     @Test

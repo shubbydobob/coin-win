@@ -26,6 +26,17 @@ final class AiApiExamples {
               "leverage": 10
             }""";
 
+    static final String JOURNAL_QUERY_REQUEST = """
+            {
+              "question": "손실 직후에 들어간 거래는 결과가 어땠나?",
+              "topK": 8
+            }""";
+
+    static final String REINDEX_RESPONSE = """
+            {
+              "indexed": 37
+            }""";
+
     private AiApiExamples() {
     }
 }

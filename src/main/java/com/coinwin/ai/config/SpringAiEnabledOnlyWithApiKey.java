@@ -60,7 +60,10 @@ public class SpringAiEnabledOnlyWithApiKey implements EnvironmentPostProcessor {
         if (!StringUtils.hasText(environment.getProperty(API_KEY))) {
             disabled.putAll(NEEDS_KEY);
         }
+        // addLast 다. 이 값들은 <b>기본값이지 강제가 아니다</b> — 명시적으로 켠 설정이 있으면
+        // 그쪽이 이긴다. addFirst 로 두면 통합 테스트가 가짜 임베딩 빈을 주고 벡터 스토어를
+        // 켜려 해도 켤 방법이 없다. 실제로 그렇게 막혔고, 그래서 바꿨다.
         environment.getPropertySources()
-                .addFirst(new MapPropertySource(PROPERTY_SOURCE, disabled));
+                .addLast(new MapPropertySource(PROPERTY_SOURCE, disabled));
     }
 }

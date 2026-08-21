@@ -51,6 +51,21 @@ class SpringAiEnabledOnlyWithApiKeyTest {
         assertThat(environment.getProperty("spring.ai.model.chat")).isEqualTo("none");
     }
 
+    /**
+     * 여기서 정하는 것은 <b>기본값</b>이다. 명시적으로 켠 설정이 있으면 그쪽이 이긴다 —
+     * 통합 테스트는 가짜 임베딩 빈을 주고 키 없이 벡터 스토어를 켠다.
+     */
+    @Test
+    void 명시적으로_켠_설정을_덮어쓰지_않는다() {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.vectorstore.type", "pgvector");
+
+        processor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty("spring.ai.vectorstore.type")).isEqualTo("pgvector");
+        assertThat(environment.getProperty("spring.ai.model.chat")).isEqualTo("none");
+    }
+
     @Test
     void 키가_있으면_채팅과_임베딩과_벡터스토어를_켠_채로_둔다() {
         MockEnvironment environment = new MockEnvironment()

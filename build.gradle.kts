@@ -48,7 +48,11 @@ dependencies {
 
     // Phase 3 — 캔들 저장. Hibernate 가 아니라 JdbcClient 를 쓰는 근거는 docs/adr/011.
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
-    implementation("org.flywaydb:flyway-core")
+    // flyway-core 만으로는 마이그레이션이 돌지 않는다. Boot 4 는 자동 구성을 기술별 모듈로
+    // 쪼갰고 배선은 스타터에만 들어 있다 — 라이브러리가 있어도 스프링이 부르지 않는다.
+    // Phase 7 의 통합 테스트가 이것을 잡았다. 그전까지는 통합 테스트가 Flyway 를 손으로
+    // 돌려서(Flyway.configure()...migrate()) 앱 기동 경로가 한 번도 검증되지 않았다.
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 

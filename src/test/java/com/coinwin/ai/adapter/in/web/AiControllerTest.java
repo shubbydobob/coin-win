@@ -5,14 +5,25 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.coinwin.ai.adapter.out.memory.InMemoryTradeIndexAdapter;
+import com.coinwin.ai.application.port.out.AnswerQuestionPort;
 import com.coinwin.ai.application.port.out.ExtractPlanPort;
+import com.coinwin.ai.application.service.JournalQaService;
 import com.coinwin.ai.application.service.PlanDraftService;
+import com.coinwin.ai.application.service.TradeIndexingService;
 import com.coinwin.ai.domain.DraftedEntry;
 import com.coinwin.ai.domain.DraftedFields;
+import com.coinwin.ai.domain.TradeDocument;
 import com.coinwin.common.api.DomainExceptionHandler;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
+import com.coinwin.journal.JournalFixtures;
+import com.coinwin.journal.adapter.out.memory.InMemoryTradeAdapter;
+import com.coinwin.journal.application.port.in.QueryJournalUseCase;
+import com.coinwin.journal.application.service.TradeJournalService;
+import com.coinwin.journal.domain.ClosedTrade;
 import com.coinwin.position.domain.Direction;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -30,12 +41,34 @@ class AiControllerTest {
 
     private static final String DRAFT = "/api/ai/plan-draft";
 
+    private static final String QUERY = "/api/ai/journal-query";
+
+    private static final String REINDEX = "/api/ai/reindex";
+
+    private static final String QUESTION = """
+            {"question": "계획을 지킨 거래는 결과가 어땠나?"}""";
+
+    /** 부르면 실패하는 스텁. 이 테스트가 모델을 부르지 않는다는 뜻이다. */
+    private static final AnswerQuestionPort NOT_ASKED = (question, evidence) -> {
+        throw new AssertionError("모델을 불렀다");
+    };
+
     private static final String REQUEST = """
             {"text": "6만2천에 절반, 6만에 절반 롱. 손절 5만8천, 익절 6만8천, 10배"}""";
 
     private static MockMvc mockMvcFor(Optional<ExtractPlanPort> port) {
+        return mockMvcFor(port, new InMemoryTradeIndexAdapter(), NOT_ASKED);
+    }
+
+    /** 계획 파싱·질의·색인 셋을 한 컨트롤러가 들고 있으므로 조립도 한 자리에서 한다. */
+    private static MockMvc mockMvcFor(Optional<ExtractPlanPort> extractPlan,
+            InMemoryTradeIndexAdapter index, AnswerQuestionPort answer) {
+        AiController controller = new AiController(
+                new PlanDraftService(extractPlan),
+                new JournalQaService(Optional.of(index), Optional.of(answer)),
+                new TradeIndexingService(journalWith(List.of()), Optional.of(index)));
         return MockMvcBuilders
-                .standaloneSetup(new AiController(new PlanDraftService(port)))
+                .standaloneSetup(controller)
                 .setControllerAdvice(new DomainExceptionHandler())
                 .build();
     }
@@ -106,5 +139,86 @@ class AiControllerTest {
                 .perform(post(DRAFT).contentType(MediaType.APPLICATION_JSON).content(REQUEST))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.detail", containsString("OPENAI_API_KEY")));
+    }
+
+    @Test
+    void 답변은_근거_거래와_함께_내려온다() throws Exception {
+        InMemoryTradeIndexAdapter index = indexOf(JournalFixtures.closedAtTarget());
+        AnswerQuestionPort answer = (question, evidence) -> new AnswerQuestionPort.Answer(
+                "계획을 지킨 거래 한 건이 있다.",
+                List.of(evidence.getFirst().tradeId()));
+
+        mockMvcFor(Optional.empty(), index, answer)
+                .perform(post(QUERY).contentType(MediaType.APPLICATION_JSON).content(QUESTION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer").value("계획을 지킨 거래 한 건이 있다."))
+                .andExpect(jsonPath("$.citedTradeIds").isNotEmpty())
+                .andExpect(jsonPath("$.retrieved[0].tradeId").isNotEmpty())
+                .andExpect(jsonPath("$.retrieved[0].summary").isNotEmpty());
+    }
+
+    /** 검색되지 않은 거래를 인용한 답은 나가지 못한다. 사용자가 고칠 것이 없으므로 503 이다. */
+    @Test
+    void 검색되지_않은_거래를_인용한_답은_503이다() throws Exception {
+        InMemoryTradeIndexAdapter index = indexOf(JournalFixtures.closedAtTarget());
+        AnswerQuestionPort answer = (question, evidence) ->
+                new AnswerQuestionPort.Answer("없는 거래 이야기.", List.of("지어낸-식별자"));
+
+        mockMvcFor(Optional.empty(), index, answer)
+                .perform(post(QUERY).contentType(MediaType.APPLICATION_JSON).content(QUESTION))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail", containsString("지어낸-식별자")));
+    }
+
+    /** 찾은 것이 없으면 모델을 부르지 않는다. 스텁이 불리면 그 자리에서 실패한다. */
+    @Test
+    void 검색_결과가_없으면_모델을_부르지_않는다() throws Exception {
+        AnswerQuestionPort neverCalled = (question, evidence) -> {
+            throw new AssertionError("모델을 불렀다");
+        };
+
+        mockMvcFor(Optional.empty(), new InMemoryTradeIndexAdapter(), neverCalled)
+                .perform(post(QUERY).contentType(MediaType.APPLICATION_JSON).content(QUESTION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer", containsString("기록이 없다")))
+                .andExpect(jsonPath("$.citedTradeIds").isEmpty());
+    }
+
+    @Test
+    void 빈_질문은_400이다() throws Exception {
+        mockMvcFor(Optional.empty())
+                .perform(post(QUERY).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question": "  "}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 근거_거래_수가_범위_밖이면_400이다() throws Exception {
+        mockMvcFor(Optional.empty())
+                .perform(post(QUERY).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question": "지난 거래는?", "topK": 500}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 재색인은_만들어진_문서_수를_돌려준다() throws Exception {
+        mockMvcFor(Optional.empty())
+                .perform(post(REINDEX))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.indexed").value(0));
+    }
+
+    private static InMemoryTradeIndexAdapter indexOf(ClosedTrade... trades) {
+        InMemoryTradeIndexAdapter index = new InMemoryTradeIndexAdapter();
+        index.save(TradeDocument.over(List.of(trades)));
+        return index;
+    }
+
+    private static QueryJournalUseCase journalWith(List<ClosedTrade> trades) {
+        InMemoryTradeAdapter store = new InMemoryTradeAdapter();
+        trades.forEach(store::save);
+        return new TradeJournalService(store, store, Clock.systemUTC(), event -> { });
     }
 }
