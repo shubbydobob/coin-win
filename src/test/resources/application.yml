@@ -1,0 +1,29 @@
+# 기본 `test` 태스크는 DB 없이 돈다. 이 파일이 그것을 보장한다.
+#
+# 왜 datasource.url 이 여기 있는가: PostgreSQL 드라이버가 클래스패스에 있는데 URL 이 없으면
+# Boot 는 DataSource 빈 생성 자체에서 실패한다("Failed to determine a suitable driver class").
+# URL 만 주고 아래 두 가지로 실제 접속을 0회로 만든다.
+#
+#   1. flyway.enabled=false — 켜져 있으면 컨텍스트 기동 시점에 곧바로 접속한다.
+#   2. candle-store=memory — JdbcClient 를 쓰는 빈이 컨텍스트에 아예 올라오지 않는다.
+#
+# 그래서 Hikari 풀은 만들어지되 커넥션을 한 번도 열지 않는다. 통합 테스트는 이 세 값을
+# Testcontainers 쪽에서 전부 덮어쓴다.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/coinwin
+    username: coinwin
+    password: coinwin
+  flyway:
+    enabled: false
+
+coinwin:
+  market:
+    candle-store: memory
+    binance:
+      # 테스트가 실수로 진짜 바이낸스를 때리면 곧바로 드러나야 한다.
+      # 계약 테스트는 페이크 서버 주소로 이 값을 덮어쓴다.
+      base-url: http://localhost:1
+      max-candles-per-request: 1500
+      connect-timeout: 1s
+      read-timeout: 2s

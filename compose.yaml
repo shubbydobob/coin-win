@@ -1,0 +1,25 @@
+# 로컬 개발용 PostgreSQL. `docker compose up -d db`
+#
+# 통합 테스트는 이 컨테이너를 쓰지 않는다 — Testcontainers 가 자기 컨테이너를 띄운다.
+# 그래도 이미지 태그는 gradle/libs.versions.toml 의 postgresImage 와 같아야 한다.
+# 두 곳이 갈리면 로컬에서 통과한 SQL 이 통합 테스트에서 방언 차이로 깨진다.
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: coinwin-db
+    environment:
+      POSTGRES_DB: coinwin
+      POSTGRES_USER: coinwin
+      POSTGRES_PASSWORD: coinwin
+    ports:
+      - "5432:5432"
+    volumes:
+      - coinwin-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coinwin -d coinwin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  coinwin-db-data:

@@ -2,8 +2,17 @@ spring:
   application:
     name: coinwin
 
-# Phase 3 까지 DB 를 쓰지 않는다. datasource 설정 없음.
-# 근거: .claude/docs/roadmap.md Phase 1 "DB 없음. 순수 계산만."
+  # Phase 3 부터 캔들을 저장한다. 로컬 DB 는 `docker compose up -d db`.
+  # 자격 증명을 환경변수로 덮어쓸 수 있게 두되 기본값은 compose.yaml 과 맞춘다.
+  datasource:
+    url: ${COINWIN_DB_URL:jdbc:postgresql://localhost:5432/coinwin}
+    username: ${COINWIN_DB_USER:coinwin}
+    password: ${COINWIN_DB_PASSWORD:coinwin}
+
+  # 스키마는 Flyway 만 만든다. Hibernate 를 쓰지 않으므로 ddl-auto 라는 우회로 자체가 없다.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 springdoc:
   api-docs:
@@ -11,3 +20,17 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: alpha
+
+coinwin:
+  market:
+    # 캔들 저장소 구현 선택. postgres | memory
+    # 어댑터가 스스로 @ConditionalOnProperty 로 붙고 떨어진다. application 층은 이 설정을
+    # 알지 못한다 (ArchUnit 규칙 4).
+    candle-store: postgres
+    binance:
+      # 공개 엔드포인트만 쓴다. API 키가 필요 없다. 근거: .claude/docs/scope.md
+      base-url: ${COINWIN_BINANCE_URL:https://fapi.binance.com}
+      # 바이낸스 klines 는 1회 최대 1500개를 준다. 이보다 크게 요청하면 조용히 잘린다.
+      max-candles-per-request: 1500
+      connect-timeout: 3s
+      read-timeout: 10s

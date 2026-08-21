@@ -46,11 +46,21 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation(libs.springdoc.openapi.webmvc)
 
+    // Phase 3 — 캔들 저장. Hibernate 가 아니라 JdbcClient 를 쓰는 근거는 docs/adr/011.
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
+    runtimeOnly("org.postgresql:postgresql")
+
     // 픽스처는 @Component 같은 최소 스텁만 필요하다.
     "archFixtureCompileOnly"("org.springframework:spring-context")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation(libs.archunit.junit6)
+
+    // H2 금지(testing.md). 통합 테스트는 실제 PostgreSQL 을 띄운다.
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation(libs.testcontainers.postgresql)
 
     // Gradle 9 + JUnit 6 조합에서 명시하지 않으면 "Failed to load JUnit Platform" 으로 깨진다.
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -61,14 +71,38 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf("-Xlint:all", "-parameters"))
 }
 
+// ---------------------------------------------------------------------------
+// 테스트 태스크
+//
+// 통합 테스트는 Docker 가 필요하므로 기본 `test` 에서 태그로 걷어낸다. 근거는
+// .claude/docs/testing.md — "태그로 분리해 기본 test 에서 제외, 별도 실행".
+// 소스셋을 나누지 않고 태그만 쓰는 이유는 LoadCandlesPort 계약 스위트 하나를 세 어댑터가
+// 공유하기 때문이다. 소스셋이 갈리면 그 공유가 깨진다.
+// ---------------------------------------------------------------------------
+val integrationTag = "integration"
+
 tasks.withType<Test>().configureEach {
-    useJUnitPlatform()
     testLogging {
         events("passed", "skipped", "failed")
         // -PshowTestOutput 으로 테스트 표준출력을 켠다.
         // ArchUnit 위반 메시지 원문을 증거로 확인할 때 쓴다.
         showStandardStreams = providers.gradleProperty("showTestOutput").isPresent
     }
+    // compose.yaml 과 Testcontainers 가 같은 이미지를 쓰게 한다. 출처는 libs.versions.toml.
+    systemProperty("coinwin.postgres.image", libs.versions.postgresImage.get())
+}
+
+tasks.test {
+    useJUnitPlatform { excludeTags(integrationTag) }
+}
+
+tasks.register<Test>("integrationTest") {
+    group = "verification"
+    description = "Testcontainers 로 실제 PostgreSQL 을 띄우는 통합 테스트. Docker 가 필요하다."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(integrationTag) }
+    shouldRunAfter(tasks.test)
 }
 
 // ---------------------------------------------------------------------------
