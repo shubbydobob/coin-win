@@ -27,8 +27,9 @@ import com.tngtech.archunit.library.Architectures;
  *
  * <ul>
  *   <li>규칙 1·3 — Phase 0 에서 제거 완료 ({@code common.domain} / {@code common.config} 존재)
- *   <li>규칙 4·6 — Phase 3 에서 제거 ({@code market.application}, {@code market.adapter.out} 생성 시)
- *   <li>규칙 5 — Phase 6 에서 제거 ({@code backtest} 생성 시)
+ *   <li>규칙 4·6 — <b>Phase 3 에서 제거 완료</b> ({@code market.application} 과
+ *       {@code market.adapter.out} 의 어댑터 다섯이 실제로 검사 대상이 됐다)
+ *   <li>규칙 5 — Phase 6 에서 제거 ({@code backtest} 생성 시). <b>마지막 플래그다.</b>
  * </ul>
  *
  * @see ArchitectureRulesTest 정상 코드가 규칙을 지키는지
@@ -106,8 +107,7 @@ public final class ArchitectureRules {
                 .should().dependOnClassesThat().resideInAnyPackage(
                         root + ".market.adapter..",
                         root + ".journal.adapter..")
-                .as("규칙 4: market / journal 의 application 은 adapter 를 알지 못한다")
-                .allowEmptyShould(true);
+                .as("규칙 4: market / journal 의 application 은 adapter 를 알지 못한다");
     }
 
     /** 규칙 5 — backtest 는 market 의 포트만 소비하고 어댑터를 직접 참조하지 않는다. */
@@ -127,8 +127,7 @@ public final class ArchitectureRules {
                 .and().areNotInterfaces()
                 .and().areNotMemberClasses()
                 .should(implementAnOutboundPort())
-                .as("규칙 6: adapter.out 구현체는 application.port.out 인터페이스를 구현한다")
-                .allowEmptyShould(true);
+                .as("규칙 6: adapter.out 구현체는 application.port.out 인터페이스를 구현한다");
     }
 
     private static ArchCondition<JavaClass> implementAnOutboundPort() {

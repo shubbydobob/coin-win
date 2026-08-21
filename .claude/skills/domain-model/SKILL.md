@@ -154,17 +154,36 @@ margin     = notional / leverage
 
 ### 청산가
 
-초기 구현은 유지증거금률(MMR) 0.4% 고정 근사치.
-`MaintenanceMarginPolicy` 인터페이스로 추상화하고 Phase 3에서 `leverageBracket` 기반 구현체로 교체. 근거는 `docs/adr/008`.
+> Phase 3 에서 근사식을 버리고 거래소 정확식으로 교체했다. 근거는 `docs/adr/012`.
 
 ```
-LONG:  liq = entry × (1 - 1/leverage + MMR)
-SHORT: liq = entry × (1 + 1/leverage - MMR)
+LONG :  liq = [entry × (1 - 1/leverage) - deduction/qty] / (1 - MMR)
+SHORT:  liq = [entry × (1 + 1/leverage) + deduction/qty] / (1 + MMR)
 ```
+
+**나눗셈인 이유**는 유지증거금이 진입 명목가가 아니라 **청산가 기준 명목가**(`qty × P × MMR`)로 계산되기 때문이다. 미지수가 양변에 있어 정리하면 나눗셈이 남는다. Phase 1 의 근사식 `entry × (1 - 1/lev + MMR)` 은 그것을 곱셈 한 번으로 뭉갠 것이었고, EP 60,000 / 10배에서 23.13 USDT (0.043%) 어긋났다.
 
 분할 진입 시 `entry`는 해당 시점의 가중 평단가.
 
-**MMR 은 테스트가 주입한다.** 고정 근사치 0.4% 를 청산가 테스트에 하드코딩하지 않는다. Phase 3 에서 구간별 MMR 로 바뀌는 순간 테스트가 한꺼번에 깨지고, 깨진 이유가 "공식이 틀렸다" 인지 "MMR 입력이 달라졌다" 인지 구분되지 않는다.
+```java
+// position/domain
+public record MaintenanceMargin(Percentage rate, Money deduction) {}
+
+public interface MaintenanceMarginPolicy {
+    MaintenanceMargin requirementFor(Money notional);   // 인자가 명목가인 이유: 구간별 MMR
+}
+
+// 청산가는 이 넷과 유지증거금 규칙만으로 결정된다
+public record PositionExposure(
+        Direction direction, Price averageEntryPrice, Quantity quantity, int leverage) {
+    Money notional();
+    Price liquidationPrice(MaintenanceMargin margin);
+}
+```
+
+`deduction`(유지증거금 공제액)은 구간 경계에서 유지증거금이 끊기지 않게 하는 이음매다. 구간 선택은 **진입 명목가**로 한다 — 거래소는 청산가 기준 명목가로 고르므로 경계 근처에서 미세하게 갈릴 수 있고, 그 한계를 ADR 012 에 적어 두었다.
+
+**MMR 은 테스트가 주입한다.** 도메인 테스트는 `FixedMaintenanceMarginPolicy` 로 값을 직접 넣는다. 구간표를 끌고 들어오면 공식이 틀렸는지 구간 선택이 틀렸는지 구분되지 않는다. 조립 전체(스냅샷 → 어댑터 → 서비스 → 정책 → 공식)는 `LiquidationAgreesWithExchangeTest` 가 따로 검사한다.
 
 ### `BigDecimal` 노출
 
@@ -251,10 +270,11 @@ public record ProjectionDistribution(List<ProjectionOutcome> outcomes, Money ini
 
 ## 지표 (`indicator/domain`)
 
-```java
-public record Candle(Instant openTime, Price open, Price high,
-                     Price low, Price close, BigDecimal volume) {}
+> `Candle` 은 `indicator` 가 아니라 **`market/domain`** 에 있다. `market` 이 생산하고
+> `indicator`·`backtest` 가 소비하는 공통 어휘이며, `indicator` 에 두면 `market → indicator`
+> 라는 더 나쁜 방향이 생긴다. 근거는 `docs/adr/013`.
 
+```java
 public record IchimokuValue(
     Price conversionLine,   // 전환선 9
     Price baseLine,         // 기준선 26
@@ -302,14 +322,62 @@ public enum ExitReason {
 
 ## 시장 (`market/domain`)
 
-바이낸스 공개 엔드포인트만 사용. API 키 불필요.
+> Phase 3 구현 완료. 아래는 실제 코드와 일치한다.
 
-| 용도 | 엔드포인트 |
-|---|---|
-| 캔들 | `/fapi/v1/klines` |
-| 펀딩비 | `/fapi/v1/premiumIndex` |
-| 미결제약정 | `/fapi/v1/openInterest`, `/futures/data/openInterestHist` |
-| 롱숏 비율 | `/futures/data/globalLongShortAccountRatio` |
-| 레버리지 구간 | `/fapi/v1/leverageBracket` |
+```java
+public record Symbol(String value)                  // 대문자 영숫자. 저장 키의 일부
+public enum CandleInterval { ONE_MINUTE("1m", …), … }  // code() 는 질의 파라미터이자 저장 키
+public record TimeRange(Instant from, Instant to)   // 반열림 [from, to)
+public record CandleQuery(Symbol symbol, CandleInterval interval, TimeRange range)
 
-Rate limit, 캐싱, 재시도는 `adapter/out/binance`에 격리. 도메인은 HTTP를 모른다.
+public record Candle(Instant openTime, Price open, Price high,
+                     Price low, Price close, Quantity volume) {}
+
+// 시간 오름차순 + 같은 시각 1회. 정렬·중복 제거를 하지 않고 거부한다
+public record CandleSeries(List<Candle> candles) {
+    CandleSeries within(TimeRange range);
+    CandleSeries merge(CandleSeries other);   // 겹치면 인자 쪽이 이긴다 (거래소가 정정해 준다)
+}
+
+public record FundingRate(BigDecimal value)   // 백분율, 스케일 6, 음수 허용
+public record MarketMetrics(Symbol symbol, Instant at, FundingRate fundingRate,
+                            Quantity openInterest, BigDecimal longShortRatio) {}
+
+public record LeverageBracket(int tier, Money notionalCap,
+                              Percentage maintenanceMarginRate, Money maintenanceAmount) {}
+public record LeverageBrackets(Symbol symbol, List<LeverageBracket> brackets) {
+    LeverageBracket forNotional(Money notional);   // 상한 포함. 넘으면 예외
+}
+```
+
+`Candle.volume` 이 `BigDecimal` 이 아니라 `Quantity` 인 이유는 klines 의 volume 이 기초자산(BTC) 수량이기 때문이다. 스케일 8 이 정확히 맞는다.
+
+`FundingRate` 가 `Percentage` 가 아닌 이유는 **음수가 정상값**이기 때문이다. 숏이 우세하면 숏이 롱에게 낸다. `Percentage` 는 음수를 금지하고, 부호를 잃으면 "누가 누구에게 내는가" 가 사라진다.
+
+`LeverageBrackets` 는 생성 시점에 **구간 경계에서 유지증거금이 연속인지** 검사한다: `a(i+1) = a(i) + C × (r(i+1) - r(i))`. 이 표가 조용히 틀리면 청산가가 조용히 틀린다.
+
+### 엔드포인트
+
+| 용도 | 엔드포인트 | 키 |
+|---|---|---|
+| 캔들 | `/fapi/v1/klines` | 불필요 |
+| 펀딩비 | `/fapi/v1/premiumIndex` | 불필요 |
+| 미결제약정 | `/fapi/v1/openInterest` | 불필요 |
+| 롱숏 비율 | `/futures/data/globalLongShortAccountRatio` | 불필요 |
+| 레버리지 구간 | ~~`/fapi/v1/leverageBracket`~~ | **HMAC 서명 필요 (401)** |
+
+**`leverageBracket` 은 공개 엔드포인트가 아니다.** 서명 없이 부르면
+`{"code":-2014,"msg":"API-key format invalid."}` 가 돌아온다. `scope.md` 전제상 API 키를 쓰지
+않으므로 구간표는 커밋된 스냅샷(`resources/market/btcusdt-leverage-bracket.json`)에서 읽고,
+갱신은 파일 교체다. 손상되면 위 연속성 검사가 잡는다.
+
+### 캔들 조회와 수집은 분리한다
+
+```java
+LoadMarketDataUseCase.candles(query)   // 저장된 것만 읽는다. 거래소를 때리지 않는다
+SyncMarketDataUseCase.sync(query)      // 거래소에서 받아 증분 저장. 새로 저장된 수를 돌려준다
+```
+
+조회가 매번 거래소를 때리면 같은 질의가 같은 답을 내지 않아 Phase 6 백테스트의 "동일 파라미터 재실행 시 결과 완전 동일" 이 그 자리에서 무너진다. 네트워크가 끊겼을 때 이미 저장해 둔 것마저 못 읽는 문제도 있다.
+
+`LoadCandlesPort` 구현체는 셋이고 **하나의 계약 스위트를 셋 모두 통과**한다. Rate limit, 페이지 이어받기, 구간 경계 변환(바이낸스 `endTime` 은 포함 경계라 1ms 를 뺀다)은 `adapter/out/binance` 에 격리. 도메인은 HTTP 를 모른다.
