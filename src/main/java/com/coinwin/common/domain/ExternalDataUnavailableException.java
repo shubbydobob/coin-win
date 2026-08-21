@@ -18,4 +18,12 @@ public class ExternalDataUnavailableException extends DomainException {
         super(message);
         initCause(cause);
     }
+
+    /**
+     * 원인이 될 예외 자체가 없는 경우. Phase 7 에서 필요해졌다 — 키가 없어 AI 어댑터가 아예
+     * 없는 것은 무엇이 실패한 것이 아니라 <b>부를 것이 없는</b> 상태다.
+     */
+    public ExternalDataUnavailableException(String message) {
+        super(message);
+    }
 }

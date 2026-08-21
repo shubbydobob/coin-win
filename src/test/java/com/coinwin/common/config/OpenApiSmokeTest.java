@@ -41,6 +41,8 @@ class OpenApiSmokeTest {
 
     private static final String SUMMARY_OPERATION = "$.paths['/api/trades/summary'].get";
 
+    private static final String PLAN_DRAFT_OPERATION = "$.paths['/api/ai/plan-draft'].post";
+
     @Autowired
     private WebApplicationContext context;
 
@@ -107,6 +109,22 @@ class OpenApiSmokeTest {
                 .andExpect(jsonPath(CLOSURE_OPERATION + ".summary").exists())
                 .andExpect(jsonPath(CLOSURE_OPERATION + ".responses.['404'].description").exists())
                 .andExpect(jsonPath(SUMMARY_OPERATION + ".summary").exists());
+    }
+
+    /**
+     * Phase 7 에서 AI 엔드포인트가 붙었다. 이 테스트 환경에는 {@code OPENAI_API_KEY} 가 없으므로
+     * <b>어댑터 빈이 없는 상태로</b> 문서가 나오는지까지 여기서 확인된다 — 키가 없을 때
+     * 엔드포인트가 사라지는 것이 아니라 503 을 내야 한다는 결정이 실제로 성립한다는 뜻이다.
+     */
+    @Test
+    void AI_엔드포인트가_키_없이도_문서화된다() throws Exception {
+        mockMvc().perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(PLAN_DRAFT_OPERATION + ".summary").exists())
+                .andExpect(jsonPath(PLAN_DRAFT_OPERATION + ".responses.['422'].description")
+                        .exists())
+                .andExpect(jsonPath(PLAN_DRAFT_OPERATION + ".responses.['503'].description")
+                        .exists());
     }
 
     @Test

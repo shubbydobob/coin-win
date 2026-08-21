@@ -12,10 +12,17 @@
 | `indicator` | 계층형 | 외부 의존 없음. 순수 함수 |
 | `projection` | 계층형 | 외부 의존 없음 |
 | `backtest` | 계층형 | `market` 포트를 소비하는 쪽. 자체 포트 불필요 |
+| `ai` | 포트/어댑터 | LLM·벡터스토어를 `application` 밖에 묶어 두기 위해서 |
 
 `backtest`가 백테스트 시에는 과거 캔들 어댑터를, 실사용 시에는 실시간 어댑터를 같은 포트로 소비한다. 이 지점이 없었다면 전부 계층형으로 충분했다.
 
 **구현체가 하나뿐인 인터페이스는 만들지 않는다.**
+
+`ai`는 이 원칙의 경계에 있다. 검색 포트는 어댑터가 실제로 둘(pgvector / 인메모리)이라
+`journal`과 같지만, LLM 포트는 운영 구현이 OpenAI 하나뿐이다. 그럼에도 포트를 두는 이유는
+**테스트 더블이 아니라 격리**다 — 포트가 없으면 서비스가 `ChatClient`를 직접 들고, 그 순간
+"AI 없이 도는 테스트"라는 것이 성립하지 않는다. 키가 없을 때 앱이 그대로 뜨는 것도 같은
+경계 덕분이다.
 
 ## 패키지 구조
 
@@ -60,8 +67,19 @@ com.coinwin
 │   ├── domain/                  # 대·전략·엔진. 포트도 캔들 조회도 모른다
 │   ├── application/             # BacktestService — @StoredCandles 포트 소비
 │   └── api/
-└── projection/
-    ├── domain/ api/
+├── projection/
+│   ├── domain/ api/
+│
+└── ai/                          # ◆ 포트/어댑터
+    ├── config/                  # SpringAiEnabledOnlyWithApiKey — 계층 밖. 기동 시점 스위치
+    ├── domain/                  # DraftedFields, PlanField, 파싱 실패 예외
+    ├── application/
+    │   ├── port/in/             # DraftPlanUseCase
+    │   ├── port/out/            # ExtractPlanPort
+    │   └── service/             # PlanDraftService
+    └── adapter/
+        ├── in/web/              # AiController
+        └── out/openai/          # OpenAiExtractPlanAdapter (+ 모델 응답 DTO)
 ```
 
 ## 의존 방향
@@ -100,6 +118,7 @@ backtest            → indicator, position,
 indicator           → market.domain
 journal             → position, indicator.domain
 position.application → market.application.port.in, market.domain
+ai                  → position.domain, common
 그 외 모듈 간 직접 참조 금지
 ```
 
@@ -125,6 +144,12 @@ position.application → market.application.port.in, market.domain
 **`journal`은 지표를 계산하지 않는다.** 계산기도 `IchimokuValue`도 참조하지 않고 판정 결과만
 적는다. 그 이상을 끌어오게 되면 이 의존을 다시 봐야 한다.
 
+**`ai → position.domain`** 은 계획 초안이 곧 `PositionPlan` 이기 때문이다. 파싱 결과를 따로
+정의하면 "롱의 손절가는 최저 진입가보다 낮다" 같은 규칙이 두 곳에 생기고, 그러면 초안이
+통과했는데 같은 값이 계획 API 에서 거부되는 일이 생긴다. **`ai` 는 계획 규칙을 갖지 않는다** —
+읽어낸 칸이 다 찼는지만 보고 나머지는 Phase 1 에 맡긴다. 그 경계가 무너지면(초안 전용 규칙이
+생기면) 이 의존을 다시 봐야 한다.
+
 **`backtest → journal.domain, projection.domain`** 은 어휘를 나누기 위해서다. 백테스트가 낸
 거래와 실제로 한 매매가 둘 다 `ClosedTrade` 이므로 `JournalSummary` 를 양쪽에 그대로 씌울 수
 있다 — **검증한 전략과 실제 기록을 같은 기준으로 비교할 수 있다는 뜻이다.** 따로 정의하면
@@ -148,7 +173,7 @@ Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 
 1. `domain` 패키지의 Spring / JPA / Jackson import 금지
 2. 계층 의존 방향 (`(api|adapter) → application → domain`)
 3. 패키지 순환 참조 0건
-4. `market.application` / `journal.application` → `adapter` 참조 금지
+4. `market.application` / `journal.application` / `ai.application` → `adapter` 참조 금지
 5. `backtest` → `market.adapter` 참조 금지 (포트만 허용)
 6. `adapter.out` 구현체는 반드시 `application.port.out` 인터페이스를 구현
 
