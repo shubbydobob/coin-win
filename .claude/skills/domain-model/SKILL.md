@@ -274,25 +274,79 @@ public record ProjectionDistribution(List<ProjectionOutcome> outcomes, Money ini
 > `indicator`·`backtest` 가 소비하는 공통 어휘이며, `indicator` 에 두면 `market → indicator`
 > 라는 더 나쁜 방향이 생긴다. 근거는 `docs/adr/013`.
 
+> Phase 4 구현 완료. 아래는 실제 코드와 일치한다.
+
 ```java
+// 구름과 밴드가 같은 판정을 공유한다. 경계는 구간에 포함된다 (INSIDE)
+public enum BandPosition { ABOVE, INSIDE, BELOW }
+public record PriceBand(Price upper, Price lower) {
+    static PriceBand enclosing(Price one, Price other);   // 순서를 모를 때
+    BandPosition positionOf(Price price);
+    Money width();
+}
+
+// 어느 시각의 값인가. 워밍업만큼 앞이 잘리므로 인덱스 산술로 두지 않는다
+public record IndicatorPoint<T>(Instant at, T value) {}
+
 public record IchimokuValue(
-    Price conversionLine,   // 전환선 9
-    Price baseLine,         // 기준선 26
-    Price leadingSpanA,     // 선행스팬1
-    Price leadingSpanB,     // 선행스팬2 52
-    Price laggingSpan       // 후행스팬
+    Price conversionLine,          // 전환선
+    Price baseLine,                // 기준선
+    Price leadingSpanA,            // 선행스팬 1 — 변위가 이미 적용된 값
+    Price leadingSpanB,            // 선행스팬 2 — 변위가 이미 적용된 값
+    Optional<Price> laggingSpan    // 후행스팬 — 최근 26봉에는 없다
 ) {
-    CloudPosition positionOf(Price price);  // ABOVE / INSIDE / BELOW
+    PriceBand cloud();             // enclosing. 어느 선행스팬이 위인지는 정해지지 않는다
+    BandPosition positionOf(Price price);
+    boolean bullishCloud();
 }
 
 public record BollingerValue(Price upper, Price middle, Price lower) {
-    Percentage bandWidth();
+    PriceBand band();
+    Percentage bandWidth();        // 상하단 간격 / 중심선
     BandPosition positionOf(Price price);
+}
+
+// 설정이 곧 계산기다. 상태 없는 순수 함수라 나눌 이유가 없다
+public record IchimokuCloud(int conversionPeriod, int basePeriod,
+                            int leadingSpanBPeriod, int displacement) {
+    static IchimokuCloud standard();                            // 9 / 26 / 52, 변위 26
+    List<IndicatorPoint<IchimokuValue>> over(CandleSeries series);
+}
+
+public record BollingerBands(int period, BigDecimal multiplier) {
+    static BollingerBands standard();                           // 20봉, 2배
+    List<IndicatorPoint<BollingerValue>> over(CandleSeries series);
 }
 ```
 
-계산기는 `List<Candle>` → `List<IndicatorValue>` 순수 함수. 상태 없음.
-워밍업 구간(일목 52개 미만) 처리 필수. 캔들 부족 시 예외.
+### 명세와 달라진 것 셋
+
+**`CloudPosition` 을 만들지 않았다.** 구름과 밴드의 위치 판정은 같은 계산이다 — 두 경계와
+비교하는 것. 각각 enum 을 두면 경계 포함 규칙이 한쪽만 바뀌는 순간 두 지표가 다른 답을 낸다.
+`PriceBand` 하나로 모으고 `BandPosition` 을 공유한다.
+
+**후행스팬만 `Optional` 이다.** 근거는 `docs/adr/014`. 후행스팬은 26봉 뒤의 종가를 끌어오므로
+최근 26봉에는 존재하지 않는다. 필수 필드로 두면 다섯 선이 모두 확정된 구간만 값을 낼 수 있고,
+그러면 **가장 최근 봉의 구름 위치** — 실사용에서 가장 자주 보는 값 — 가 사라진다.
+
+**변위가 상수가 아니라 설정이다.** 기본 26. 트레이딩뷰 내장 지표가 현재 봉을 1 로 세어 25 를
+쓴다는 설명이 널리 퍼져 있으나 공식 문서로 확인되지 않았다. **차트 대조 전까지 잠정값이다.**
+
+### 워밍업
+
+첫 값이 나오는 index 는 일목이 `변위 + 선행스팬2 기간 − 1`(기본 77), 볼린저가 `기간 − 1`(19).
+모자라면 `InsufficientCandlesException` — 필요한 개수를 메시지에 싣는다. 부르는 쪽의 대응이
+"캔들을 더 받아 온다" 하나뿐이라 일반 지표 오류와 타입을 나눴다.
+
+### 계산 규칙
+
+- **볼린저 표준편차는 모집단 기준**(n 으로 나눔). 트레이딩뷰 `ta.stdev` 의 `biased` 기본값이
+  true 다. 표본 기준(n−1)이면 20봉에서 약 2.6% 넓은 밴드가 나온다.
+- **상·하단은 스냅하지 않은 평균에서 계산한다.** 중심선을 스케일 2 로 먼저 반올림한 뒤 편차를
+  더하면 이중 반올림으로 1센트가 갈린다. 근거와 회귀 테스트는 `docs/adr/015`.
+- 선행스팬 1 만 예외적으로 두 선의 평균이고, 나머지 셋은 전부 같은 형태다 —
+  구간의 최고가와 최저가의 중간값. 기간만 다르다.
+- 미래 구름(마지막 캔들 이후 26봉)은 내지 않는다. 근거는 `docs/adr/014`.
 
 ## 매매 기록 (`journal/domain`)
 
