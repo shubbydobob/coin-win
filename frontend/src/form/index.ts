@@ -23,11 +23,20 @@ export function decimal(text: string): number {
  * 날짜 입력(`2026-08-01`)을 그날의 UTC 자정(`2026-08-01T00:00:00Z`)으로 옮긴다. 빈 칸은
  * 조건 없음이므로 `undefined` 이고, 그러면 질의 문자열에 실리지 않는다.
  *
- * `datetime-local` 을 쓰지 않는 이유는 그것이 **로컬 시각**을 주기 때문이다. 화면은 UTC 로
- * 표시하기로 했는데(§ 8) 입력만 로컬이면 사용자가 고른 구간과 표에 보이는 시각이 어긋난다.
- * 문자열을 이어 붙이기만 하고 `Date` 를 거치지 않는 것도 같은 이유다 — 파싱하는 순간
- * 브라우저의 타임존이 끼어든다.
+ * 문자열을 이어 붙이기만 하고 `Date` 를 거치지 않는 것이 요점이다 — 파싱하는 순간 브라우저의
+ * 타임존이 끼어들고, 사용자가 고른 구간과 표에 보이는 시각이 어긋난다.
  */
 export function dayStart(text: string): string | undefined {
   return text.trim() === "" ? undefined : `${text}T00:00:00Z`;
+}
+
+/**
+ * `datetime-local` 이 준 `2026-08-02T09:30` 을 UTC 시각으로 읽는다.
+ *
+ * **위젯이 보여 주는 시각을 로컬이 아니라 UTC 로 해석한다.** 화면이 UTC 로 표시하기로 했으므로
+ * (§ 8) 입력도 같은 눈금이어야 한다 — 라벨에 `UTC` 를 붙이는 이유다. 브라우저의 타임존을
+ * 끌어들이면 방금 친 시각과 표에 뜨는 시각이 달라진다.
+ */
+export function instantAt(text: string): string {
+  return text.trim() === "" ? "" : `${text}:00Z`;
 }

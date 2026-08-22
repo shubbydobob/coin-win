@@ -1,5 +1,5 @@
-import { allocationSum } from "./planForm";
-import type { EntryRow } from "./planForm";
+import { allocationSum } from "./entries";
+import type { EntryRow } from "./entries";
 
 interface Props {
   readonly entries: readonly EntryRow[];

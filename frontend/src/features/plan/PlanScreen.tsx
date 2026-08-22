@@ -4,7 +4,7 @@ import { useState } from "react";
 import { post } from "../../api/client";
 import { DIRECTION } from "../../shared/labels";
 import { ApiFailure } from "../../api/problem";
-import { EntryRows } from "./EntryRows";
+import { EntryRows } from "../../shared/EntryRows";
 import { EMPTY_FORM, toRequest } from "./planForm";
 import { PlanResult } from "./PlanResult";
 import type { PlanForm } from "./planForm";

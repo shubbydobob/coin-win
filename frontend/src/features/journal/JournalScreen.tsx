@@ -1,12 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { get } from "../../api/client";
+import { get, post } from "../../api/client";
 import { ApiFailure } from "../../api/problem";
+import { ActiveTrades } from "./ActiveTrades";
 import { ClosedTradeTable } from "./ClosedTradeTable";
+import { CloseTradeForm } from "./CloseTradeForm";
 import { JournalSummaryPanel } from "./JournalSummaryPanel";
 import { NO_FILTER, toQuery } from "./journalQuery";
+import { PlanTradeForm } from "./PlanTradeForm";
+import { RecordFillsForm } from "./RecordFillsForm";
 import { TradeFilters } from "./TradeFilters";
+import type { Action } from "./ActiveTrades";
 import type { TradeQuery } from "./journalQuery";
 
 /**
@@ -15,31 +20,71 @@ import type { TradeQuery } from "./journalQuery";
  *
  * **목록과 집계에 같은 조회 조건이 걸린다.** 조건 객체를 하나 만들어 두 요청에 그대로 넘긴다 —
  * 집계가 목록과 다른 모집단을 보고 있으면 화면이 거짓말을 한다(§ 6.3).
+ *
+ * 쓰기가 성공하면 `trades` 로 시작하는 질의를 전부 무효화한다. 진행 중인 목록·끝난 목록·집계가
+ * 같은 기록에서 나오므로 **하나만 새로 고치면 화면 안에서 서로 다른 시점을 보게 된다.**
  */
 export function JournalScreen() {
   const [query, setQuery] = useState<TradeQuery>(() => toQuery(NO_FILTER));
+  const [action, setAction] = useState<Action | null>(null);
+  const client = useQueryClient();
 
-  const trades = useQuery({
-    queryKey: ["trades", query],
-    queryFn: () => get("/api/trades", { query }),
-  });
-  const summary = useQuery({
-    queryKey: ["trades", "summary", query],
-    queryFn: () => get("/api/trades/summary", { query }),
+  const active = useQuery({ queryKey: ["trades", "active"], queryFn: () => get("/api/trades/active") });
+  const trades = useQuery({ queryKey: ["trades", "closed", query], queryFn: () => get("/api/trades", { query }) });
+  const summary = useQuery({ queryKey: ["trades", "summary", query], queryFn: () => get("/api/trades/summary", { query }) });
+
+  const record = useMutation({
+    mutationFn: (write: () => Promise<unknown>) => write(),
+    onSuccess: async () => {
+      setAction(null);
+      await client.invalidateQueries({ queryKey: ["trades"] });
+    },
   });
 
   return (
-    <div className="space-y-6">
-      <TradeFilters onApply={(draft) => setQuery(toQuery(draft))} />
+    <div className="space-y-8">
+      <section className="space-y-4">
+        <ActiveTrades trades={active.data ?? []} onAct={setAction} />
 
-      {(trades.isPending || summary.isPending) && <p className="text-sm text-slate-500">불러오는 중</p>}
+        <div className="grid gap-8 md:grid-cols-2">
+          <PlanTradeForm
+            pending={record.isPending}
+            onSubmit={(request) => record.mutate(() => post("/api/trades", request))}
+          />
 
-      <Failure error={trades.error ?? summary.error} />
+          {action?.kind === "fills" && (
+            <RecordFillsForm
+              pending={record.isPending}
+              onSubmit={(request) =>
+                record.mutate(() => post("/api/trades/{id}/fills", request, { path: { id: action.id } }))
+              }
+            />
+          )}
+          {action?.kind === "closure" && (
+            <CloseTradeForm
+              pending={record.isPending}
+              onSubmit={(request) =>
+                record.mutate(() => post("/api/trades/{id}/closure", request, { path: { id: action.id } }))
+              }
+            />
+          )}
+        </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        {trades.data && <ClosedTradeTable trades={trades.data} />}
-        {summary.data && <JournalSummaryPanel summary={summary.data} />}
-      </div>
+        <Failure error={record.error} />
+      </section>
+
+      <section className="space-y-4">
+        <TradeFilters onApply={(draft) => setQuery(toQuery(draft))} />
+
+        {(trades.isPending || summary.isPending) && <p className="text-sm text-slate-500">불러오는 중</p>}
+
+        <Failure error={trades.error ?? summary.error} />
+
+        <div className="grid gap-8 md:grid-cols-2">
+          {trades.data && <ClosedTradeTable trades={trades.data} />}
+          {summary.data && <JournalSummaryPanel summary={summary.data} />}
+        </div>
+      </section>
     </div>
   );
 }

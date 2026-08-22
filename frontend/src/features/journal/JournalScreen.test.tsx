@@ -59,8 +59,13 @@ const SUMMARY: Summary = {
   intervals: { gaps: 2, shortest: "PT8H", average: "PT30H", overlaps: 0 },
 };
 
-function 응답(trades: Trade[] = [CLOSED], summary: Summary = SUMMARY) {
+const PLANNED: Trade = { ...CLOSED, id: "t-2", state: "PLANNED", entry: null, outcome: null };
+
+const OPEN: Trade = { ...CLOSED, id: "t-3", state: "OPEN", outcome: null };
+
+function 응답(trades: Trade[] = [CLOSED], summary: Summary = SUMMARY, active: Trade[] = []) {
   return [
+    http.get(origin + "/api/trades/active", () => HttpResponse.json(active)),
     http.get(origin + "/api/trades", () => HttpResponse.json(trades)),
     http.get(origin + "/api/trades/summary", () => HttpResponse.json(summary)),
   ];
@@ -153,6 +158,98 @@ describe("매매 기록", () => {
 
     expect(screen.getByText("불러오는 중")).toBeVisible();
     expect(await screen.findByRole("cell", { name: "계획 익절" })).toBeVisible();
+  });
+
+  it("PLANNED 거래에는 체결 기록만, OPEN 거래에는 청산 기록만 나온다", async () => {
+    server.use(...응답([], SUMMARY, [PLANNED, OPEN]));
+    renderScreen(<JournalScreen />);
+
+    expect(await screen.findByRole("button", { name: "체결 기록" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "청산 기록" })).toBeVisible();
+    // 각 상태의 다음 동작은 정확히 하나다. 둘을 함께 내면 서버가 거절할 일을 화면이 권한다.
+    expect(screen.getAllByRole("button", { name: "체결 기록" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "청산 기록" })).toHaveLength(1);
+  });
+
+  it("끝난 거래는 진행 중 목록에 있어도 다음 동작이 없다", async () => {
+    server.use(...응답([], SUMMARY, [CLOSED]));
+    renderScreen(<JournalScreen />);
+
+    await screen.findByRole("rowheader", { name: "2026-08-01 00:00 UTC" });
+    expect(screen.queryByRole("button", { name: "체결 기록" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "청산 기록" })).not.toBeInTheDocument();
+  });
+
+  it("entry 가 차 있어도 상태가 PLANNED 면 체결 기록이 나온다", async () => {
+    // 상태는 state 로 판정한다. entry 가 null 인지로 유추하면 백엔드가 상태를 늘릴 때
+    // 화면이 조용히 틀린다.
+    server.use(...응답([], SUMMARY, [{ ...PLANNED, entry: CLOSED.entry }]));
+    renderScreen(<JournalScreen />);
+
+    expect(await screen.findByRole("button", { name: "체결 기록" })).toBeVisible();
+  });
+
+  it("청산 폼에는 손익 입력란이 없다", async () => {
+    server.use(...응답([], SUMMARY, [OPEN]));
+    const user = userEvent.setup();
+    renderScreen(<JournalScreen />);
+
+    await user.click(await screen.findByRole("button", { name: "청산 기록" }));
+
+    // 손익은 도메인이 체결 내역에서 계산한다. 칸을 두면 체결 내역과 손익이 어긋나도 모른다.
+    expect(screen.queryByLabelText(/손익/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("수수료")).toBeVisible();
+    expect(screen.getByLabelText("펀딩비")).toBeVisible();
+  });
+
+  it("청산을 기록하면 목록과 집계를 다시 불러온다", async () => {
+    let 청산본문: Record<string, unknown> = {};
+    let 목록조회 = 0;
+    // 먼저 세운 핸들러가 이긴다. 세는 핸들러를 앞에 둬야 응답() 의 것이 가려진다.
+    server.use(
+      http.get(origin + "/api/trades", () => {
+        목록조회 += 1;
+        return HttpResponse.json([]);
+      }),
+      ...응답([], SUMMARY, [OPEN]),
+      http.post(origin + "/api/trades/t-3/closure", async ({ request }) => {
+        청산본문 = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ...CLOSED, id: "t-3" });
+      }),
+    );
+    const user = userEvent.setup();
+    renderScreen(<JournalScreen />);
+
+    await user.click(await screen.findByRole("button", { name: "청산 기록" }));
+    await user.type(screen.getByLabelText("청산가"), "63000");
+    await user.type(screen.getByLabelText("청산 시각 (UTC)"), "2026-08-03T12:00");
+    await user.type(screen.getByLabelText("수수료"), "0.8");
+    await user.type(screen.getByLabelText("펀딩비"), "0");
+    const 이전 = 목록조회;
+    await user.click(screen.getByRole("button", { name: "청산 저장" }));
+
+    await waitFor(() => expect(목록조회).toBeGreaterThan(이전));
+    // datetime-local 이 준 로컬처럼 보이는 값을 UTC 로 읽는다.
+    expect(청산본문.exitAt).toBe("2026-08-03T12:00:00Z");
+    expect(청산본문).not.toHaveProperty("realizedPnl");
+  });
+
+  it("계획 저장이 422 면 서버 문장이 그대로 나온다", async () => {
+    server.use(
+      ...응답(),
+      http.post(origin + "/api/trades", () =>
+        HttpResponse.json(
+          { title: "도메인 규칙 위반", status: 422, detail: "비중의 합이 100 이 아니다", instance: "/api/trades" },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderScreen(<JournalScreen />);
+
+    await user.click(screen.getByRole("button", { name: "계획 저장", hidden: false }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("비중의 합이 100 이 아니다");
   });
 
   it("조회가 실패하면 서버 문장이 그대로 나온다", async () => {
