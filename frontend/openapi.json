@@ -48,12 +48,77 @@
         "operationId": "closedTrades",
         "parameters": [
           {
-            "name": "params",
+            "name": "closedFrom",
             "in": "query",
-            "required": true,
+            "description": "이 시각부터 (포함)",
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/TradeQueryParams"
-            }
+              "type": "string",
+              "format": "date-time",
+              "description": "이 시각부터 (포함)",
+              "example": "2026-08-01T00:00:00Z"
+            },
+            "example": "2026-08-01T00:00:00Z"
+          },
+          {
+            "name": "closedTo",
+            "in": "query",
+            "description": "이 시각까지 (제외)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "이 시각까지 (제외)",
+              "example": "2026-09-01T00:00:00Z"
+            },
+            "example": "2026-09-01T00:00:00Z"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "description": "포지션 방향",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "포지션 방향",
+              "enum": [
+                "LONG",
+                "SHORT"
+              ],
+              "example": "LONG"
+            },
+            "example": "LONG"
+          },
+          {
+            "name": "exitReason",
+            "in": "query",
+            "description": "청산 이유",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "청산 이유",
+              "enum": [
+                "PLANNED_STOP",
+                "PLANNED_TARGET",
+                "MANUAL_EARLY",
+                "HELD_PAST_STOP",
+                "LIQUIDATED"
+              ],
+              "example": "HELD_PAST_STOP"
+            },
+            "example": "HELD_PAST_STOP"
+          },
+          {
+            "name": "followedPlan",
+            "in": "query",
+            "description": "계획 준수 여부",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "계획 준수 여부",
+              "example": false
+            },
+            "example": false
           }
         ],
         "responses": {
@@ -846,12 +911,77 @@
         "operationId": "summary",
         "parameters": [
           {
-            "name": "params",
+            "name": "closedFrom",
             "in": "query",
-            "required": true,
+            "description": "이 시각부터 (포함)",
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/TradeQueryParams"
-            }
+              "type": "string",
+              "format": "date-time",
+              "description": "이 시각부터 (포함)",
+              "example": "2026-08-01T00:00:00Z"
+            },
+            "example": "2026-08-01T00:00:00Z"
+          },
+          {
+            "name": "closedTo",
+            "in": "query",
+            "description": "이 시각까지 (제외)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "이 시각까지 (제외)",
+              "example": "2026-09-01T00:00:00Z"
+            },
+            "example": "2026-09-01T00:00:00Z"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "description": "포지션 방향",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "포지션 방향",
+              "enum": [
+                "LONG",
+                "SHORT"
+              ],
+              "example": "LONG"
+            },
+            "example": "LONG"
+          },
+          {
+            "name": "exitReason",
+            "in": "query",
+            "description": "청산 이유",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "청산 이유",
+              "enum": [
+                "PLANNED_STOP",
+                "PLANNED_TARGET",
+                "MANUAL_EARLY",
+                "HELD_PAST_STOP",
+                "LIQUIDATED"
+              ],
+              "example": "HELD_PAST_STOP"
+            },
+            "example": "HELD_PAST_STOP"
+          },
+          {
+            "name": "followedPlan",
+            "in": "query",
+            "description": "계획 준수 여부",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "계획 준수 여부",
+              "example": false
+            },
+            "example": false
           }
         ],
         "responses": {
@@ -2392,50 +2522,6 @@
           "summary",
           "tradeId"
         ]
-      },
-      "TradeQueryParams": {
-        "type": "object",
-        "description": "거래 조회 조건. 전부 선택",
-        "properties": {
-          "closedFrom": {
-            "type": "string",
-            "format": "date-time",
-            "description": "이 시각부터 (포함)",
-            "example": "2026-08-01T00:00:00Z"
-          },
-          "closedTo": {
-            "type": "string",
-            "format": "date-time",
-            "description": "이 시각까지 (제외)",
-            "example": "2026-09-01T00:00:00Z"
-          },
-          "direction": {
-            "type": "string",
-            "description": "포지션 방향",
-            "enum": [
-              "LONG",
-              "SHORT"
-            ],
-            "example": "LONG"
-          },
-          "exitReason": {
-            "type": "string",
-            "description": "청산 이유",
-            "enum": [
-              "PLANNED_STOP",
-              "PLANNED_TARGET",
-              "MANUAL_EARLY",
-              "HELD_PAST_STOP",
-              "LIQUIDATED"
-            ],
-            "example": "HELD_PAST_STOP"
-          },
-          "followedPlan": {
-            "type": "boolean",
-            "description": "계획 준수 여부",
-            "example": false
-          }
-        }
       },
       "IntervalsResponse": {
         "type": "object",

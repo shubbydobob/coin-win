@@ -2,6 +2,7 @@ import { Navigate } from "react-router";
 import type { RouteObject } from "react-router";
 
 import { App } from "./App";
+import { JournalScreen } from "./features/journal/JournalScreen";
 import { PlanScreen } from "./features/plan/PlanScreen";
 
 /**
@@ -18,6 +19,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to="/plan" replace /> },
       { path: "plan", element: <PlanScreen /> },
+      { path: "journal", element: <JournalScreen /> },
     ],
   },
 ];

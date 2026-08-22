@@ -18,3 +18,16 @@
 export function decimal(text: string): number {
   return text.trim() === "" ? Number.NaN : Number(text);
 }
+
+/**
+ * 날짜 입력(`2026-08-01`)을 그날의 UTC 자정(`2026-08-01T00:00:00Z`)으로 옮긴다. 빈 칸은
+ * 조건 없음이므로 `undefined` 이고, 그러면 질의 문자열에 실리지 않는다.
+ *
+ * `datetime-local` 을 쓰지 않는 이유는 그것이 **로컬 시각**을 주기 때문이다. 화면은 UTC 로
+ * 표시하기로 했는데(§ 8) 입력만 로컬이면 사용자가 고른 구간과 표에 보이는 시각이 어긋난다.
+ * 문자열을 이어 붙이기만 하고 `Date` 를 거치지 않는 것도 같은 이유다 — 파싱하는 순간
+ * 브라우저의 타임존이 끼어든다.
+ */
+export function dayStart(text: string): string | undefined {
+  return text.trim() === "" ? undefined : `${text}T00:00:00Z`;
+}

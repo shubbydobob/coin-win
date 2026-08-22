@@ -87,13 +87,19 @@ export default tseslint.config(
       "no-restricted-syntax": ["error", ...ROUNDS, ...PARSES],
     },
   },
-  // 예외는 방향마다 하나씩이고, 서로의 금지는 그대로 남는다 — 형식 모듈이 응답을 파싱하거나
-  // 입력 모듈이 반올림하기 시작하면 그것도 규칙 위반이다.
+  // 두 예외가 대칭이 아닌 이유는 **출력이 가는 곳이 다르기 때문**이다.
+  //
+  // format/ 의 모든 함수는 문자열을 낸다. 화면으로만 가므로 여기서 무엇을 하든 서버에 가는
+  // 값도, 다른 계산의 입력도 되지 않는다. 기간(`PT26H30M`)처럼 **문자열로 오는 응답**을 읽으려면
+  // 파싱이 필요하기도 하다.
+  //
+  // form/ 은 반대다. 여기서 나온 수가 그대로 요청 본문에 실린다. 그래서 반올림 금지는 남는다 —
+  // 입력을 굴려서 보내면 사용자가 친 것과 서버가 받은 것이 달라진다.
   {
     files: ["src/format/**"],
     rules: {
       "no-restricted-properties": "off",
-      "no-restricted-syntax": ["error", ...PARSES],
+      "no-restricted-syntax": "off",
     },
   },
   {

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -81,7 +82,7 @@ public class TradeJournalController {
 
     @Operation(summary = "끝난 거래 목록", description = "조건에 드는 거래를 진입 시각 오름차순으로 낸다")
     @GetMapping
-    public List<TradeResponse> closedTrades(TradeQueryParams params) {
+    public List<TradeResponse> closedTrades(@ParameterObject TradeQueryParams params) {
         return queryJournal.closedTrades(params.toQuery()).stream()
                 .map(TradeResponse::from).toList();
     }
@@ -89,7 +90,7 @@ public class TradeJournalController {
     @Operation(summary = "집계",
             description = "목록과 같은 조건이 걸린다. 계획 준수 쪽과 위반 쪽을 갈라서 낸다.")
     @GetMapping("/summary")
-    public JournalSummaryResponse summary(TradeQueryParams params) {
+    public JournalSummaryResponse summary(@ParameterObject TradeQueryParams params) {
         return JournalSummaryResponse.from(queryJournal.summarize(params.toQuery()));
     }
 

@@ -1440,38 +1440,6 @@ export interface components {
             /** @description 색인된 문장. 모델이 본 것도 이것이다 */
             summary: string;
         };
-        /** @description 거래 조회 조건. 전부 선택 */
-        TradeQueryParams: {
-            /**
-             * Format: date-time
-             * @description 이 시각부터 (포함)
-             * @example 2026-08-01T00:00:00Z
-             */
-            closedFrom?: string;
-            /**
-             * Format: date-time
-             * @description 이 시각까지 (제외)
-             * @example 2026-09-01T00:00:00Z
-             */
-            closedTo?: string;
-            /**
-             * @description 포지션 방향
-             * @example LONG
-             * @enum {string}
-             */
-            direction?: "LONG" | "SHORT";
-            /**
-             * @description 청산 이유
-             * @example HELD_PAST_STOP
-             * @enum {string}
-             */
-            exitReason?: "PLANNED_STOP" | "PLANNED_TARGET" | "MANUAL_EARLY" | "HELD_PAST_STOP" | "LIQUIDATED";
-            /**
-             * @description 계획 준수 여부
-             * @example false
-             */
-            followedPlan?: boolean;
-        };
         /** @description 거래 사이의 간격 */
         IntervalsResponse: {
             /**
@@ -1708,8 +1676,32 @@ export type $defs = Record<string, never>;
 export interface operations {
     closedTrades: {
         parameters: {
-            query: {
-                params: components["schemas"]["TradeQueryParams"];
+            query?: {
+                /**
+                 * @description 이 시각부터 (포함)
+                 * @example 2026-08-01T00:00:00Z
+                 */
+                closedFrom?: string;
+                /**
+                 * @description 이 시각까지 (제외)
+                 * @example 2026-09-01T00:00:00Z
+                 */
+                closedTo?: string;
+                /**
+                 * @description 포지션 방향
+                 * @example LONG
+                 */
+                direction?: "LONG" | "SHORT";
+                /**
+                 * @description 청산 이유
+                 * @example HELD_PAST_STOP
+                 */
+                exitReason?: "PLANNED_STOP" | "PLANNED_TARGET" | "MANUAL_EARLY" | "HELD_PAST_STOP" | "LIQUIDATED";
+                /**
+                 * @description 계획 준수 여부
+                 * @example false
+                 */
+                followedPlan?: boolean;
             };
             header?: never;
             path?: never;
@@ -2315,8 +2307,32 @@ export interface operations {
     };
     summary: {
         parameters: {
-            query: {
-                params: components["schemas"]["TradeQueryParams"];
+            query?: {
+                /**
+                 * @description 이 시각부터 (포함)
+                 * @example 2026-08-01T00:00:00Z
+                 */
+                closedFrom?: string;
+                /**
+                 * @description 이 시각까지 (제외)
+                 * @example 2026-09-01T00:00:00Z
+                 */
+                closedTo?: string;
+                /**
+                 * @description 포지션 방향
+                 * @example LONG
+                 */
+                direction?: "LONG" | "SHORT";
+                /**
+                 * @description 청산 이유
+                 * @example HELD_PAST_STOP
+                 */
+                exitReason?: "PLANNED_STOP" | "PLANNED_TARGET" | "MANUAL_EARLY" | "HELD_PAST_STOP" | "LIQUIDATED";
+                /**
+                 * @description 계획 준수 여부
+                 * @example false
+                 */
+                followedPlan?: boolean;
             };
             header?: never;
             path?: never;

@@ -10,9 +10,18 @@ export function App() {
         <h1 className="text-2xl font-semibold">CoinWin</h1>
         <p className="mt-1 text-sm text-slate-600">비트코인 선물 매매 보조 도구</p>
         <nav className="mt-4 flex gap-4 text-sm">
-          <NavLink to="/plan" className={({ isActive }) => (isActive ? "font-medium" : "text-slate-500")}>
-            계획
-          </NavLink>
+          {[
+            { to: "/plan", label: "계획" },
+            { to: "/journal", label: "기록" },
+          ].map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => (isActive ? "font-medium" : "text-slate-500")}
+            >
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
       </header>
       <main>

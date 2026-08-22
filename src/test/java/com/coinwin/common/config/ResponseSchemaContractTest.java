@@ -69,7 +69,11 @@ class ResponseSchemaContractTest {
         // 요청은 실제로 선택 필드가 있고, 검증은 어차피 서버가 한다.
         assertThat(required(schemas.get("RunBacktestRequest"))).doesNotContain("costs");
         assertThat(required(schemas.get("JournalQueryRequest"))).doesNotContain("topK");
-        assertThat(required(schemas.get("TradeQueryParams"))).isEmpty();
+        assertThat(required(schemas.get("TradePlanRequest"))).isEmpty();
+
+        // 조회 조건은 더 이상 스키마가 아니라 개별 질의 파라미터다. 객체로 서 있던 시절이
+        // 문서가 와이어와 달랐다는 증거였다 — QueryParameterContractTest 가 그 자리를 지킨다.
+        assertThat(names(schemas)).doesNotContain("TradeQueryParams");
     }
 
     @Test

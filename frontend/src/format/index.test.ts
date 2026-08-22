@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { money, percent, price, quantity, ratio } from "./index";
+import { duration, instant, money, orNothing, percent, price, quantity, ratio } from "./index";
 
 /**
  * 이 모듈이 지키는 것은 하나다 — **서버가 정한 자릿수를 되살리되 줄이지 않는다.**
@@ -51,6 +51,37 @@ describe("표시 형식", () => {
     // 서버가 버림으로 낸 값이다 — 여기서 반올림하면 "표시값 1.50 = 기준 충족" 이 깨진다.
     expect(ratio(2.33)).toBe("2.33");
     expect(ratio(1.5)).toBe("1.50");
+  });
+
+  it("시각은 UTC 로 표시하고 UTC 를 붙인다", () => {
+    // 로컬 타임존으로 바꾸면 캔들 시각·체결 시각과 어긋나 보인다.
+    expect(instant("2026-08-02T09:30:00Z")).toBe("2026-08-02 09:30 UTC");
+    expect(instant("2026-08-02T09:30:00.123456Z")).toBe("2026-08-02 09:30 UTC");
+  });
+
+  it("기간은 하루가 넘으면 일로 올린다", () => {
+    expect(duration("PT26H30M")).toBe("1일 2시간 30분");
+    expect(duration("PT8H")).toBe("8시간");
+  });
+
+  it("0 이 아닌 단위를 하나도 빠뜨리지 않는다", () => {
+    // 줄이는 순간 "8시간" 이 8시간 55분을 뜻하게 된다.
+    expect(duration("PT8H55M12S")).toBe("8시간 55분 12초");
+    expect(duration("PT1M30S")).toBe("1분 30초");
+  });
+
+  it("기간 0 은 값이 없는 것이 아니라 0 이다", () => {
+    // TradeIntervals 는 간격이 없을 때 Duration.ZERO 를 쓴다. — 가 아니다.
+    expect(duration("PT0S")).toBe("0초");
+  });
+
+  it("읽어내지 못한 기간은 지어내지 않고 그대로 낸다", () => {
+    expect(duration("P3D")).toBe("P3D");
+  });
+
+  it("값이 없는 것과 0 은 다르게 나온다", () => {
+    expect(orNothing(null, money)).toBe("—");
+    expect(orNothing(0, money)).toBe("0.00");
   });
 
   it("0 은 어느 형식에서도 그 스케일을 갖는다", () => {

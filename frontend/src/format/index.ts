@@ -79,6 +79,58 @@ export function ratio(value: number): string {
   return RATIO.format(signed(value));
 }
 
+/** 값이 없다는 표시. **0 과 다른 사실이다** — "손익비가 0" 과 "손익비를 말할 수 없다"는 다르다. */
+export const NOTHING = "—";
+
+export function orNothing<T>(value: T | null | undefined, show: (present: T) => string): string {
+  return value === null || value === undefined ? NOTHING : show(value);
+}
+
+/**
+ * 시각. **UTC 로 표시하고 `UTC` 를 붙인다.**
+ *
+ * 로컬 타임존으로 바꾸면 캔들 시각·체결 시각과 어긋나 보인다. 문자열을 자르기만 하고 `Date` 로
+ * 파싱하지 않는 것이 요점이다 — 파싱하는 순간 브라우저의 타임존이 끼어든다.
+ */
+export function instant(iso: string): string {
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+const ISO_DURATION = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$/;
+
+const HOURS_PER_DAY = 24;
+
+/**
+ * 기간. `PT26H30M` 을 `1일 2시간 30분` 으로 옮긴다.
+ *
+ * **일 단위까지 올린다** (§ 13.2 의 답). 이 수를 보는 목적은 비교가 아니라 감각이다 — "얼마나
+ * 오래 들고 있었나". `26시간` 은 하루가 넘는지가 즉시 읽히지 않는다.
+ *
+ * **0 이 아닌 단위는 하나도 빠뜨리지 않는다.** 표시를 줄이는 순간 "8시간" 이 8시간 55분을
+ * 뜻하게 되고, 그것은 § 8 이 자릿수에 대해 금지한 것과 같은 종류의 거짓말이다.
+ *
+ * 읽어내지 못한 문자열은 **그대로 낸다.** 화면이 멈추지도, 없는 값을 지어내지도 않는다.
+ */
+export function duration(iso: string): string {
+  const parts = ISO_DURATION.exec(iso);
+  if (!parts) {
+    return iso;
+  }
+  const hours = amount(parts[1]);
+  const units: [number, string][] = [
+    [Math.floor(hours / HOURS_PER_DAY), "일"],
+    [hours % HOURS_PER_DAY, "시간"],
+    [amount(parts[2]), "분"],
+    [amount(parts[3]), "초"],
+  ];
+  const said = units.filter(([amount]) => amount > 0).map(([amount, unit]) => `${amount}${unit}`);
+  return said.length === 0 ? "0초" : said.join(" ");
+}
+
+function amount(captured: string | undefined): number {
+  return captured === undefined ? 0 : Number.parseInt(captured, 10);
+}
+
 /**
  * 음수 영을 영으로 되돌린다.
  *

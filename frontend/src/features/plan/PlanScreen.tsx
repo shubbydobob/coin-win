@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { post } from "../../api/client";
+import { DIRECTION } from "../../shared/labels";
 import { ApiFailure } from "../../api/problem";
 import { EntryRows } from "./EntryRows";
 import { EMPTY_FORM, toRequest } from "./planForm";
@@ -46,8 +47,9 @@ export function PlanScreen() {
             onChange={(event) => field("direction", event.target.value as PlanForm["direction"])}
             className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
           >
-            <option value="LONG">롱</option>
-            <option value="SHORT">숏</option>
+            {Object.entries(DIRECTION).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
         </label>
 
