@@ -40,6 +40,22 @@
   </Match>
 
   <!--
+    같은 이유 — 거래소 포지션 어댑터. RestClient 는 불변이고 스레드 안전하다.
+
+    Clock 은 여기서 빼지 않았다. 경고가 나지 않기 때문이기도 하고, 난다면 그때는 진짜로
+    한 번 생각해 볼 자리이기 때문이다 — 가변 시계를 주입받아 들고 있는 것은 서명
+    타임스탬프에 영향을 준다.
+
+    시크릿(BinanceCredentials)도 여기 없다. 그 필드는 String 이라 애초에 이 경고의
+    대상이 아니다.
+  -->
+  <Match>
+    <Class name="com.coinwin.account.adapter.out.binance.BinancePositionAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
+  <!--
     같은 이유 — Phase 5 의 JPA 어댑터. EntityManager 는 Spring 이 주입하는 스레드 바인딩
     프록시이고 JPAQueryFactory 는 그 프록시를 감싼 얇은 팩토리다. 둘 다 복사하라는 처방이
     성립하지 않는다. 특히 EntityManager 는 복사본을 만드는 순간 트랜잭션 경계 밖의

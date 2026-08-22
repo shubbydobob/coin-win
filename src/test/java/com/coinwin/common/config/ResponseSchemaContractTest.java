@@ -29,8 +29,9 @@ import org.springframework.web.context.WebApplicationContext;
  * optional 이던 시절보다 나쁘다 — 타입이 "언제나 있다" 고 단언하는데 실제로는 null 이 오므로
  * 컴파일러가 가드를 <b>지우게</b> 만든다.
  *
- * <p>그래서 이 테스트는 양쪽을 함께 못 박는다. 특히 마지막 테스트는 null 이 오는 필드가
- * <b>정확히 셋</b>이라는 것을 전수로 센다 — 넷째가 생기면 목록을 고치지 않고는 통과할 수 없다.
+ * <p>그래서 이 테스트는 양쪽을 함께 못 박는다. 특히 마지막 테스트는 null 이 오는 필드를
+ * <b>전수로</b> 센다 — 새 필드가 생기면 목록을 고치지 않고는 통과할 수 없고, 목록을 고치는
+ * 순간 "이것은 정말 null 이 오는가" 를 한 번 묻게 된다.
  *
  * <p>근거: {@code docs/spec/phase8-frontend.md} § 5.4
  */
@@ -39,10 +40,21 @@ class ResponseSchemaContractTest {
 
     private static final String RESPONSE_SUFFIX = "Response";
 
-    /** 응답 필드 중 실제로 null 이 오는 것 전부. 전수로 셌다. */
+    /**
+     * 응답 필드 중 실제로 null 이 오는 것 전부. 전수로 셌다.
+     *
+     * <p>대조 결과의 {@code recorded} / {@code actual} 은 <b>둘 중 하나가 비는 것이 곧
+     * 사실</b>이라 null 이다 — 기록에만 있으면 거래소 쪽이 없고, 거래소에만 있으면 기록 쪽이
+     * 없다. 빈 객체로 채우면 그 두 사실이 사라진다.
+     *
+     * <p>{@code liquidationPrice} 는 거래소가 청산 지점을 말할 수 없을 때 비어 있다. 0 으로
+     * 채우면 화면이 "곧 청산된다" 로 읽는다 — {@code profitFactor} 와 같은 규칙이다.
+     */
     private static final Map<String, List<String>> NULLABLE_FIELDS = Map.of(
             "SummaryResponse", List.of("profitFactor"),
-            "TradeResponse", List.of("entry", "outcome"));
+            "TradeResponse", List.of("entry", "outcome"),
+            "PositionMatchResponse", List.of("recorded", "actual"),
+            "ExchangeSideResponse", List.of("liquidationPrice"));
 
     @Autowired
     private WebApplicationContext context;
@@ -77,7 +89,7 @@ class ResponseSchemaContractTest {
     }
 
     @Test
-    void null_이_오는_응답_필드는_정확히_셋뿐이다() throws Exception {
+    void null_이_오는_응답_필드는_목록에_적힌_것뿐이다() throws Exception {
         JsonNode schemas = schemas();
 
         List<String> actual = new ArrayList<>();
