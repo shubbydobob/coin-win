@@ -8,7 +8,6 @@ import com.coinwin.journal.domain.JournalSummary;
 import com.coinwin.journal.domain.TradeTally;
 import com.coinwin.projection.domain.EquityCurve;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,23 +64,17 @@ public record BacktestResult(BacktestSpec spec, List<ClosedTrade> trades, Equity
     }
 
     /**
-     * 총이익 / 총손실.
+     * 총이익 / 총손실. 진 거래가 없으면 비어 있다 — 규칙과 구현 모두 {@link TradeWindow} 에 있다.
      *
-     * <p>진 거래가 하나도 없으면 <b>비어 있다.</b> 무한대나 특정 큰 수를 돌려주면 표시하는 쪽이
-     * 그것을 실제 성적으로 읽는다. 손실이 없는 표본은 손익비를 말할 수 없는 표본이다.
+     * <p>여기서 다시 세지 않는 이유는 승률을 {@link TradeTally} 에 맡기는 이유와 같다. 구간별
+     * 성적표가 같은 수치를 다른 코드로 내면 전체와 구간을 나란히 놓는 것 자체가 무의미해진다.
      */
     public Optional<BigDecimal> profitFactor() {
-        BigDecimal profit = sumOf(true);
-        BigDecimal loss = sumOf(false).abs();
-        return loss.signum() == 0
-                ? Optional.empty()
-                : Optional.of(profit.divide(loss, MathContext.DECIMAL64));
+        return window().profitFactor();
     }
 
-    private BigDecimal sumOf(boolean winners) {
-        return trades.stream()
-                .map(trade -> trade.realizedPnl().value())
-                .filter(pnl -> winners ? pnl.signum() > 0 : pnl.signum() < 0)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    /** 전체 구간을 하나의 창으로 본 것. 구간별 성적은 같은 타입을 잘라서 낸다. */
+    public TradeWindow window() {
+        return new TradeWindow(trades, spec.account().initialCapital());
     }
 }
