@@ -1,6 +1,6 @@
-import { instant, orNothing, price } from "../../format";
-import { DIRECTION } from "../../shared/labels";
-import type { components } from "../../api/schema";
+import { instant, orNothing, price } from "../format";
+import { DIRECTION } from "./labels";
+import type { components } from "../api/schema";
 
 type Trade = components["schemas"]["TradeResponse"];
 
@@ -14,8 +14,11 @@ export type Action = { readonly id: string; readonly kind: "fills" | "closure" }
  *
  * 상태마다 다음 동작이 정확히 하나다. 둘을 함께 내면 "체결도 청산도 할 수 있는" 것처럼 보이고,
  * 그것은 서버가 거절할 일을 화면이 권하는 배치다.
+ *
+ * `onAct` 가 없으면 동작 칸도 없다. 현황 화면(`/`)은 **"지금 무엇이 열려 있는가" 하나에만
+ * 답하고 끝나므로**, 거기서 기록을 고칠 수 있게 하면 그 화면이 두 가지 일을 하게 된다.
  */
-export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAct: (action: Action) => void }) {
+export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAct?: (action: Action) => void }) {
   if (trades.length === 0) {
     return <p className="text-sm text-slate-500">진행 중인 거래가 없다</p>;
   }
@@ -30,7 +33,7 @@ export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAc
           <th scope="col" className="py-1">방향</th>
           <th scope="col" className="py-1">손절가</th>
           <th scope="col" className="py-1">평단</th>
-          <th scope="col" className="py-1">다음</th>
+          {onAct && <th scope="col" className="py-1">다음</th>}
         </tr>
       </thead>
       <tbody>
@@ -41,9 +44,11 @@ export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAc
             <td className="py-1">{DIRECTION[trade.plan.direction]}</td>
             <td className="py-1">{price(trade.plan.stopLoss)}</td>
             <td className="py-1">{orNothing(trade.entry, (entry) => price(entry.averageEntryPrice))}</td>
-            <td className="py-1">
-              <NextAction trade={trade} onAct={onAct} />
-            </td>
+            {onAct && (
+              <td className="py-1">
+                <NextAction trade={trade} onAct={onAct} />
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

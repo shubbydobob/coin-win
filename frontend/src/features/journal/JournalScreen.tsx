@@ -3,17 +3,17 @@ import { useState } from "react";
 
 import { get, post } from "../../api/client";
 import { ApiFailure } from "../../api/problem";
-import { ActiveTrades } from "./ActiveTrades";
+import { ActiveTrades } from "../../shared/ActiveTrades";
 import { ClosedTradeTable } from "./ClosedTradeTable";
 import { CloseTradeForm } from "./CloseTradeForm";
 import { JournalQuery } from "./JournalQuery";
-import { JournalSummaryPanel } from "./JournalSummaryPanel";
+import { JournalSummaryPanel } from "../../shared/JournalSummaryPanel";
 import { NO_FILTER, toQuery } from "./tradeQuery";
 import { PlanTradeForm } from "./PlanTradeForm";
 import { RecordFillsForm } from "./RecordFillsForm";
 import { Reindex } from "./Reindex";
 import { TradeFilters } from "./TradeFilters";
-import type { Action } from "./ActiveTrades";
+import type { Action } from "../../shared/ActiveTrades";
 import type { TradeQuery } from "./tradeQuery";
 
 /**

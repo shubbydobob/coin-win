@@ -1,5 +1,5 @@
-import { duration, money, percent } from "../../format";
-import type { components } from "../../api/schema";
+import { duration, money, percent } from "../format";
+import type { components } from "../api/schema";
 
 type Summary = components["schemas"]["JournalSummaryResponse"];
 

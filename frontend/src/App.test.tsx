@@ -22,9 +22,11 @@ describe("앱 껍데기", () => {
     expect(screen.getByRole("button", { name: "계산" })).toBeVisible();
   });
 
-  it("아직 없는 현황 화면 대신 계획 계산기로 보낸다", () => {
-    열기("/");
+  it("모든 화면이 자기 URL 을 갖는다", () => {
+    열기("/plan");
 
-    expect(screen.getByRole("button", { name: "계산" })).toBeVisible();
+    for (const 이름 of ["현황", "계획", "기록", "백테스트", "복리"]) {
+      expect(screen.getByRole("link", { name: 이름 })).toBeVisible();
+    }
   });
 });
