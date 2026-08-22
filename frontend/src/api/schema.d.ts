@@ -425,6 +425,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 기록과 거래소 포지션 대조
+         * @description 기록의 미청산 거래와 거래소의 실제 포지션을 방향으로 맞춰 본다.
+         *
+         *     거래소 값으로 기록을 덮어쓰지 않는다. 기록은 내가 무엇을 하려 했는지를 알고
+         *     거래소는 지금 무엇이 열려 있는지를 안다 — 어느 쪽도 다른 쪽을 대체하지 못한다.
+         *
+         *     가장 잡고 싶은 것은 RECORDED_ONLY 다. 손절이 체결됐는데 청산을 적지 않으면
+         *     그 상태가 되고, 그동안 집계는 그 거래를 없는 것으로 센다.
+         */
+        get: operations["positions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1726,6 +1752,107 @@ export interface components {
             /** @description 캔들 목록 */
             candles: components["schemas"]["CandleResponse"][];
         };
+        /** @description 거래소가 말하는 지금 이 순간의 포지션 */
+        ExchangeSideResponse: {
+            /**
+             * @description 종목
+             * @example BTCUSDT
+             */
+            symbol: string;
+            /**
+             * @description 거래소가 계산한 평단
+             * @example 59500
+             */
+            entryPrice: number;
+            /**
+             * @description 보유 수량. 언제나 양수이고 방향은 따로 있다
+             * @example 0.1
+             */
+            quantity: number;
+            /**
+             * @description 거래소가 계산한 청산가. 우리 계산과 대조할 수 있는 유일한 값이다.
+             *     거래소가 청산 지점을 말할 수 없으면 null 이다 — 0 은 청산가가 아니라 '없음'이다.
+             * @example 53765.06
+             */
+            liquidationPrice: number | null;
+            /**
+             * @description 미실현 손익. 기록에는 없는 값이다 — 매 순간 달라지므로 기록의 대상이 아니다
+             * @example 12.4
+             */
+            unrealizedPnl: number;
+        };
+        /** @description 한 방향의 기록과 거래소를 맞춰 본 한 줄 */
+        PositionMatchResponse: {
+            /**
+             * @description 이 줄이 어느 방향의 포지션에 대한 것인가
+             * @example LONG
+             */
+            direction: string;
+            /**
+             * @description 맞춰 본 결과.
+             *     AGREED 는 방향과 수량이 같다.
+             *     RECORDED_ONLY 는 기록에는 열려 있는데 거래소에 없다 — 청산을 적지 않았을 수 있다.
+             *     EXCHANGE_ONLY 는 거래소에 있는데 기록에 없다 — 앱 밖에서 열었다.
+             *     QUANTITY_DIFFERS 는 둘 다 있는데 수량이 다르다 — 물타기나 부분 청산이 안 적혔다.
+             * @example AGREED
+             */
+            outcome: string;
+            /**
+             * @description 사람이 확인할 것이 있는가
+             * @example false
+             */
+            discrepancy: boolean;
+            /** @description 기록 쪽. 거래소에만 있는 포지션이면 null 이다 */
+            recorded: components["schemas"]["RecordedSideResponse"] | null;
+            /** @description 거래소 쪽. 기록에만 있는 거래면 null 이다 */
+            actual: components["schemas"]["ExchangeSideResponse"] | null;
+        };
+        /** @description 기록의 미청산 거래와 거래소 포지션을 방향으로 맞춰 본 결과 */
+        PositionReconciliationResponse: {
+            /** @description 방향마다 한 줄. 짝이 지어지지 않은 쪽도 한 줄이다 */
+            matches: components["schemas"]["PositionMatchResponse"][];
+            /**
+             * @description 확인할 것이 하나도 없는가. 양쪽 모두 비어 있어도 참이다
+             * @example true
+             */
+            consistent: boolean;
+            /**
+             * Format: date-time
+             * @description 거래소 값을 읽은 시각. 이 값은 다음 순간이면 달라진다
+             * @example 2026-08-23T01:53:00Z
+             */
+            observedAt: string;
+        };
+        /** @description 기록에 남아 있는 미청산 거래 */
+        RecordedSideResponse: {
+            /**
+             * Format: uuid
+             * @description 거래 식별자
+             * @example 3f2a1c8e-5b7d-4e9f-a1b2-c3d4e5f60718
+             */
+            tradeId: string;
+            /**
+             * @description 실제 체결 평단. 계획한 평단과 다를 수 있고 그 차이가 슬리피지다
+             * @example 59500
+             */
+            averageEntryPrice: number;
+            /**
+             * @description 체결된 총수량
+             * @example 0.1
+             */
+            quantity: number;
+            /**
+             * @description 계획한 모든 분할이 체결됐는가
+             * @example true
+             */
+            fullyFilled: boolean;
+            /**
+             * Format: date-time
+             * @description 포지션이 열린 시각. 첫 체결이다
+             * @example 2026-08-01T01:00:00Z
+             */
+            openedAt: string;
+        };
         /** @description 오류 본문(RFC 7807). detail 에 도메인이 쓴 문장이 그대로 들어간다 */
         ProblemDetail: {
             /** @description 오류 종류를 가리키는 URI. about:blank 이면 아예 오지 않는다 */
@@ -2523,6 +2650,35 @@ export interface operations {
             };
             /** @description 구간의 끝이 시작보다 앞이다 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    positions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 방향별 대조 결과 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PositionReconciliationResponse"];
+                };
+            };
+            /** @description 거래소 계정이 연결되지 않았거나 거래소를 읽지 못했다. COINWIN_ACCOUNT_BINANCE_API_KEY 와 SECRET_KEY 가 필요하다 */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

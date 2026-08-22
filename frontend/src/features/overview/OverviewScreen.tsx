@@ -5,6 +5,7 @@ import { ApiFailure } from "../../api/problem";
 import { instant, percent, quantity, ratio } from "../../format";
 import { ActiveTrades } from "../../shared/ActiveTrades";
 import { JournalSummaryPanel } from "../../shared/JournalSummaryPanel";
+import { PositionReconciliationPanel } from "../../shared/PositionReconciliation";
 
 const SYMBOL = "BTCUSDT";
 
@@ -16,7 +17,8 @@ const SYMBOL = "BTCUSDT";
  * 하게 된다.
  *
  * **시장 지표는 실패해도 화면이 죽지 않는다.** 거래소가 안 닿는 것은 503 이고, 그 블록만
- * "가져오지 못했다" 로 두고 나머지는 그대로 보인다.
+ * "가져오지 못했다" 로 두고 나머지는 그대로 보인다. 거래소 계정 대조도 같다 — 키가 없으면
+ * 그 자리만 비활성이고 기록과 집계는 그대로 보인다.
  */
 export function OverviewScreen() {
   const active = useQuery({ queryKey: ["trades", "active"], queryFn: () => get("/api/trades/active") });
@@ -28,12 +30,31 @@ export function OverviewScreen() {
     queryKey: ["markets", SYMBOL, "metrics"],
     queryFn: () => get("/api/markets/{symbol}/metrics", { path: { symbol: SYMBOL } }),
   });
+  // 거래소 계정은 키가 있어야 붙는다. 없으면 503 이고, 그때는 이 블록만 비활성이다.
+  // 재시도하지 않는다 — 키가 없는 것은 기다린다고 달라지지 않는다.
+  const positions = useQuery({
+    queryKey: ["account", "positions"],
+    queryFn: () => get("/api/account/positions"),
+    retry: false,
+  });
 
   return (
     <div className="space-y-8">
       <section aria-label="진행 중">
         {active.data && <ActiveTrades trades={active.data} />}
       </section>
+
+      {positions.data ? (
+        <PositionReconciliationPanel reconciliation={positions.data} />
+      ) : (
+        positions.error && (
+          <p className="text-sm text-slate-500">
+            {positions.error instanceof ApiFailure
+              ? positions.error.problem.detail
+              : "거래소 포지션을 가져오지 못했다"}
+          </p>
+        )
+      )}
 
       <section aria-label="시장 지표" className="rounded border border-slate-200 p-3">
         <h2 className="text-xs text-slate-500">{SYMBOL}</h2>

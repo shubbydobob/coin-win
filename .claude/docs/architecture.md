@@ -13,6 +13,7 @@
 | `projection` | 계층형 | 외부 의존 없음 |
 | `backtest` | 계층형 | `market` 포트를 소비하는 쪽. 자체 포트 불필요 |
 | `ai` | 포트/어댑터 | LLM·벡터스토어를 `application` 밖에 묶어 두기 위해서 |
+| `account` | 포트/어댑터 | 거래소 포지션 소스가 둘 (서명 호출 / 인메모리). 서명 키를 `application` 밖에 가둔다 |
 
 `backtest`가 백테스트 시에는 과거 캔들 어댑터를, 실사용 시에는 실시간 어댑터를 같은 포트로 소비한다. 이 지점이 없었다면 전부 계층형으로 충분했다.
 
@@ -69,6 +70,18 @@ com.coinwin
 │   └── api/
 ├── projection/
 │   ├── domain/ api/
+│
+├── account/                     # ◆ 포트/어댑터
+│   ├── domain/                  # ExchangePosition, PositionMatch, PositionReconciliation
+│   ├── application/
+│   │   ├── port/in/             # ReconcilePositionsUseCase
+│   │   ├── port/out/            # LoadExchangePositionsPort
+│   │   └── service/             # PositionReconciliationService
+│   └── adapter/
+│       ├── in/web/              # AccountController
+│       └── out/
+│           ├── binance/         # BinancePositionAdapter (HMAC 서명), BinanceSigner
+│           └── memory/          # InMemoryExchangePositionAdapter
 │
 └── ai/                          # ◆ 포트/어댑터
     ├── config/                  # SpringAiEnabledOnlyWithApiKey — 계층 밖. 기동 시점 스위치
@@ -128,6 +141,8 @@ position.application → market.application.port.in, market.domain
 ai                  → position.domain, indicator.domain,
                       journal.application.port.in, journal.domain
 backtest.api        → ai.application.port.in, ai.domain
+account             → journal.application.port.in, journal.domain,
+                      position.domain, market.domain
 그 외 모듈 간 직접 참조 금지
 ```
 
@@ -160,6 +175,22 @@ backtest.api        → ai.application.port.in, ai.domain
 만드는 일을 부르는 쪽에 남겼다. 제약이 더 나은 모양을 만들었다 — 요약이 백테스트 전용이
 아니게 됐고, 나중에 어느 모듈이든 자기 수치를 문장으로 바꿀 수 있다. 요약 엔드포인트가
 `/api/ai`가 아니라 `/api/backtests/narrative`인 것도 같은 이유다.
+
+**`account → journal`, 그리고 `journal`은 `account`를 모른다.** `ai → journal` 과 같은
+모양이고 이유도 같다 — 기록이 대조를 부르면 `journal ↔ account` 순환이 되고 ArchUnit 규칙 3이
+빌드를 세운다. **기록은 진실의 원천이고 대조는 그것을 읽는 쪽이다.**
+
+아웃바운드가 아니라 **인바운드** 포트를 쓰는 이유는 "미청산 거래가 무엇인가" 가 `journal` 의
+정책이기 때문이다. 저장소를 직접 읽으면 그 정책이 `account` 로 샌다 —
+`position.application → market.application.port.in` 과 같은 판단이다.
+
+`market` 에 두지 않은 이유는 **서명 때문이다.** `market` 은 모두에게 같은 사실(캔들·펀딩비·OI)
+이고 키가 필요 없다. 포지션은 내 계좌의 사실이고 키가 필요하다. 한 모듈에 섞으면 "이 어댑터는
+키가 있어야 도는가" 가 클래스마다 달라진다. 근거는 `docs/spec/phase9-exchange-positions.md`.
+
+**`account`는 주문을 내지 않는다.** 읽기 전용 엔드포인트만 부르고, 키도 읽기 전용으로
+발급해야 한다(`scope.md`). 이 경계가 무너지면 `scope.md` 의 "자동 매매 / 주문 실행 API 연동"
+금지가 코드에서 성립하지 않는다.
 
 **`journal`은 `ai`를 모른다.** 청산 시 자동 색인이 필요하지만 서비스가 색인 유스케이스를
 직접 부르면 또 순환이다. `journal.application`이 `TradeClosedEvent`를 발행하고 `ai`가
@@ -200,11 +231,15 @@ Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 
 1. `domain` 패키지의 Spring / JPA / Jackson import 금지
 2. 계층 의존 방향 (`(api|adapter) → application → domain`)
 3. 패키지 순환 참조 0건
-4. `market.application` / `journal.application` / `ai.application` → `adapter` 참조 금지
+4. `market.application` / `journal.application` / `ai.application` / `account.application` → `adapter` 참조 금지
 5. `backtest` → `market.adapter` 참조 금지 (포트만 허용)
 6. `adapter.out` 구현체는 반드시 `application.port.out` 인터페이스를 구현
 
-4번과 5번이 없으면 헥사고날이 이름만 남고 계층형으로 무너진다.
+4번과 5번이 없으면 헥사고날이 이름만 남고 계층형으로 무너진다. `account` 에서는 더 날카롭다 —
+규칙 4가 깨지면 **서명 키가 `application` 으로 샌다.**
+
+규칙 4는 모듈 이름을 손으로 열거하므로 모듈마다 위반 픽스처가 필요하다:
+`r4`(market) · `r4j`(journal) · `r4a`(ai) · `r4acc`(account).
 
 **`allowEmptyShould` 는 이제 하나도 없다.** 대상 패키지가 아직 없는 규칙을 통과시키던 임시
 플래그였고, 마지막 하나(규칙 5)가 Phase 6 에서 빠졌다. 여섯 규칙이 전부 실제 클래스를 센다.

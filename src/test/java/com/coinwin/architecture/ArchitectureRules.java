@@ -97,24 +97,29 @@ public final class ArchitectureRules {
     }
 
     /**
-     * 규칙 4 — market / journal / ai 의 application 이 adapter 를 참조하지 않는다.
+     * 규칙 4 — market / journal / ai / account 의 application 이 adapter 를 참조하지 않는다.
      *
      * <p>architecture.md: "4번과 5번이 없으면 헥사고날이 이름만 남고 계층형으로 무너진다."
      *
      * <p>Phase 7 에서 {@code ai} 가 들어왔다. 이 모듈에서 규칙이 깨지면 {@code ChatClient} 가
      * application 으로 새고, 그 순간 <b>AI 없이 도는 테스트</b>라는 것이 성립하지 않는다.
+     *
+     * <p>{@code account} 는 그보다 더 날카롭다 — 규칙이 깨지면 <b>서명 키가 application 으로
+     * 샌다.</b> 시크릿이 흐르는 코드 범위는 좁을수록 좋다.
      */
     public static ArchRule hexagonalApplicationDoesNotSeeAdapters(String root) {
         return noClasses()
                 .that().resideInAnyPackage(
                         root + ".market.application..",
                         root + ".journal.application..",
-                        root + ".ai.application..")
+                        root + ".ai.application..",
+                        root + ".account.application..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         root + ".market.adapter..",
                         root + ".journal.adapter..",
-                        root + ".ai.adapter..")
-                .as("규칙 4: market / journal / ai 의 application 은 adapter 를 알지 못한다");
+                        root + ".ai.adapter..",
+                        root + ".account.adapter..")
+                .as("규칙 4: market / journal / ai / account 의 application 은 adapter 를 알지 못한다");
     }
 
     /** 규칙 5 — backtest 는 market 의 포트만 소비하고 어댑터를 직접 참조하지 않는다. */

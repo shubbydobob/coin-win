@@ -93,6 +93,15 @@ public final class JournalFixtures {
         return planned().fill(bothLegsFilled(), context());
     }
 
+    /** 숏 2분할 60000 / 61000, 각 0.05 → 평단 60500, 총수량 0.1. 방향으로 가르는 테스트용. */
+    public static OpenTrade openShort() {
+        return PlannedTrade.of(shortPlan(), PLANNED_AT).fill(
+                ExecutedEntries.of(
+                        new Fill(Price.of("60000"), LEG, FIRST_FILL_AT),
+                        new Fill(Price.of("61000"), LEG, SECOND_FILL_AT)),
+                context());
+    }
+
     /** 익절 청산. 수수료 5.00 / 펀딩비 1.20 → 실현 손익 443.80. */
     public static ClosedTrade closedAtTarget() {
         return open().close(new TradeClosure(
