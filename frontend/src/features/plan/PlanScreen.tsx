@@ -5,6 +5,7 @@ import { post } from "../../api/client";
 import { DIRECTION } from "../../shared/labels";
 import { ApiFailure } from "../../api/problem";
 import { EntryRows } from "../../shared/EntryRows";
+import { PlanDraft } from "../../shared/PlanDraft";
 import { EMPTY_FORM, toRequest } from "./planForm";
 import { PlanResult } from "./PlanResult";
 import type { PlanForm } from "./planForm";
@@ -33,6 +34,22 @@ export function PlanScreen() {
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
+      <div className="space-y-4">
+        <PlanDraft
+          onDrafted={(drafted) =>
+            setForm({
+              ...form,
+              direction: drafted.direction,
+              entries: drafted.entries.map((entry) => ({
+                price: String(entry.price),
+                allocation: String(entry.allocation),
+              })),
+              stopLoss: String(drafted.stopLoss),
+              takeProfit: String(drafted.takeProfit),
+              leverage: String(drafted.leverage),
+            })
+          }
+        />
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -73,6 +90,7 @@ export function PlanScreen() {
 
         {analysis.error && <Failure error={analysis.error} />}
       </form>
+      </div>
 
       {analysis.data && <PlanResult analysis={analysis.data} />}
     </div>

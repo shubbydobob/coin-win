@@ -8,6 +8,7 @@ import { BacktestTrades } from "./BacktestTrades";
 import { CandleSync } from "./CandleSync";
 import { ComparisonPanel } from "./ComparisonPanel";
 import { EquityChart } from "../../shared/EquityChart";
+import { Narrative } from "./Narrative";
 import { ResultSummary } from "./ResultSummary";
 import { STARTING_FORM, toRequest } from "./backtestForm";
 import type { BacktestForm } from "./backtestForm";
@@ -96,6 +97,7 @@ export function BacktestScreen() {
             <EquityChart equity={result.equityCurve} label="자산 곡선" />
           </div>
           <BacktestTrades trades={result.trades} />
+          <Narrative form={form} />
         </section>
       )}
 

@@ -252,6 +252,51 @@ describe("매매 기록", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("비중의 합이 100 이 아니다");
   });
 
+  it("AI 만 503 이어도 기록 화면은 전부 동작한다", async () => {
+    server.use(
+      ...응답(),
+      http.post(origin + "/api/ai/journal-query", () =>
+        HttpResponse.json(
+          { title: "AI 기능이 설정되지 않았다", status: 503, detail: "AI 기능이 설정되지 않았다", instance: "/api/ai/journal-query" },
+          { status: 503 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderScreen(<JournalScreen />);
+
+    await user.type(screen.getByLabelText("질문"), "손실 직후에 들어간 거래는 어땠나");
+    await user.click(screen.getByRole("button", { name: "묻기" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("AI 기능이 설정되지 않았다");
+    // AI 실패로 기록을 못 남기는 일이 있으면 안 된다.
+    expect(screen.getByRole("cell", { name: "계획 익절" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "계획 저장" })).toBeEnabled();
+  });
+
+  it("답변의 근거 거래는 목록의 그 거래를 가리킨다", async () => {
+    server.use(
+      ...응답(),
+      http.post(origin + "/api/ai/journal-query", () =>
+        HttpResponse.json({
+          answer: "손실 직후 진입한 거래는 두 건이고 둘 다 계획을 어겼다",
+          citedTradeIds: ["t-1"],
+          retrieved: [{ tradeId: "t-1", score: 0.82, summary: "롱 · 계획 익절 · 손실 직후 아님" }],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderScreen(<JournalScreen />);
+    await screen.findByRole("cell", { name: "계획 익절" });
+
+    await user.click(screen.getByRole("button", { name: "묻기" }));
+
+    // 대조할 수 없는 답은 이 프로젝트에서 근거가 아니다.
+    const 링크 = await screen.findByRole("link", { name: "t-1" });
+    expect(링크).toHaveAttribute("href", "#trade-t-1");
+    expect(document.getElementById("trade-t-1")).not.toBeNull();
+  });
+
   it("조회가 실패하면 서버 문장이 그대로 나온다", async () => {
     server.use(
       http.get(origin + "/api/trades", () =>

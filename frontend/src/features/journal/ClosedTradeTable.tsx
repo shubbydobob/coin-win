@@ -33,7 +33,7 @@ export function ClosedTradeTable({ trades }: { trades: readonly Trade[] }) {
       </thead>
       <tbody>
         {trades.map((trade) => (
-          <tr key={trade.id} className="border-b border-slate-100">
+          <tr key={trade.id} id={`trade-${trade.id}`} className="border-b border-slate-100">
             <th scope="row" className="py-1 text-left font-normal">
               {orNothing(trade.entry, (entry) => instant(entry.openedAt))}
             </th>

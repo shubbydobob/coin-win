@@ -6,13 +6,15 @@ import { ApiFailure } from "../../api/problem";
 import { ActiveTrades } from "./ActiveTrades";
 import { ClosedTradeTable } from "./ClosedTradeTable";
 import { CloseTradeForm } from "./CloseTradeForm";
+import { JournalQuery } from "./JournalQuery";
 import { JournalSummaryPanel } from "./JournalSummaryPanel";
-import { NO_FILTER, toQuery } from "./journalQuery";
+import { NO_FILTER, toQuery } from "./tradeQuery";
 import { PlanTradeForm } from "./PlanTradeForm";
 import { RecordFillsForm } from "./RecordFillsForm";
+import { Reindex } from "./Reindex";
 import { TradeFilters } from "./TradeFilters";
 import type { Action } from "./ActiveTrades";
-import type { TradeQuery } from "./journalQuery";
+import type { TradeQuery } from "./tradeQuery";
 
 /**
  * 매매 기록. `scope.md` 의 문제 정의 2(매매 이력이 구조화되지 않아 사후 분석이 불가능하다)에
@@ -84,6 +86,9 @@ export function JournalScreen() {
           {trades.data && <ClosedTradeTable trades={trades.data} />}
           {summary.data && <JournalSummaryPanel summary={summary.data} />}
         </div>
+
+        <JournalQuery />
+        <Reindex />
       </section>
     </div>
   );

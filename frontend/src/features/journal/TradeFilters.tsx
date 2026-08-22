@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 import { DIRECTION, EXIT_REASON } from "../../shared/labels";
-import { NO_FILTER } from "./journalQuery";
-import type { FilterDraft } from "./journalQuery";
+import { NO_FILTER } from "./tradeQuery";
+import type { FilterDraft } from "./tradeQuery";
 
 interface Props {
   readonly onApply: (draft: FilterDraft) => void;
