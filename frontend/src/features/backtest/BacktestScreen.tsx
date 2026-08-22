@@ -7,7 +7,7 @@ import { BacktestSettings } from "./BacktestSettings";
 import { BacktestTrades } from "./BacktestTrades";
 import { CandleSync } from "./CandleSync";
 import { ComparisonPanel } from "./ComparisonPanel";
-import { EquityChart } from "./EquityChart";
+import { EquityChart } from "../../shared/EquityChart";
 import { ResultSummary } from "./ResultSummary";
 import { STARTING_FORM, toRequest } from "./backtestForm";
 import type { BacktestForm } from "./backtestForm";

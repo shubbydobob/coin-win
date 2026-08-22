@@ -14,6 +14,7 @@ export function App() {
             { to: "/plan", label: "계획" },
             { to: "/journal", label: "기록" },
             { to: "/backtest", label: "백테스트" },
+            { to: "/projection", label: "복리" },
           ].map((item) => (
             <NavLink
               key={item.to}

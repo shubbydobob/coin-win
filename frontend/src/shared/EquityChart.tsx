@@ -1,9 +1,13 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import { money } from "../../format";
+import { money } from "../format";
 
 /**
  * 자산 곡선. **거래마다 한 점이고 첫 점이 초기 자본이다.**
+ *
+ * `/backtest` 의 실제 자산 곡선과 `/projection` 의 시뮬레이션 곡선이 같은 모양이라 `shared/`
+ * 로 올렸다 — 두 번째 사용처가 생겼을 때만 만든다는 § 4 의 규칙 그대로다. 점의 뜻은 두 화면에서
+ * 같다: **거래 하나가 점 하나이고 첫 점은 거래 이전의 자본이다.**
  *
  * 가격 캔들 차트는 두지 않는다 — Phase 6 의 결론은 "이 규칙에는 엣지가 없다" 였고, 지금
  * 필요한 것은 예쁜 차트가 아니라 거래 목록을 눈으로 훑는 것이다(§ 6.4).
