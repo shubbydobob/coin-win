@@ -25,7 +25,7 @@ public record AnalyzePositionRequest(
         Direction direction,
 
         @Schema(description = "분할 진입 계획. 50% 분할이면 2건")
-        List<PlannedEntryRequest> entries,
+        List<PositionEntryRequest> entries,
 
         @Schema(description = "손절가. 롱은 최저 진입가보다 낮아야 하고, 숏은 최고 진입가보다 높아야 한다",
                 example = "56000")
@@ -69,7 +69,7 @@ public record AnalyzePositionRequest(
         if (entries.isEmpty()) {
             throw new InvalidValueException("분할 진입 계획은(는) 최소 1건이어야 한다");
         }
-        return entries.stream().map(PlannedEntryRequest::toEntry).toList();
+        return entries.stream().map(PositionEntryRequest::toEntry).toList();
     }
 
     private int requiredLeverage() {

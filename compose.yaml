@@ -15,7 +15,14 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - coinwin-db-data:/var/lib/postgresql/data
+      # PG18 이미지는 데이터를 /var/lib/postgresql/{major}/docker 에 둔다. 옛 관례대로
+      # /var/lib/postgresql/data 에 마운트하면 컨테이너가 "쓰이지 않는 마운트" 라며 기동을
+      # 거부한다 — 볼륨 밖에 데이터를 쓰는 것을 막아 주는 검사다. 한 칸 위에 건다.
+      #
+      # Phase 7 에서 이미지를 pgvector/pgvector:pg18 로 바꾸면서 이 줄을 함께 고치지 않았고,
+      # 통합 테스트는 Testcontainers 를 쓰므로 아무도 몰랐다. Phase 8 의 브라우저 확인이
+      # 처음으로 이 컨테이너를 띄우면서 드러났다.
+      - coinwin-db-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U coinwin -d coinwin"]
       interval: 5s

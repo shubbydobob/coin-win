@@ -23,42 +23,18 @@ const RESULT: Result = {
   summary: SUMMARY,
   trades: [
     {
-      id: "b-1",
-      state: "CLOSED",
-      plannedAt: "2026-01-02T00:00:00Z",
-      plan: {
-        direction: "LONG",
-        entries: [{ price: 59000, allocation: 50 }],
-        stopLoss: 58000,
-        takeProfit: 62000,
-        leverage: 10,
-        riskRewardRatio: 3,
-        weakRiskReward: false,
-      },
-      entry: {
-        openedAt: "2026-01-02T04:00:00Z",
-        fillCount: 1,
-        averageEntryPrice: 59100,
-        quantity: 0.01,
-        priceAtEntry: 59100,
-        ichimokuPosition: "ABOVE",
-        bollingerPosition: "INSIDE",
-        rationale: "지지대 59000.00~59200.00 (터치 3회) 근단 반전 진입",
-      },
-      outcome: {
-        closedAt: "2026-01-03T00:00:00Z",
-        exitPrice: 62000,
-        exitReason: "PLANNED_TARGET",
-        followedPlan: true,
-        holdingPeriod: "PT20H",
-        grossPnl: 29,
-        realizedPnl: 28.5,
-        lossIfStopHonored: -11,
-        costOfDeviation: 0,
-      },
+      direction: "LONG",
+      openedAt: "2026-01-20T04:00:00Z",
+      closedAt: "2026-01-21T00:00:00Z",
+      averageEntryPrice: 91899.5,
+      exitPrice: 90991.43,
+      exitReason: "PLANNED_STOP",
+      filledEntries: 2,
+      realizedPnl: -17.49,
+      rationale: "지지대 91800.00~91999.00 (터치 2회) 근단 반전 진입",
     },
   ],
-  equityCurve: [800, 828.5],
+  equityCurve: [800, 782.51],
 };
 
 describe("백테스트", () => {
@@ -72,7 +48,7 @@ describe("백테스트", () => {
     expect(await screen.findByRole("region", { name: "백테스트 결과" })).toBeVisible();
     expect(screen.getByText("거래 1건")).toBeVisible();
     // 요약만 보고 판단하지 않도록 원자료를 함께 낸다. 근거가 왜 그 거래가 섰는지를 말한다.
-    expect(screen.getByRole("cell", { name: "지지대 59000.00~59200.00 (터치 3회) 근단 반전 진입" })).toBeVisible();
+    expect(screen.getByRole("cell", { name: "지지대 91800.00~91999.00 (터치 2회) 근단 반전 진입" })).toBeVisible();
   });
 
   it("진 거래가 없는 표본의 손익비는 0 이 아니라 — 로 나온다", async () => {

@@ -31,18 +31,18 @@ class OpenAiAnswerQuestionAdapter implements AnswerQuestionPort {
 
     @Override
     public Answer answer(String question, List<RetrievedTrade> evidence) {
-        JournalAnswerResponse response = ask(question, evidence);
+        ModelAnswer response = ask(question, evidence);
         return new Answer(response.answer(),
                 response.citedTradeIds() == null ? List.of() : response.citedTradeIds());
     }
 
-    private JournalAnswerResponse ask(String question, List<RetrievedTrade> evidence) {
-        JournalAnswerResponse response;
+    private ModelAnswer ask(String question, List<RetrievedTrade> evidence) {
+        ModelAnswer response;
         try {
             response = chatClient.prompt()
                     .user("질문: %s%n%n거래 기록:%n%s".formatted(question, rendered(evidence)))
                     .call()
-                    .entity(JournalAnswerResponse.class);
+                    .entity(ModelAnswer.class);
         } catch (RuntimeException failure) {
             throw new ExternalDataUnavailableException("답변을 받아 오지 못했다", failure);
         }
@@ -59,6 +59,6 @@ class OpenAiAnswerQuestionAdapter implements AnswerQuestionPort {
     }
 
     /** 모델이 돌려주는 JSON 의 모양. 검증 전의 날것이다. */
-    record JournalAnswerResponse(String answer, List<String> citedTradeIds) {
+    record ModelAnswer(String answer, List<String> citedTradeIds) {
     }
 }

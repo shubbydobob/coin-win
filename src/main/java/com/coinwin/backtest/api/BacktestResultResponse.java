@@ -3,6 +3,8 @@ package com.coinwin.backtest.api;
 import com.coinwin.backtest.domain.BacktestComparison;
 import com.coinwin.backtest.domain.BacktestResult;
 import com.coinwin.journal.domain.ClosedTrade;
+import com.coinwin.journal.domain.ExitReason;
+import com.coinwin.position.domain.Direction;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,7 +17,7 @@ public record BacktestResultResponse(
         SummaryResponse summary,
 
         @Schema(description = "시간순 거래 전부. 요약만 보고 판단하지 않도록 원자료를 함께 낸다")
-        List<TradeResponse> trades,
+        List<BacktestTradeResponse> trades,
 
         @Schema(description = "거래마다 한 점씩. 첫 점은 거래 이전의 초기 자본이다")
         List<BigDecimal> equityCurve) {
@@ -28,7 +30,7 @@ public record BacktestResultResponse(
     public static BacktestResultResponse from(BacktestResult result) {
         return new BacktestResultResponse(
                 SummaryResponse.from(result),
-                result.trades().stream().map(TradeResponse::from).toList(),
+                result.trades().stream().map(BacktestTradeResponse::from).toList(),
                 result.equity().points().stream().map(point -> point.value()).toList());
     }
 
@@ -65,10 +67,22 @@ public record BacktestResultResponse(
         }
     }
 
-    @Schema(description = "거래 한 건")
-    public record TradeResponse(
+    /**
+     * 백테스트가 낸 거래 한 건.
+     *
+     * <p>이름이 {@code TradeResponse} 가 아닌 이유가 있다. {@code journal} 에 같은 이름의 DTO 가
+     * 있고, springdoc 은 스키마를 <b>단순명으로 키잉</b>한다 — 둘 중 하나가 다른 하나를 덮는다.
+     * Phase 8 에서 실제로 그랬고, 스키마는 백테스트 거래가 매매 기록의 거래(계획·상태·결과를
+     * 가진 것)라고 <b>거짓말을 하고 있었다.</b> 그 타입을 믿은 화면은 없는 필드를 읽다 죽었다.
+     *
+     * <p>이름 충돌은 {@code SchemaNameCollisionTest} 가 매 빌드 막는다.
+     */
+    @Schema(description = "백테스트가 낸 거래 한 건")
+    public record BacktestTradeResponse(
+            // 열거 타입으로 낸다. String 이면 스키마에 enum 이 실리지 않아 소비자가 어떤 값이
+            // 오는지 알 수 없고, 매매 기록의 같은 값과 타입이 갈린다.
             @Schema(description = "방향", example = "LONG")
-            String direction,
+            Direction direction,
 
             @Schema(description = "첫 진입 체결 시각")
             Instant openedAt,
@@ -84,7 +98,7 @@ public record BacktestResultResponse(
 
             @Schema(description = "청산 이유. 백테스트는 계획을 어기지 않으므로 둘뿐이다",
                     example = "PLANNED_TARGET")
-            String exitReason,
+            ExitReason exitReason,
 
             @Schema(description = "진입 회차. 1 이면 2차 지정가가 채워지지 않은 채 끝났다",
                     example = "2")
@@ -97,14 +111,14 @@ public record BacktestResultResponse(
                     example = "지지대 59000.00~59200.00 (터치 3회) 근단 반전 진입")
             String rationale) {
 
-        static TradeResponse from(ClosedTrade trade) {
-            return new TradeResponse(
-                    trade.plan().direction().name(),
+        static BacktestTradeResponse from(ClosedTrade trade) {
+            return new BacktestTradeResponse(
+                    trade.plan().direction(),
                     trade.openedAt(),
                     trade.closedAt(),
                     trade.averageEntryPrice().value(),
                     trade.closure().exit().price().value(),
-                    trade.closure().reason().name(),
+                    trade.closure().reason(),
                     trade.entries().count(),
                     trade.realizedPnl().value(),
                     trade.context().rationale());

@@ -25,7 +25,7 @@ public record PlanDraftResponse(
         Direction direction,
 
         @Schema(description = "분할 진입 계획. 문장에 나온 회차 수 그대로다")
-        List<EntryResponse> entries,
+        List<DraftedPlanEntryResponse> entries,
 
         @Schema(description = "손절가", example = "58000")
         BigDecimal stopLoss,
@@ -41,7 +41,7 @@ public record PlanDraftResponse(
     }
 
     @Schema(description = "분할 진입 한 회차")
-    public record EntryResponse(
+    public record DraftedPlanEntryResponse(
 
             @Schema(description = "이 회차의 지정가", example = "62000")
             BigDecimal price,
@@ -49,15 +49,15 @@ public record PlanDraftResponse(
             @Schema(description = "이 회차에 넣을 비중. 50 은 50% 를 뜻한다", example = "50")
             BigDecimal allocation) {
 
-        static EntryResponse from(PlannedEntry entry) {
-            return new EntryResponse(entry.price().value(), entry.allocation().value());
+        static DraftedPlanEntryResponse from(PlannedEntry entry) {
+            return new DraftedPlanEntryResponse(entry.price().value(), entry.allocation().value());
         }
     }
 
     public static PlanDraftResponse from(PositionPlan plan) {
         return new PlanDraftResponse(
                 plan.direction(),
-                plan.entries().entries().stream().map(EntryResponse::from).toList(),
+                plan.entries().entries().stream().map(DraftedPlanEntryResponse::from).toList(),
                 plan.stopLoss().value(),
                 plan.takeProfit().value(),
                 plan.leverage());

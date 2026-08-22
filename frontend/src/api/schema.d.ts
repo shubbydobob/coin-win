@@ -1001,7 +1001,7 @@ export interface components {
              */
             direction?: "LONG" | "SHORT";
             /** @description 분할 진입 계획. 50% 분할이면 2건 */
-            entries?: components["schemas"]["PlannedEntryRequest"][];
+            entries?: components["schemas"]["PositionEntryRequest"][];
             /**
              * @description 손절가. 롱은 최저 진입가보다 낮아야 하고, 숏은 최고 진입가보다 높아야 한다
              * @example 56000
@@ -1028,6 +1028,19 @@ export interface components {
              * @example 2
              */
             riskPercent?: number;
+        };
+        /** @description 분할 진입 한 회차. 배열의 순서가 체결될 순서다 */
+        PositionEntryRequest: {
+            /**
+             * @description 이 회차에 지정가 주문을 걸 가격
+             * @example 60000
+             */
+            price?: number;
+            /**
+             * @description 이 회차에 배정한 비중. 100 이 전액이며 모든 회차의 합이 정확히 100 이어야 한다
+             * @example 50
+             */
+            allocation?: number;
         };
         /** @description n 건까지 체결됐을 때의 포지션 상태 */
         FillStateResponse: {
@@ -1258,9 +1271,60 @@ export interface components {
             /** @description 성적 요약 */
             summary: components["schemas"]["SummaryResponse"];
             /** @description 시간순 거래 전부. 요약만 보고 판단하지 않도록 원자료를 함께 낸다 */
-            trades: components["schemas"]["TradeResponse"][];
+            trades: components["schemas"]["BacktestTradeResponse"][];
             /** @description 거래마다 한 점씩. 첫 점은 거래 이전의 초기 자본이다 */
             equityCurve: number[];
+        };
+        /** @description 백테스트가 낸 거래 한 건 */
+        BacktestTradeResponse: {
+            /**
+             * @description 방향
+             * @example LONG
+             * @enum {string}
+             */
+            direction: "LONG" | "SHORT";
+            /**
+             * Format: date-time
+             * @description 첫 진입 체결 시각
+             */
+            openedAt: string;
+            /**
+             * Format: date-time
+             * @description 청산 시각
+             */
+            closedAt: string;
+            /**
+             * @description 체결 수량 가중 평단
+             * @example 59105
+             */
+            averageEntryPrice: number;
+            /**
+             * @description 청산가. 슬리피지가 반영돼 있다
+             * @example 61987.6
+             */
+            exitPrice: number;
+            /**
+             * @description 청산 이유. 백테스트는 계획을 어기지 않으므로 둘뿐이다
+             * @example PLANNED_TARGET
+             * @enum {string}
+             */
+            exitReason: "PLANNED_STOP" | "PLANNED_TARGET" | "MANUAL_EARLY" | "HELD_PAST_STOP" | "LIQUIDATED";
+            /**
+             * Format: int32
+             * @description 진입 회차. 1 이면 2차 지정가가 채워지지 않은 채 끝났다
+             * @example 2
+             */
+            filledEntries: number;
+            /**
+             * @description 수수료를 뺀 실현 손익 (USDT)
+             * @example 38.2
+             */
+            realizedPnl: number;
+            /**
+             * @description 진입 근거. 어느 대의 어느 경계에서 무엇을 보고 들어갔는가
+             * @example 지지대 59000.00~59200.00 (터치 3회) 근단 반전 진입
+             */
+            rationale: string;
         };
         /** @description 성적 요약 */
         SummaryResponse: {
@@ -1354,6 +1418,19 @@ export interface components {
              */
             text?: string;
         };
+        /** @description 분할 진입 한 회차 */
+        DraftedPlanEntryResponse: {
+            /**
+             * @description 이 회차의 지정가
+             * @example 62000
+             */
+            price: number;
+            /**
+             * @description 이 회차에 넣을 비중. 50 은 50% 를 뜻한다
+             * @example 50
+             */
+            allocation: number;
+        };
         /**
          * @description 자연어에서 읽어낸 매매 계획 초안
          * @example {
@@ -1381,7 +1458,7 @@ export interface components {
              */
             direction: "LONG" | "SHORT";
             /** @description 분할 진입 계획. 문장에 나온 회차 수 그대로다 */
-            entries: components["schemas"]["EntryResponse"][];
+            entries: components["schemas"]["DraftedPlanEntryResponse"][];
             /**
              * @description 손절가
              * @example 58000

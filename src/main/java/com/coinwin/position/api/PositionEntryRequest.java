@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 
 /** 분할 진입 한 건. 순서가 체결 순서다. */
 @Schema(description = "분할 진입 한 회차. 배열의 순서가 체결될 순서다")
-public record PlannedEntryRequest(
+public record PositionEntryRequest(
 
         @Schema(description = "이 회차에 지정가 주문을 걸 가격", example = "60000")
         BigDecimal price,
