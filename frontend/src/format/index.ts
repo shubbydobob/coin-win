@@ -23,6 +23,12 @@ const MONEY_SCALE = 2;
 const PERCENT_SCALE = 4;
 
 /**
+ * 손익비처럼 단위가 없는 배수. 값 객체가 아니라 도메인이 직접 정한 자릿수다
+ * (`PositionPlan.RATIO_SCALE`, `JournalSummary` 의 손익비도 같다).
+ */
+const RATIO_SCALE = 2;
+
+/**
  * 로케일을 환경에 맡기지 않는다. 맡기면 같은 값이 사람마다 다르게 보이고, 테스트가 통과하는
  * 컴퓨터와 아닌 컴퓨터가 갈린다. 숫자 표기는 언어 설정이 아니라 이 파일이 정한다.
  */
@@ -51,6 +57,8 @@ const MONEY = formatter(MONEY_SCALE, true);
 
 const PERCENT = formatter(PERCENT_SCALE, false);
 
+const RATIO = formatter(RATIO_SCALE, false);
+
 export function price(value: number): string {
   return PRICE.format(signed(value));
 }
@@ -65,6 +73,10 @@ export function money(value: number): string {
 
 export function percent(value: number): string {
   return `${PERCENT.format(signed(value))}%`;
+}
+
+export function ratio(value: number): string {
+  return RATIO.format(signed(value));
 }
 
 /**

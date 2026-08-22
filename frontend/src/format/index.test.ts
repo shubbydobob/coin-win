@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { money, percent, price, quantity } from "./index";
+import { money, percent, price, quantity, ratio } from "./index";
 
 /**
  * 이 모듈이 지키는 것은 하나다 — **서버가 정한 자릿수를 되살리되 줄이지 않는다.**
@@ -45,6 +45,12 @@ describe("표시 형식", () => {
 
   it("비율이 정수여도 네 자리를 낸다", () => {
     expect(percent(45)).toBe("45.0000%");
+  });
+
+  it("손익비는 두 자리를 그대로 낸다", () => {
+    // 서버가 버림으로 낸 값이다 — 여기서 반올림하면 "표시값 1.50 = 기준 충족" 이 깨진다.
+    expect(ratio(2.33)).toBe("2.33");
+    expect(ratio(1.5)).toBe("1.50");
   });
 
   it("0 은 어느 형식에서도 그 스케일을 갖는다", () => {
