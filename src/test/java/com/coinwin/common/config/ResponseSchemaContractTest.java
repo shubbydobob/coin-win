@@ -1,0 +1,193 @@
+package com.coinwin.common.config;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.StreamSupport;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+/**
+ * 응답 스키마가 <b>사실대로</b> 말하는지 검사한다.
+ *
+ * <p>springdoc 은 {@code required} 를 내지 않는다. 그대로 두면 생성된 타입에서 모든 필드가
+ * optional 이 되고, 그러면 두 가지가 한꺼번에 무너진다 — 항상 있는 값에까지 가드를 달게 되고
+ * (잡음), <b>진짜 null 인 것과 항상 있는 것이 구별되지 않는다</b>(위험).
+ *
+ * <p>고치는 방법은 둘 다 필요하다. {@code required} 만 세우고 {@code nullable} 을 빠뜨리면
+ * optional 이던 시절보다 나쁘다 — 타입이 "언제나 있다" 고 단언하는데 실제로는 null 이 오므로
+ * 컴파일러가 가드를 <b>지우게</b> 만든다.
+ *
+ * <p>그래서 이 테스트는 양쪽을 함께 못 박는다. 특히 마지막 테스트는 null 이 오는 필드가
+ * <b>정확히 셋</b>이라는 것을 전수로 센다 — 넷째가 생기면 목록을 고치지 않고는 통과할 수 없다.
+ *
+ * <p>근거: {@code docs/spec/phase8-frontend.md} § 5.4
+ */
+@SpringBootTest
+class ResponseSchemaContractTest {
+
+    private static final String RESPONSE_SUFFIX = "Response";
+
+    /** 응답 필드 중 실제로 null 이 오는 것 전부. 전수로 셌다. */
+    private static final Map<String, List<String>> NULLABLE_FIELDS = Map.of(
+            "SummaryResponse", List.of("profitFactor"),
+            "TradeResponse", List.of("entry", "outcome"));
+
+    @Autowired
+    private WebApplicationContext context;
+
+    @Test
+    void 응답_스키마는_모든_필드가_required_다() throws Exception {
+        JsonNode schemas = schemas();
+
+        List<String> incomplete = new ArrayList<>();
+        names(schemas).stream()
+                .filter(name -> name.endsWith(RESPONSE_SUFFIX))
+                .filter(name -> !required(schemas.get(name)).containsAll(properties(schemas.get(name))))
+                .forEach(incomplete::add);
+
+        assertThat(incomplete)
+                .describedAs("required 가 빠진 응답 스키마 — 생성된 타입에서 optional 이 된다")
+                .isEmpty();
+    }
+
+    @Test
+    void 요청_스키마에는_required_를_붙이지_않는다() throws Exception {
+        JsonNode schemas = schemas();
+
+        // 요청은 실제로 선택 필드가 있고, 검증은 어차피 서버가 한다.
+        assertThat(required(schemas.get("RunBacktestRequest"))).doesNotContain("costs");
+        assertThat(required(schemas.get("JournalQueryRequest"))).doesNotContain("topK");
+        assertThat(required(schemas.get("TradePlanRequest"))).isEmpty();
+
+        // 조회 조건은 더 이상 스키마가 아니라 개별 질의 파라미터다. 객체로 서 있던 시절이
+        // 문서가 와이어와 달랐다는 증거였다 — QueryParameterContractTest 가 그 자리를 지킨다.
+        assertThat(names(schemas)).doesNotContain("TradeQueryParams");
+    }
+
+    @Test
+    void null_이_오는_응답_필드는_정확히_셋뿐이다() throws Exception {
+        JsonNode schemas = schemas();
+
+        List<String> actual = new ArrayList<>();
+        for (String name : names(schemas)) {
+            if (!name.endsWith(RESPONSE_SUFFIX)) {
+                continue;
+            }
+            JsonNode props = schemas.get(name).path("properties");
+            names(props).stream()
+                    .filter(field -> acceptsNull(props.get(field)))
+                    .map(field -> name + "." + field)
+                    .forEach(actual::add);
+        }
+
+        assertThat(actual).containsExactlyInAnyOrderElementsOf(expectedNullableFields());
+    }
+
+    private static List<String> expectedNullableFields() {
+        return NULLABLE_FIELDS.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream().map(field -> entry.getKey() + "." + field))
+                .toList();
+    }
+
+    /**
+     * 소비자가 실제로 "null 이 올 수 있다" 로 읽는 모양인지 본다.
+     *
+     * <p>스칼라는 {@code type: [T, "null"]} 이면 된다. <b>{@code $ref} 는 그렇지 않다.</b>
+     * swagger-core 는 {@code nullable = true} 를 {@code $ref} 옆에 {@code "type": "null"} 형제로
+     * 붙이는데, 그것은 "null 이면서 동시에 T" 라는 뜻이라 openapi-typescript 가 그냥 무시하고
+     * {@code T} 를 낸다. 통과하는 것처럼 보이면서 타입이 거짓말을 하는 자리이므로 여기서
+     * <b>세지 않는다</b> — 합성({@code anyOf} / {@code oneOf})으로 표현돼야 한다.
+     */
+    private static boolean acceptsNull(JsonNode property) {
+        if (!property.path("$ref").isMissingNode()) {
+            return anyAcceptsNull(property.path("anyOf")) || anyAcceptsNull(property.path("oneOf"));
+        }
+        return hasNullType(property.path("type"))
+                || anyAcceptsNull(property.path("anyOf"))
+                || anyAcceptsNull(property.path("oneOf"));
+    }
+
+    private static boolean hasNullType(JsonNode type) {
+        if (type.isArray()) {
+            return stream(type).anyMatch(entry -> "null".equals(entry.asText()));
+        }
+        return "null".equals(type.asText(""));
+    }
+
+    private static boolean anyAcceptsNull(JsonNode alternatives) {
+        return stream(alternatives).anyMatch(ResponseSchemaContractTest::acceptsNull);
+    }
+
+    private static java.util.stream.Stream<JsonNode> stream(JsonNode array) {
+        return StreamSupport.stream(array.spliterator(), false);
+    }
+
+    private static List<String> names(JsonNode object) {
+        List<String> names = new ArrayList<>();
+        object.fieldNames().forEachRemaining(names::add);
+        return names;
+    }
+
+    private static List<String> properties(JsonNode schema) {
+        return names(schema.path("properties"));
+    }
+
+    private static List<String> required(JsonNode schema) {
+        return stream(schema.path("required")).map(JsonNode::asText).toList();
+    }
+
+    /**
+     * springdoc 은 {@code @ApiResponses} 가 붙어 있으면 <b>기본 성공 응답을 넣지 않는다.</b>
+     * 오류 코드만 적어 둔 오퍼레이션은 "무엇을 돌려주는가" 가 스키마에서 통째로 사라진다.
+     *
+     * <p>Phase 8 이 시작될 때 19개 중 <b>14개</b>가 그 상태였다. 소비자 쪽에서는 응답 타입이
+     * {@code never} 가 되므로 그 엔드포인트를 부르는 코드를 아예 쓸 수 없다.
+     *
+     * <p>고치는 방법은 각 {@code @ApiResponses} 에 성공 코드를 한 줄 적는 것이고, 그 한 줄이
+     * 빠지는 것은 사람의 주의가 아니라 이 테스트가 막는다.
+     */
+    @Test
+    void 모든_오퍼레이션은_성공_응답을_선언한다() throws Exception {
+        JsonNode paths = document().path("paths");
+
+        List<String> silent = new ArrayList<>();
+        for (String path : names(paths)) {
+            for (String method : names(paths.path(path))) {
+                JsonNode responses = paths.path(path).path(method).path("responses");
+                if (names(responses).stream().noneMatch(code -> code.startsWith("2"))) {
+                    silent.add(method + " " + path);
+                }
+            }
+        }
+
+        assertThat(silent)
+                .describedAs("무엇을 돌려주는지 적지 않은 오퍼레이션 — 소비자는 타입을 얻지 못한다")
+                .isEmpty();
+    }
+
+    private JsonNode schemas() throws Exception {
+        return document().path("components").path("schemas");
+    }
+
+    private JsonNode document() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
+        String body = mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+        return new ObjectMapper().readTree(body);
+    }
+}

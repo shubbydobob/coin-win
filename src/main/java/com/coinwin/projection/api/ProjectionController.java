@@ -31,6 +31,7 @@ public class ProjectionController {
                     승패 순서를 시드로 뽑아 자산 곡선 하나를 그린다.
                     같은 시드는 항상 같은 곡선을 낸다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "거래마다 한 점인 자산 곡선. 첫 점이 초기 자본이다"),
         @ApiResponse(responseCode = "400",
                 description = "값 자체가 부적절하다. 음수 자본, 100% 를 넘는 승률, 누락된 필드"),
         @ApiResponse(responseCode = "422",
@@ -47,6 +48,7 @@ public class ProjectionController {
                     기댓값이 같아도 경로에 따라 결과가 갈린다. 하위 5% 와 상위 5% 의 간격,
                     그리고 최대낙폭 분포가 그 차이를 수치로 보여준다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "백분위 다섯 점과 손실 확률, 최대낙폭 분포"),
         @ApiResponse(responseCode = "400",
                 description = "값 자체가 부적절하다. 0 이하의 시행 횟수, 누락된 필드"),
         @ApiResponse(responseCode = "422",

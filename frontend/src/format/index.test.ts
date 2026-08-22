@@ -1,0 +1,93 @@
+import { describe, expect, it } from "vitest";
+
+import { duration, instant, money, orNothing, percent, price, quantity, ratio } from "./index";
+
+/**
+ * 이 모듈이 지키는 것은 하나다 — **서버가 정한 자릿수를 되살리되 줄이지 않는다.**
+ *
+ * 그래서 여기 있는 케이스는 전부 "JSON 을 지나오며 지워진 자릿수" 를 다시 만드는 것이거나,
+ * 줄이지 않았음을 확인하는 것이다. 반올림 경계는 없다 — 반올림은 서버가 이미 했고 여기서
+ * 다시 하면 § 8 의 전제가 무너지기 때문이다.
+ */
+describe("표시 형식", () => {
+  it("가격의 사라진 두 자리를 되살린다", () => {
+    // 서버가 보낸 것은 60000.00 이지만 JSON 을 지나오면 60000 이다.
+    expect(price(60000)).toBe("60,000.00");
+    expect(price(54216.87)).toBe("54,216.87");
+  });
+
+  it("수량은 여덟 자리를 끝까지 낸다", () => {
+    expect(quantity(0.00266667)).toBe("0.00266667");
+  });
+
+  it("수량의 뒷자리 0 을 지우지 않는다", () => {
+    // 0.005 와 0.00500000 은 같은 수지만, 스케일이 8 이라는 사실은 뒤쪽만 말해 준다.
+    expect(quantity(0.005)).toBe("0.00500000");
+  });
+
+  it("금액은 두 자리와 천단위 구분을 갖는다", () => {
+    expect(money(800)).toBe("800.00");
+    expect(money(10098.5)).toBe("10,098.50");
+  });
+
+  it("손실은 부호를 그대로 달고 나온다", () => {
+    expect(money(-717)).toBe("-717.00");
+  });
+
+  it("음수 영은 손실처럼 보이지 않는다", () => {
+    expect(money(-0)).toBe("0.00");
+  });
+
+  it("비율은 네 자리와 % 를 붙인다", () => {
+    // 승률 1/3 은 Percentage 스케일 4 에서 33.3333 이다. 100 을 곱하는 것은 서버가 이미 했다.
+    expect(percent(33.3333)).toBe("33.3333%");
+  });
+
+  it("비율이 정수여도 네 자리를 낸다", () => {
+    expect(percent(45)).toBe("45.0000%");
+  });
+
+  it("손익비는 두 자리를 그대로 낸다", () => {
+    // 서버가 버림으로 낸 값이다 — 여기서 반올림하면 "표시값 1.50 = 기준 충족" 이 깨진다.
+    expect(ratio(2.33)).toBe("2.33");
+    expect(ratio(1.5)).toBe("1.50");
+  });
+
+  it("시각은 UTC 로 표시하고 UTC 를 붙인다", () => {
+    // 로컬 타임존으로 바꾸면 캔들 시각·체결 시각과 어긋나 보인다.
+    expect(instant("2026-08-02T09:30:00Z")).toBe("2026-08-02 09:30 UTC");
+    expect(instant("2026-08-02T09:30:00.123456Z")).toBe("2026-08-02 09:30 UTC");
+  });
+
+  it("기간은 하루가 넘으면 일로 올린다", () => {
+    expect(duration("PT26H30M")).toBe("1일 2시간 30분");
+    expect(duration("PT8H")).toBe("8시간");
+  });
+
+  it("0 이 아닌 단위를 하나도 빠뜨리지 않는다", () => {
+    // 줄이는 순간 "8시간" 이 8시간 55분을 뜻하게 된다.
+    expect(duration("PT8H55M12S")).toBe("8시간 55분 12초");
+    expect(duration("PT1M30S")).toBe("1분 30초");
+  });
+
+  it("기간 0 은 값이 없는 것이 아니라 0 이다", () => {
+    // TradeIntervals 는 간격이 없을 때 Duration.ZERO 를 쓴다. — 가 아니다.
+    expect(duration("PT0S")).toBe("0초");
+  });
+
+  it("읽어내지 못한 기간은 지어내지 않고 그대로 낸다", () => {
+    expect(duration("P3D")).toBe("P3D");
+  });
+
+  it("값이 없는 것과 0 은 다르게 나온다", () => {
+    expect(orNothing(null, money)).toBe("—");
+    expect(orNothing(0, money)).toBe("0.00");
+  });
+
+  it("0 은 어느 형식에서도 그 스케일을 갖는다", () => {
+    expect(price(0)).toBe("0.00");
+    expect(quantity(0)).toBe("0.00000000");
+    expect(money(0)).toBe("0.00");
+    expect(percent(0)).toBe("0.0000%");
+  });
+});

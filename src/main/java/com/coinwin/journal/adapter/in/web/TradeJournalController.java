@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -55,6 +56,7 @@ public class TradeJournalController {
     @Operation(summary = "진입 체결 기록",
             description = "체결 내역과 진입 시점의 시장 상태를 함께 받는다. 맥락은 이 순간에만 존재한다.")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OPEN 으로 넘어간 거래"),
         @ApiResponse(responseCode = "404", description = "그런 거래가 없다"),
         @ApiResponse(responseCode = "422", description = "계획 상태가 아니거나 체결이 계획보다 앞선다")
     })
@@ -68,6 +70,7 @@ public class TradeJournalController {
     @Operation(summary = "청산 기록",
             description = "손익은 받지 않는다. 청산가와 체결 내역으로 도메인이 계산한다.")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "CLOSED 로 넘어간 거래. 손익은 도메인이 계산해 채운다"),
         @ApiResponse(responseCode = "404", description = "그런 거래가 없다"),
         @ApiResponse(responseCode = "422", description = "열려 있지 않거나 청산이 진입보다 앞선다")
     })
@@ -79,7 +82,7 @@ public class TradeJournalController {
 
     @Operation(summary = "끝난 거래 목록", description = "조건에 드는 거래를 진입 시각 오름차순으로 낸다")
     @GetMapping
-    public List<TradeResponse> closedTrades(TradeQueryParams params) {
+    public List<TradeResponse> closedTrades(@ParameterObject TradeQueryParams params) {
         return queryJournal.closedTrades(params.toQuery()).stream()
                 .map(TradeResponse::from).toList();
     }
@@ -87,7 +90,7 @@ public class TradeJournalController {
     @Operation(summary = "집계",
             description = "목록과 같은 조건이 걸린다. 계획 준수 쪽과 위반 쪽을 갈라서 낸다.")
     @GetMapping("/summary")
-    public JournalSummaryResponse summary(TradeQueryParams params) {
+    public JournalSummaryResponse summary(@ParameterObject TradeQueryParams params) {
         return JournalSummaryResponse.from(queryJournal.summarize(params.toQuery()));
     }
 
@@ -98,7 +101,10 @@ public class TradeJournalController {
     }
 
     @Operation(summary = "거래 한 건 조회")
-    @ApiResponses(@ApiResponse(responseCode = "404", description = "그런 거래가 없다"))
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "거래 한 건의 현재 상태"),
+        @ApiResponse(responseCode = "404", description = "그런 거래가 없다")
+    })
     @GetMapping("/{id}")
     public TradeResponse trade(@PathVariable String id) {
         return TradeResponse.from(queryJournal.trade(TradeId.of(id)));

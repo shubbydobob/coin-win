@@ -47,6 +47,7 @@ public class AiController {
                     총수량은 초안에 없다. 수량은 손절가와 리스크 예산이 결정하는 값이므로
                     /api/position-plans/analysis 가 계산한다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "문장에서 읽어낸 계획 초안. 폼을 채울 뿐 제출하지 않는다"),
         @ApiResponse(responseCode = "400", description = "문장이 비어 있다"),
         @ApiResponse(responseCode = "422",
                 description = "문장에서 읽어내지 못한 항목이 있거나, 읽어낸 값이 계획으로 "
@@ -73,6 +74,7 @@ public class AiController {
 
                     앞으로의 매매는 묻지 않는다. 이미 일어난 일에 대해서만 답한다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "답변과 근거 거래 식별자. 원본 기록과 대조할 수 있다"),
         @ApiResponse(responseCode = "400", description = "질문이 비었거나 근거 거래 수가 범위 밖이다"),
         @ApiResponse(responseCode = "503",
                 description = "AI 기능이 설정되지 않았거나, 답변이 검색되지 않은 거래를 인용했다")
@@ -93,6 +95,7 @@ public class AiController {
                     색인은 파생 데이터이고 진실의 원천은 매매 기록이므로,
                     언제 몇 번을 불러도 기록이 달라지지 않는다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "다시 색인한 거래 건수"),
         @ApiResponse(responseCode = "503", description = "AI 기능이 설정되지 않았다")
     })
     @PostMapping("/reindex")

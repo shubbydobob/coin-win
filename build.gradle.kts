@@ -1,3 +1,4 @@
+import com.github.gradle.node.npm.task.NpmTask
 import com.github.spotbugs.snom.Confidence
 import com.github.spotbugs.snom.Effort
 import com.github.spotbugs.snom.SpotBugsTask
@@ -9,6 +10,7 @@ plugins {
     alias(libs.plugins.springBoot)
     alias(libs.plugins.dependencyManagement)
     alias(libs.plugins.spotbugs)
+    alias(libs.plugins.node)
 }
 
 group = "com.coinwin"
@@ -107,6 +109,11 @@ val crossCheckTag = "crosscheck"
 // 근거: docs/spec/phase7-spring-ai.md § 9.2
 val liveAiTag = "liveAi"
 
+// 스키마 덤프는 frontend/openapi.json 을 덮어쓴다. 기본 test 에서 함께 돌면 낡음 검사가
+// 자기가 방금 쓴 파일을 읽고 언제나 통과한다 — 게이트가 있는 것처럼 보이면서 아무것도
+// 지키지 않는다. 근거: docs/spec/phase8-frontend.md § 5.2
+val schemaTag = "schema"
+
 tasks.withType<Test>().configureEach {
     testLogging {
         events("passed", "skipped", "failed")
@@ -119,7 +126,17 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.test {
-    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag, liveAiTag) }
+    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag, liveAiTag, schemaTag) }
+}
+
+val openApiSchemaDump = tasks.register<Test>("openApiSchemaDump") {
+    description = "frontend/openapi.json 을 현재 자바 코드에서 다시 만든다. 낡음 검사와 같은 경로."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(schemaTag) }
+    testLogging { showStandardStreams = true }
+    // 재생성을 부른 사람은 파일이 실제로 다시 쓰이기를 기대한다.
+    outputs.upToDateWhen { false }
 }
 
 tasks.register<Test>("crossCheck") {
@@ -226,7 +243,118 @@ tasks.jacocoTestCoverageVerification {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 프론트엔드 (Phase 8)
+//
+// 게이트는 하나다 — `.\gradlew.bat check` 가 자바와 프론트를 함께 검사한다. 게이트가 둘이면
+// 하나는 반드시 안 돌게 된다. 근거: docs/spec/phase8-frontend.md § 2 · § 9.1
+//
+// 플러그인이 지정 버전 Node 를 내려받는다. 로컬 설치본을 부르지 않으므로 Node 버전이
+// 사람마다 달라도 같은 결과가 나오고, Windows 의 npm.cmd 도 플러그인이 다룬다.
+// ---------------------------------------------------------------------------
+val frontendDir = layout.projectDirectory.dir("frontend")
+
+node {
+    version = libs.versions.node.get()
+    download = true
+    nodeProjectDir = frontendDir
+}
+
+// 재생성은 한 번에 끝나야 한다. 두 명령으로 나누면 두 번째를 잊고, 그러면 openapi.json 만
+// 새것이고 schema.d.ts 는 낡은 상태가 된다 — 이 Phase 가 없애려던 바로 그 상태다.
+// 흐름: 자바 DTO → /v3/api-docs → openapi.json → openapi-typescript → schema.d.ts
+val openApiTypes = tasks.register<NpmTask>("openApiTypes") {
+    description = "openapi.json 에서 src/api/schema.d.ts 를 다시 만든다."
+    dependsOn(tasks.npmInstall, openApiSchemaDump)
+    npmCommand = listOf("run", "gen:api")
+    outputs.upToDateWhen { false }
+}
+
+tasks.register("openApiSchema") {
+    group = "build"
+    description = "커밋된 OpenAPI 스키마와 타입을 현재 자바 코드에서 다시 만든다."
+    dependsOn(openApiSchemaDump, openApiTypes)
+}
+
+val frontendCheck = tasks.register<NpmTask>("frontendCheck") {
+    group = "verification"
+    description = "프론트엔드 게이트 — tsc --noEmit · eslint · vitest run"
+    dependsOn(tasks.npmInstall)
+    npmCommand = listOf("run", "check")
+
+    // 스키마가 낡았다면 타입 오류의 원인이 그것이므로, 그쪽이 먼저 실패하는 편이 읽기 쉽다.
+    // 낡음 검사는 기본 test 안에 있다(OpenApiSchemaFreshnessTest).
+    shouldRunAfter(tasks.test)
+
+    // 입력이 그대로면 다시 돌지 않는다. 출력이 없는 검사이므로 표식 파일을 하나 남긴다 —
+    // 그것이 없으면 Gradle 이 매번 처음부터 돌리거나, 반대로 영원히 UP-TO-DATE 로 본다.
+    inputs.dir(frontendDir.dir("src"))
+    inputs.dir(frontendDir.dir("test"))
+    inputs.files(
+        frontendDir.file("openapi.json"),
+        frontendDir.file("package.json"),
+        frontendDir.file("package-lock.json"),
+        frontendDir.file("tsconfig.json"),
+        frontendDir.file("vite.config.ts"),
+        frontendDir.file("eslint.config.js"),
+    )
+    val marker = layout.buildDirectory.file("frontend/check.marker")
+    outputs.file(marker)
+    doLast {
+        val file = marker.get().asFile
+        file.parentFile.mkdirs()
+        file.writeText("ok")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 패키징 — bootJar 하나에 백엔드와 프론트가 함께 들어간다.
+//
+// 생성물을 src/main/resources/static 에 넣지 않는다. 소스 트리에 들어오면 .gitignore 로
+// 가려야 하고, 가린 것은 언젠가 실수로 커밋된다. 근거: docs/spec/phase8-frontend.md § 9.3
+// ---------------------------------------------------------------------------
+val frontendBuild = tasks.register<NpmTask>("frontendBuild") {
+    group = "build"
+    description = "frontend/dist 를 만든다."
+    dependsOn(tasks.npmInstall)
+    npmCommand = listOf("run", "build")
+    inputs.dir(frontendDir.dir("src"))
+    inputs.files(
+        frontendDir.file("index.html"),
+        frontendDir.file("package.json"),
+        frontendDir.file("package-lock.json"),
+        frontendDir.file("tsconfig.json"),
+        frontendDir.file("vite.config.ts"),
+    )
+    outputs.dir(frontendDir.dir("dist"))
+}
+
+// build/resources/main 에 직접 쓰지 않는다. 그 디렉터리는 processResources 의 산출물이고,
+// 다른 태스크가 그것을 읽는 순간 Gradle 이 선언되지 않은 의존이라고 빌드를 세운다.
+// 별도 디렉터리에 두고 필요한 두 태스크에만 얹는 편이 관계가 눈에 보인다.
+val frontendResources = layout.buildDirectory.dir("frontend-resources")
+
+val copyFrontend = tasks.register<Copy>("copyFrontend") {
+    description = "빌드된 프론트를 정적 리소스 모양으로 옮긴다."
+    dependsOn(frontendBuild)
+    from(frontendDir.dir("dist"))
+    into(frontendResources.map { it.dir("static") })
+}
+
+// test 에는 걸지 않는다. 자바 테스트가 프론트 빌드를 기다릴 이유가 없다 —
+// 프론트 게이트는 frontendCheck 가 이미 check 안에서 돌린다.
+tasks.bootJar {
+    dependsOn(copyFrontend)
+    from(frontendResources) { into("BOOT-INF/classes") }
+}
+
+tasks.bootRun {
+    dependsOn(copyFrontend)
+    classpath += files(frontendResources)
+}
+
 tasks.check {
+    dependsOn(frontendCheck)
     dependsOn(tasks.jacocoTestCoverageVerification)
     // 리포트도 함께 갱신한다. 그러지 않으면 build/reports 의 커버리지 수치가
     // 마지막 수동 실행 시점에 멈춰 있어, 오래된 숫자를 현재 상태로 착각하게 된다.

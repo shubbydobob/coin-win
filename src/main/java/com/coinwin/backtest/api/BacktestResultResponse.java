@@ -41,7 +41,7 @@ public record BacktestResultResponse(
             BigDecimal winRate,
 
             @Schema(description = "총이익 / 총손실. 진 거래가 없으면 null — "
-                    + "손실이 없는 표본은 손익비를 말할 수 없다", example = "1.84")
+                    + "손실이 없는 표본은 손익비를 말할 수 없다", example = "1.84", nullable = true)
             BigDecimal profitFactor,
 
             @Schema(description = "수수료·슬리피지를 뺀 순손익 (USDT)", example = "213.45")

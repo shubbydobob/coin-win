@@ -42,6 +42,7 @@ public class BacktestController {
                     한 봉 안에서 손절과 익절이 모두 닿으면 손절로 처리한다 —
                     OHLC 로는 봉 내부 경로를 알 수 없으므로 보유자에게 불리한 쪽을 택한다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "요약 수치 · 거래 목록 · 자산 곡선"),
         @ApiResponse(responseCode = "400",
                 description = "값 자체가 부적절하다. 알 수 없는 주기, 음수 자본, 뒤집힌 구간"),
         @ApiResponse(responseCode = "422",
@@ -78,6 +79,7 @@ public class BacktestController {
 
                     앞으로 어떻게 하라는 말은 하지 않는다. 근거는 docs/adr/005.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "요약 문장과 그 문장이 쓴 수의 출처인 facts"),
         @ApiResponse(responseCode = "503",
                 description = "AI 기능이 설정되지 않았거나(OPENAI_API_KEY), 모델이 원본에 없는 "
                         + "수를 썼다. 둘 다 사용자가 고칠 것이 아니라 다시 시도할 일이다")

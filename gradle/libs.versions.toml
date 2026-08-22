@@ -40,6 +40,13 @@ querydsl = "7.6"
 # 이 프로젝트에서 쓸 수 없다. 개별 스타터 버전은 BOM 이 관리하므로 여기에 적지 않는다.
 springAi = "2.0.1"
 
+# Phase 8 (프론트엔드). 플러그인이 이 버전의 Node 를 내려받는다 — 로컬에 설치된 npm 을 부르지
+# 않는다. Node 버전이 사람마다 다르면 "내 컴퓨터에서는 되는데" 가 그대로 재발한다.
+# 패키지 버전은 여기가 아니라 frontend/package.json 에 있다. 여기 적으면 세 번째 사본이 된다.
+# 근거: docs/spec/phase8-frontend.md § 2 · § 9.1
+node = "24.14.0"
+nodePlugin = "7.1.0"
+
 [libraries]
 spring-ai-bom = { module = "org.springframework.ai:spring-ai-bom", version.ref = "springAi" }
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
@@ -52,3 +59,4 @@ querydsl-apt = { module = "io.github.openfeign.querydsl:querydsl-apt", version.r
 springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }
 dependencyManagement = { id = "io.spring.dependency-management", version.ref = "dependencyManagement" }
 spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugsPlugin" }
+node = { id = "com.github.node-gradle.node", version.ref = "nodePlugin" }

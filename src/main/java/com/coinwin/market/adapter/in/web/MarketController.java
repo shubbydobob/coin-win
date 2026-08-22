@@ -50,6 +50,7 @@ public class MarketController {
                     거래소를 때리지 않는다. 이미 저장된 것만 돌려준다.
                     구간은 반열림 [from, to) 이라 연속 조회에서 경계 캔들이 겹치지 않는다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "저장된 캔들. 구간에 없으면 빈 목록이다"),
         @ApiResponse(responseCode = "400", description = "종목 표기나 캔들 주기가 올바르지 않다"),
         @ApiResponse(responseCode = "422", description = "구간의 끝이 시작보다 앞이다")
     })
@@ -69,6 +70,7 @@ public class MarketController {
                     이미 저장된 시각은 다시 세지 않는다. 같은 구간을 두 번 수집하면
                     두 번째 응답의 newlyStored 는 0 이다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "가져온 캔들 수와 저장된 수. 이미 있던 것은 다시 세지 않는다"),
         @ApiResponse(responseCode = "400", description = "종목 표기나 캔들 주기가 올바르지 않다"),
         @ApiResponse(responseCode = "422", description = "구간의 끝이 시작보다 앞이다"),
         @ApiResponse(responseCode = "503", description = "거래소에 닿지 못했다")
@@ -89,6 +91,7 @@ public class MarketController {
                     세 값을 한 시점으로 묶어 돌려준다. 따로 조회하면 서로 다른 시각의 값을
                     나란히 놓고 판단하게 된다.""")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "펀딩비 · 미결제약정 · 롱숏비율"),
         @ApiResponse(responseCode = "400", description = "종목 표기가 올바르지 않다"),
         @ApiResponse(responseCode = "503", description = "거래소에 닿지 못했다")
     })
