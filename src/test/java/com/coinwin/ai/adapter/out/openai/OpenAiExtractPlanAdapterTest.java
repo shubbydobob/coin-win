@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.coinwin.ai.domain.DraftedFields;
 import com.coinwin.ai.domain.PlanField;
 import com.coinwin.ai.domain.PlanNotUnderstoodException;
+import com.coinwin.common.domain.ExternalDataUnavailableException;
+import com.openai.errors.OpenAIException;
+import com.openai.errors.OpenAIIoException;
 import com.coinwin.common.domain.Price;
 import com.coinwin.position.domain.Direction;
 import java.util.List;
@@ -94,6 +97,37 @@ class OpenAiExtractPlanAdapterTest {
     @Test
     void JSON_이_아닌_답은_계획으로_읽어내지_못한_것이다() {
         assertThatThrownBy(() -> extractWith("글쎄요, 지금은 관망하시는 게 좋겠습니다."))
-                .isInstanceOf(PlanNotUnderstoodException.class);
+                .isInstanceOf(PlanNotUnderstoodException.class)
+                .isNotInstanceOf(ExternalDataUnavailableException.class);
+    }
+
+    /**
+     * <b>부르지 못한 것은 못 알아들은 것이 아니다.</b> 크레딧이 떨어졌거나 한도에 걸린 것은
+     * 잠시 뒤 다시 하면 되는 일(503)이고, 문장을 고쳐 다시 물어야 하는 일(422)이 아니다.
+     *
+     * <p>둘을 뭉쳐 뒀더니 화면이 "문장을 못 알아들었다" 고 말하는 동안 실제 원인은 크레딧
+     * 소진이었다. 사람은 문장만 계속 고치게 된다.
+     */
+    @Test
+    void 모델을_부르지_못한_것은_문장의_문제가_아니다() {
+        assertThatThrownBy(() -> extractWithFailure(callFailed()))
+                .isInstanceOf(ExternalDataUnavailableException.class)
+                .isNotInstanceOf(PlanNotUnderstoodException.class);
+    }
+
+    /** 부르는 데 실패한 경우 하나. 크레딧 소진·한도·네트워크가 모두 이 갈래다. */
+    private static OpenAIException callFailed() {
+        return new OpenAIIoException("크레딧이 없다", null);
+    }
+
+    private static DraftedFields extractWithFailure(RuntimeException failure) {
+        ChatModel failing = prompt -> {
+            throw failure;
+        };
+        return new OpenAiExtractPlanAdapter(
+                org.springframework.ai.chat.client.ChatClient.builder(failing),
+                new ByteArrayResource("계획을 옮겨 적는다".getBytes(
+                        java.nio.charset.StandardCharsets.UTF_8)))
+                .extractFrom("아무 문장");
     }
 }

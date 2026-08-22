@@ -151,15 +151,42 @@ tasks.register<Test>("crossCheck") {
     outputs.upToDateWhen { false }
 }
 
+/**
+ * 저장소 루트의 `.env` 를 읽는다. 없으면 빈 맵이다.
+ *
+ * 앱은 `spring.config.import` 로 이 파일을 읽지만 **JUnit 은 그것을 모른다.**
+ * live 테스트의 `@EnabledIfEnvironmentVariable` 은 진짜 환경변수만 보므로, 키를 `.env` 에
+ * 넣은 순간 그 테스트들이 전부 조용히 SKIPPED 가 됐다 — 통과한 것처럼 보이면서 아무것도
+ * 확인하지 않는 상태다. 그 간극을 여기서 메운다.
+ */
+fun dotenv(): Map<String, String> {
+    val file = rootProject.file(".env")
+    if (!file.exists()) {
+        return emptyMap()
+    }
+    return file.readLines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("=") }
+        .associate { line ->
+            val parts = line.split("=", limit = 2)
+            parts[0].trim() to parts[1].trim()
+        }
+        .filterValues { it.isNotEmpty() }
+}
+
 tasks.register<Test>("liveAi") {
     group = "verification"
-    description = "실제 OpenAI 를 부른다. OPENAI_API_KEY 가 필요하고 비용이 든다."
+    description = "실제 OpenAI 를 부른다. 키는 OPENAI_API_KEY 또는 .env 에서 온다. 비용이 든다."
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform { includeTags(liveAiTag) }
     testLogging { showStandardStreams = true }
     // 모델 응답이 매번 다르다. UP-TO-DATE 로 건너뛰면 대조할 것이 나오지 않는다.
     outputs.upToDateWhen { false }
+
+    // `.env` 를 이 JVM 의 환경변수로 올린다. 기본 `test` 에는 걸지 않는다 —
+    // check 는 키가 있든 없든 똑같이 돌아야 하고, 그것이 완료 조건이다.
+    dotenv()["spring.ai.openai.api-key"]?.let { environment("OPENAI_API_KEY", it) }
 }
 
 tasks.register<Test>("integrationTest") {

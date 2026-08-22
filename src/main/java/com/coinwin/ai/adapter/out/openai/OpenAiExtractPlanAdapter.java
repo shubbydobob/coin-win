@@ -3,6 +3,8 @@ package com.coinwin.ai.adapter.out.openai;
 import com.coinwin.ai.application.port.out.ExtractPlanPort;
 import com.coinwin.ai.domain.DraftedFields;
 import com.coinwin.ai.domain.PlanNotUnderstoodException;
+import com.coinwin.common.domain.ExternalDataUnavailableException;
+import com.openai.errors.OpenAIException;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -41,6 +43,11 @@ class OpenAiExtractPlanAdapter implements ExtractPlanPort {
      * {@code validateSchema} 는 모델이 형식을 어겼을 때 스키마를 붙여 한 번 더 묻는다.
      * 값을 고치는 것이 아니라 <b>모양</b>을 고치는 것이므로 "추측해서 채우지 않는다" 와
      * 어긋나지 않는다. 비어 있는 칸은 비어 있는 채로 돌아온다.
+     *
+     * <p><b>부르지 못한 것과 읽지 못한 것을 가른다.</b> 둘은 대응이 다르다 — 앞은 잠시 뒤
+     * 다시 하면 되는 일(503)이고, 뒤는 문장을 고쳐 다시 물어야 하는 일(422)이다. 한 예외로
+     * 뭉치면 화면이 "문장을 못 알아들었다" 고 말하는데 실제로는 크레딧이 떨어진 상태일 수 있고,
+     * 그러면 사람이 문장만 계속 고치게 된다. <b>실제로 그렇게 됐다.</b>
      */
     private DraftedPlanResponse ask(String sentence) {
         DraftedPlanResponse response;
@@ -49,6 +56,9 @@ class OpenAiExtractPlanAdapter implements ExtractPlanPort {
                     .user(sentence)
                     .call()
                     .entity(DraftedPlanResponse.class, ChatClient.EntityParamSpec::validateSchema);
+        } catch (OpenAIException unreachable) {
+            // 모델을 부르지 못했다 — 크레딧·한도·네트워크. 문장의 문제가 아니다.
+            throw new ExternalDataUnavailableException("모델을 부르지 못했다", unreachable);
         } catch (RuntimeException failure) {
             throw new PlanNotUnderstoodException("모델의 답을 계획으로 읽어내지 못했다", failure);
         }
