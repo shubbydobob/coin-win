@@ -12,8 +12,8 @@ import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import com.coinwin.PostgresImage;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * pgvector 어댑터가 <b>인메모리 어댑터와 같은 계약</b>을 통과하는지. 실제 PostgreSQL 을 띄운다.
@@ -30,9 +30,7 @@ import org.testcontainers.utility.DockerImageName;
 class PgVectorTradeIndexAdapterContractTest extends TradeIndexContract {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse(System.getProperty(
-                    "coinwin.postgres.image", "pgvector/pgvector:pg18"))
-                    .asCompatibleSubstituteFor("postgres"));
+            PostgresImage.current());
 
     private static JdbcTemplate jdbc;
 

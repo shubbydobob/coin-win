@@ -28,8 +28,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import com.coinwin.PostgresImage;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * Phase 7 완료 조건 — <b>실제 매매 한 건이 청산되면 저절로 색인되고 질의에 잡힌다.</b>
@@ -54,9 +54,7 @@ import org.testcontainers.utility.DockerImageName;
 class TradeIndexingIntegrationTest {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse(System.getProperty(
-                    "coinwin.postgres.image", "pgvector/pgvector:pg18"))
-                    .asCompatibleSubstituteFor("postgres"));
+            PostgresImage.current());
 
     static {
         POSTGRES.start();

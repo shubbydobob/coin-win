@@ -9,8 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import com.coinwin.PostgresImage;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * 영속화 어댑터가 <b>메모리 어댑터와 같은 계약</b>을 통과하는지. 실제 PostgreSQL 을 띄운다.
@@ -26,7 +26,7 @@ import org.testcontainers.utility.DockerImageName;
 class JdbcCandleAdapterContractTest extends SaveCandlesPortContract {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse(System.getProperty("coinwin.postgres.image", "postgres:18-alpine")));
+            PostgresImage.current());
 
     private static JdbcTemplate jdbc;
 

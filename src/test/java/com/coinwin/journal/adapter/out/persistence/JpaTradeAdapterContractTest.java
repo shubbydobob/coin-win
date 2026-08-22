@@ -14,8 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import com.coinwin.PostgresImage;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * JPA 어댑터가 <b>인메모리 어댑터와 같은 계약</b>을 통과하는지. 실제 PostgreSQL 을 띄운다.
@@ -34,7 +34,7 @@ import org.testcontainers.utility.DockerImageName;
 class JpaTradeAdapterContractTest extends TradeRepositoryContract {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse(System.getProperty("coinwin.postgres.image", "postgres:18-alpine")));
+            PostgresImage.current());
 
     private static DriverManagerDataSource dataSource;
     private static JdbcTemplate jdbc;
