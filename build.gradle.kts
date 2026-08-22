@@ -307,6 +307,52 @@ val frontendCheck = tasks.register<NpmTask>("frontendCheck") {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 패키징 — bootJar 하나에 백엔드와 프론트가 함께 들어간다.
+//
+// 생성물을 src/main/resources/static 에 넣지 않는다. 소스 트리에 들어오면 .gitignore 로
+// 가려야 하고, 가린 것은 언젠가 실수로 커밋된다. 근거: docs/spec/phase8-frontend.md § 9.3
+// ---------------------------------------------------------------------------
+val frontendBuild = tasks.register<NpmTask>("frontendBuild") {
+    group = "build"
+    description = "frontend/dist 를 만든다."
+    dependsOn(tasks.npmInstall)
+    npmCommand = listOf("run", "build")
+    inputs.dir(frontendDir.dir("src"))
+    inputs.files(
+        frontendDir.file("index.html"),
+        frontendDir.file("package.json"),
+        frontendDir.file("package-lock.json"),
+        frontendDir.file("tsconfig.json"),
+        frontendDir.file("vite.config.ts"),
+    )
+    outputs.dir(frontendDir.dir("dist"))
+}
+
+// build/resources/main 에 직접 쓰지 않는다. 그 디렉터리는 processResources 의 산출물이고,
+// 다른 태스크가 그것을 읽는 순간 Gradle 이 선언되지 않은 의존이라고 빌드를 세운다.
+// 별도 디렉터리에 두고 필요한 두 태스크에만 얹는 편이 관계가 눈에 보인다.
+val frontendResources = layout.buildDirectory.dir("frontend-resources")
+
+val copyFrontend = tasks.register<Copy>("copyFrontend") {
+    description = "빌드된 프론트를 정적 리소스 모양으로 옮긴다."
+    dependsOn(frontendBuild)
+    from(frontendDir.dir("dist"))
+    into(frontendResources.map { it.dir("static") })
+}
+
+// test 에는 걸지 않는다. 자바 테스트가 프론트 빌드를 기다릴 이유가 없다 —
+// 프론트 게이트는 frontendCheck 가 이미 check 안에서 돌린다.
+tasks.bootJar {
+    dependsOn(copyFrontend)
+    from(frontendResources) { into("BOOT-INF/classes") }
+}
+
+tasks.bootRun {
+    dependsOn(copyFrontend)
+    classpath += files(frontendResources)
+}
+
 tasks.check {
     dependsOn(frontendCheck)
     dependsOn(tasks.jacocoTestCoverageVerification)
