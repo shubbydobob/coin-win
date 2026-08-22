@@ -11,5 +11,10 @@ import { setupServer } from "msw/node";
  */
 export const server = setupServer();
 
-/** jsdom 이 정한 오리진. 핸들러 경로를 절대 URL 로 적기 위해 쓴다. */
-export const origin = window.location.origin;
+/**
+ * jsdom 이 정한 오리진. 핸들러 경로를 절대 URL 로 적기 위해 쓴다.
+ *
+ * `setup.ts` 는 모든 테스트 파일에 붙으므로 이 모듈은 **브라우저가 아닌 환경에서도 읽힌다** —
+ * 린트 규칙 검사(`eslint-rules.test.ts`)가 node 환경에서 돈다. 거기엔 요청도 핸들러도 없다.
+ */
+export const origin = globalThis.location?.origin ?? "";

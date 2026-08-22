@@ -84,9 +84,26 @@ const liq = avg * (1 - 1 / leverage);
 
 | 금지 | 예외 | 잡는 실패 |
 |---|---|---|
-| `toFixed` `Math.round` `Math.floor` `Math.ceil` | `src/format/**` | 서버가 정한 스케일을 화면이 다시 반올림하는 것 |
-| `parseFloat` `Number()` on 응답 값 | 입력 파싱(`src/form/**`) | 응답을 부동소수로 되돌려 계산에 쓰는 것 |
+| `toFixed` `Math.round` `Math.floor` `Math.ceil` **`new Intl.NumberFormat`** | `src/format/**` | 서버가 정한 스케일을 화면이 다시 반올림하는 것 |
+| `parseFloat` `parseInt` `Number()` on 응답 값 | 입력 파싱(`src/form/**`) | 응답을 부동소수로 되돌려 계산에 쓰는 것 |
 | feature 디렉터리 간 직접 import | 없음 | 백엔드 모듈 경계가 프론트에서 무너지는 것 |
+
+> **7단계에서 드러난 것 — 초안의 금지 목록이 실제 반올림 도구를 빼먹고 있었다 (2026-08-22).**
+>
+> 표에 `toFixed` 만 있었는데 `format/` 이 실제로 쓰는 것은 `Intl.NumberFormat` 이다(§ 8).
+> 그대로 뒀으면 규칙이 **가장 흔한 반올림 경로를 그냥 통과시킨다** — 화면 어디서든
+> `new Intl.NumberFormat(…, { maximumFractionDigits: 0 })` 한 줄로 서버 스케일을 굴릴 수
+> 있었다. 규칙을 쓸 때 상상한 도구와 코드가 쓰는 도구가 달랐던 것이고, **화면을 하나 짓고
+> 나서 규칙을 정하라는 § 12 의 순서가 값을 한 자리다.**
+>
+> **예외는 방향마다 하나씩이고 서로의 금지는 남는다.** `format/` 은 반올림해도 되지만 응답을
+> 파싱하면 안 되고, `form/` 은 그 반대다. 예외 디렉터리에서 규칙을 통째로 끄면 두 방향이
+> 한꺼번에 열린다.
+>
+> **픽스처는 게이트에서만 빼고 검사에서는 프로젝트 설정 그대로 돌린다.** `npm run lint` 이
+> `--ignore-pattern` 으로 `eslint-fixture/` 를 건너뛰고, `test/eslint-rules.test.ts` 가 같은
+> `eslint.config.js` 로 그 디렉터리를 린트한다. 테스트용 설정을 따로 만들면 증명되는 것이
+> 사본이지 게이트가 아니다.
 
 세 번째는 `architecture.md` 의 "그 외 모듈 간 직접 참조 금지" 를 프론트에 옮긴 것이다.
 `features/backtest` 가 `features/journal` 의 컴포넌트를 직접 부르기 시작하면 백엔드가 애써

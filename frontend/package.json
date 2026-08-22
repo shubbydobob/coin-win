@@ -8,7 +8,7 @@
     "build": "vite build",
     "gen:api": "openapi-typescript openapi.json -o src/api/schema.d.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --ignore-pattern \"eslint-fixture/**\"",
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
