@@ -4,7 +4,7 @@ import { decimal } from "../../form";
 import { EntryRows } from "../../shared/EntryRows";
 import { SPLIT_IN_HALF, toEntries } from "../../shared/entries";
 import { DIRECTION } from "../../shared/labels";
-import { Field } from "./Field";
+import { Field } from "../../shared/Field";
 import type { EntryRow } from "../../shared/entries";
 import type { components } from "../../api/schema";
 

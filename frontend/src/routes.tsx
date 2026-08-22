@@ -2,6 +2,7 @@ import { Navigate } from "react-router";
 import type { RouteObject } from "react-router";
 
 import { App } from "./App";
+import { BacktestScreen } from "./features/backtest/BacktestScreen";
 import { JournalScreen } from "./features/journal/JournalScreen";
 import { PlanScreen } from "./features/plan/PlanScreen";
 
@@ -20,6 +21,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/plan" replace /> },
       { path: "plan", element: <PlanScreen /> },
       { path: "journal", element: <JournalScreen /> },
+      { path: "backtest", element: <BacktestScreen /> },
     ],
   },
 ];

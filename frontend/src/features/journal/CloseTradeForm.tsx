@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { decimal, instantAt } from "../../form";
 import { EXIT_REASON } from "../../shared/labels";
-import { Field } from "./Field";
+import { Field } from "../../shared/Field";
 import type { components } from "../../api/schema";
 
 type Request = components["schemas"]["CloseTradeRequest"];
