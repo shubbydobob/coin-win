@@ -144,13 +144,46 @@ class ResponseSchemaContractTest {
         return stream(schema.path("required")).map(JsonNode::asText).toList();
     }
 
+    /**
+     * springdoc 은 {@code @ApiResponses} 가 붙어 있으면 <b>기본 성공 응답을 넣지 않는다.</b>
+     * 오류 코드만 적어 둔 오퍼레이션은 "무엇을 돌려주는가" 가 스키마에서 통째로 사라진다.
+     *
+     * <p>Phase 8 이 시작될 때 19개 중 <b>14개</b>가 그 상태였다. 소비자 쪽에서는 응답 타입이
+     * {@code never} 가 되므로 그 엔드포인트를 부르는 코드를 아예 쓸 수 없다.
+     *
+     * <p>고치는 방법은 각 {@code @ApiResponses} 에 성공 코드를 한 줄 적는 것이고, 그 한 줄이
+     * 빠지는 것은 사람의 주의가 아니라 이 테스트가 막는다.
+     */
+    @Test
+    void 모든_오퍼레이션은_성공_응답을_선언한다() throws Exception {
+        JsonNode paths = document().path("paths");
+
+        List<String> silent = new ArrayList<>();
+        for (String path : names(paths)) {
+            for (String method : names(paths.path(path))) {
+                JsonNode responses = paths.path(path).path(method).path("responses");
+                if (names(responses).stream().noneMatch(code -> code.startsWith("2"))) {
+                    silent.add(method + " " + path);
+                }
+            }
+        }
+
+        assertThat(silent)
+                .describedAs("무엇을 돌려주는지 적지 않은 오퍼레이션 — 소비자는 타입을 얻지 못한다")
+                .isEmpty();
+    }
+
     private JsonNode schemas() throws Exception {
+        return document().path("components").path("schemas");
+    }
+
+    private JsonNode document() throws Exception {
         MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         String body = mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString(StandardCharsets.UTF_8);
-        return new ObjectMapper().readTree(body).path("components").path("schemas");
+        return new ObjectMapper().readTree(body);
     }
 }

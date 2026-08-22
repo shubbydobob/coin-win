@@ -1681,6 +1681,22 @@ export interface components {
             /** @description 캔들 목록 */
             candles: components["schemas"]["CandleResponse"][];
         };
+        /** @description 오류 본문(RFC 7807). detail 에 도메인이 쓴 문장이 그대로 들어간다 */
+        ProblemDetail: {
+            /** @description 오류 종류를 가리키는 URI. about:blank 이면 아예 오지 않는다 */
+            type?: string;
+            /** @description 오류 분류. 사람이 읽는 짧은 이름 */
+            title: string;
+            /**
+             * Format: int32
+             * @description HTTP 상태 코드
+             */
+            status: number;
+            /** @description 무엇이 왜 안 됐는가. 화면은 이 문장을 그대로 보여준다 */
+            detail: string;
+            /** @description 오류가 난 요청 경로 */
+            instance: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1740,7 +1756,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 계획으로 성립하지 않는다 */
@@ -1749,7 +1765,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1769,13 +1785,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description OPEN 으로 넘어간 거래 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TradeResponse"];
+                };
+            };
             /** @description 그런 거래가 없다 */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 계획 상태가 아니거나 체결이 계획보다 앞선다 */
@@ -1784,7 +1809,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1804,13 +1829,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description CLOSED 로 넘어간 거래. 손익은 도메인이 계산해 채운다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TradeResponse"];
+                };
+            };
             /** @description 그런 거래가 없다 */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 열려 있지 않거나 청산이 진입보다 앞선다 */
@@ -1819,7 +1853,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1837,13 +1871,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 백분위 다섯 점과 손실 확률, 최대낙폭 분포 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MonteCarloResponse"];
+                };
+            };
             /** @description 값 자체가 부적절하다. 0 이하의 시행 횟수, 누락된 필드 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MonteCarloResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 값은 유효하나 조건으로 성립하지 않는다. 시행 횟수나 총 거래 수 상한 초과 */
@@ -1852,7 +1895,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MonteCarloResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1870,13 +1913,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 거래마다 한 점인 자산 곡선. 첫 점이 초기 자본이다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EquityCurveResponse"];
+                };
+            };
             /** @description 값 자체가 부적절하다. 음수 자본, 100% 를 넘는 승률, 누락된 필드 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["EquityCurveResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 값은 유효하나 조건으로 성립하지 않는다. 총 거래 수 상한 초과 */
@@ -1885,7 +1937,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["EquityCurveResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1903,13 +1955,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 체결 상태별 평단 · 수량 · 청산가 · 최대손실, 그리고 필요 증거금과 손익비 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PositionAnalysisResponse"];
+                };
+            };
             /** @description 값 자체가 부적절하다. 음수 가격, 누락된 필드, 0 이하의 잔고 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PositionAnalysisResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 값은 유효하나 계획으로 성립하지 않는다. 손절가 방향 오류, 비중 합 불일치, 손절가가 청산가 너머 */
@@ -1918,7 +1979,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PositionAnalysisResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1938,13 +1999,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description 가져온 캔들 수와 저장된 수. 이미 있던 것은 다시 세지 않는다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandleSyncResponse"];
+                };
+            };
             /** @description 종목 표기나 캔들 주기가 올바르지 않다 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CandleSyncResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 구간의 끝이 시작보다 앞이다 */
@@ -1953,7 +2023,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CandleSyncResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 거래소에 닿지 못했다 */
@@ -1962,7 +2032,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CandleSyncResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -1980,13 +2050,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 요약 수치 · 거래 목록 · 자산 곡선 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BacktestResultResponse"];
+                };
+            };
             /** @description 값 자체가 부적절하다. 알 수 없는 주기, 음수 자본, 뒤집힌 구간 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["BacktestResultResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 값은 유효하나 백테스트로 성립하지 않는다. 워밍업(일목 77봉)을 채우지 못하는 구간, 터치 2회 미만의 대 설정 */
@@ -1995,7 +2074,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["BacktestResultResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2013,13 +2092,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 요약 문장과 그 문장이 쓴 수의 출처인 facts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BacktestNarrativeResponse"];
+                };
+            };
             /** @description AI 기능이 설정되지 않았거나(OPENAI_API_KEY), 모델이 원본에 없는 수를 썼다. 둘 다 사용자가 고칠 것이 아니라 다시 시도할 일이다 */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["BacktestNarrativeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2081,13 +2169,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description 다시 색인한 거래 건수 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReindexResponse"];
+                };
+            };
             /** @description AI 기능이 설정되지 않았다 */
             503: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ReindexResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2105,13 +2202,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 문장에서 읽어낸 계획 초안. 폼을 채울 뿐 제출하지 않는다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanDraftResponse"];
+                };
+            };
             /** @description 문장이 비어 있다 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PlanDraftResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 문장에서 읽어내지 못한 항목이 있거나, 읽어낸 값이 계획으로 성립하지 않는다. 응답 본문이 무엇이 빠졌는지 알려 준다 */
@@ -2120,7 +2226,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PlanDraftResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description AI 기능이 설정되지 않았다. OPENAI_API_KEY 가 필요하다 */
@@ -2129,7 +2235,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["PlanDraftResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2147,13 +2253,22 @@ export interface operations {
             };
         };
         responses: {
+            /** @description 답변과 근거 거래 식별자. 원본 기록과 대조할 수 있다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["JournalAnswerResponse"];
+                };
+            };
             /** @description 질문이 비었거나 근거 거래 수가 범위 밖이다 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["JournalAnswerResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description AI 기능이 설정되지 않았거나, 답변이 검색되지 않은 거래를 인용했다 */
@@ -2162,7 +2277,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["JournalAnswerResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2178,13 +2293,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description 거래 한 건의 현재 상태 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TradeResponse"];
+                };
+            };
             /** @description 그런 거래가 없다 */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["TradeResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2242,13 +2366,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description 펀딩비 · 미결제약정 · 롱숏비율 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MarketMetricsResponse"];
+                };
+            };
             /** @description 종목 표기가 올바르지 않다 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MarketMetricsResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 거래소에 닿지 못했다 */
@@ -2257,7 +2390,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MarketMetricsResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
@@ -2277,13 +2410,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description 저장된 캔들. 구간에 없으면 빈 목록이다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandleSeriesResponse"];
+                };
+            };
             /** @description 종목 표기나 캔들 주기가 올바르지 않다 */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CandleSeriesResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description 구간의 끝이 시작보다 앞이다 */
@@ -2292,7 +2434,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CandleSeriesResponse"];
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

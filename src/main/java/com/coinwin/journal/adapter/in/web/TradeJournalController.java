@@ -55,6 +55,7 @@ public class TradeJournalController {
     @Operation(summary = "진입 체결 기록",
             description = "체결 내역과 진입 시점의 시장 상태를 함께 받는다. 맥락은 이 순간에만 존재한다.")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "OPEN 으로 넘어간 거래"),
         @ApiResponse(responseCode = "404", description = "그런 거래가 없다"),
         @ApiResponse(responseCode = "422", description = "계획 상태가 아니거나 체결이 계획보다 앞선다")
     })
@@ -68,6 +69,7 @@ public class TradeJournalController {
     @Operation(summary = "청산 기록",
             description = "손익은 받지 않는다. 청산가와 체결 내역으로 도메인이 계산한다.")
     @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "CLOSED 로 넘어간 거래. 손익은 도메인이 계산해 채운다"),
         @ApiResponse(responseCode = "404", description = "그런 거래가 없다"),
         @ApiResponse(responseCode = "422", description = "열려 있지 않거나 청산이 진입보다 앞선다")
     })
@@ -98,7 +100,10 @@ public class TradeJournalController {
     }
 
     @Operation(summary = "거래 한 건 조회")
-    @ApiResponses(@ApiResponse(responseCode = "404", description = "그런 거래가 없다"))
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "거래 한 건의 현재 상태"),
+        @ApiResponse(responseCode = "404", description = "그런 거래가 없다")
+    })
     @GetMapping("/{id}")
     public TradeResponse trade(@PathVariable String id) {
         return TradeResponse.from(queryJournal.trade(TradeId.of(id)));

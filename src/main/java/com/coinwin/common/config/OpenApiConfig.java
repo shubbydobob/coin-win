@@ -1,8 +1,15 @@
 package com.coinwin.common.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.Content;
+import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +29,14 @@ public class OpenApiConfig {
     private static final String RESPONSE_SUFFIX = "Response";
 
     private static final String NULL_TYPE = "null";
+
+    private static final String PROBLEM_DETAIL = "ProblemDetail";
+
+    private static final String PROBLEM_REF = "#/components/schemas/" + PROBLEM_DETAIL;
+
+    private static final String PROBLEM_JSON = "application/problem+json";
+
+    private static final String SUCCESS_PREFIX = "2";
 
     @Bean
     public OpenAPI coinWinOpenApi() {
@@ -95,5 +110,75 @@ public class OpenApiConfig {
 
     private static boolean hasNullType(Schema<?> property) {
         return property.getTypes() != null && property.getTypes().contains(NULL_TYPE);
+    }
+
+    /**
+     * 오류 응답이 <b>실제로 오는 것</b>을 가리키게 한다.
+     *
+     * <p>springdoc 은 {@code @ApiResponse} 에 본문 타입이 적혀 있지 않으면 <b>핸들러 메서드의
+     * 반환 타입</b>을 그대로 씌운다. 그래서 지금 스키마는 "계획 저장이 422 일 때 {@code
+     * TradeResponse} 가 온다" 고 말하고 있다. 실제로 오는 것은 {@link
+     * com.coinwin.common.api.DomainExceptionHandler} 가 내는 RFC 7807 본문이다.
+     *
+     * <p>§ 5.4 와 같은 종류의 거짓말이고 더 나쁘다 — 소비자가 오류 본문을 성공 DTO 로 읽으려
+     * 하게 만든다. 화면이 {@code detail} 문장을 그대로 보여 주려면(§ 7) 그 타입이 백엔드에서
+     * 나와야 하는데, 지금은 나오지 않는다.
+     *
+     * <p><b>여기에도 엔드포인트 목록을 두지 않는다.</b> 오류 본문을 만드는 자리가 어드바이스
+     * 하나뿐이므로 규칙도 하나다 — <b>2xx 가 아닌 모든 응답의 본문은 {@code ProblemDetail}</b>.
+     * 컨트롤러가 오류 코드를 하나 더 적어도 이 규칙이 그대로 덮는다.
+     *
+     * <p>근거: {@code docs/spec/phase8-frontend.md} § 7
+     */
+    @Bean
+    public OpenApiCustomizer errorsCarryProblemDetail() {
+        return openApi -> {
+            openApi.getComponents().addSchemas(PROBLEM_DETAIL, problemDetailSchema());
+            openApi.getPaths().values().stream()
+                    .flatMap(item -> item.readOperations().stream())
+                    .map(Operation::getResponses)
+                    .forEach(OpenApiConfig::retypeErrorResponses);
+        };
+    }
+
+    private static void retypeErrorResponses(ApiResponses responses) {
+        responses.forEach((code, response) -> {
+            if (!code.startsWith(SUCCESS_PREFIX)) {
+                response.setContent(problemContent());
+            }
+        });
+    }
+
+    private static Content problemContent() {
+        return new Content().addMediaType(PROBLEM_JSON,
+                new MediaType().schema(new Schema<>().$ref(PROBLEM_REF)));
+    }
+
+    /**
+     * RFC 7807 본문의 모양. 필드 목록의 출처는 스프링이 아니라 <b>RFC</b> 다.
+     *
+     * <p>{@code ProblemDetail} 클래스에서 반사로 뽑지 않는 이유는 두 가지다. 하나는 프로퍼티
+     * 순서가 리플렉션 순서에 달려 있어 덤프의 바이트 동일성(§ 13.1)이 흔들릴 수 있다는 것,
+     * 다른 하나는 여기 붙은 한국어 설명이 소비자가 읽을 유일한 안내라는 것이다.
+     *
+     * <p>손으로 적은 목록이 실제 응답과 갈라지는 것은 {@code ProblemDetailContractTest} 가
+     * 막는다 — 진짜 오류 응답의 키를 이 스키마와 양방향으로 맞대 본다. <b>그리고 실제로
+     * 잡았다</b>: RFC 의 다섯 칸을 그대로 적었더니 {@code type} 이 응답에 없었다. 스프링은
+     * 기본값 {@code about:blank} 를 직렬화에서 뺀다. 그러므로 {@code type} 은 선택,
+     * {@code instance} 는 필수다 — RFC 를 읽어서는 알 수 없고 응답을 봐야 아는 것이다.
+     */
+    private static Schema<?> problemDetailSchema() {
+        return new ObjectSchema()
+                .description("오류 본문(RFC 7807). detail 에 도메인이 쓴 문장이 그대로 들어간다")
+                .addProperty("type", field("오류 종류를 가리키는 URI. about:blank 이면 아예 오지 않는다"))
+                .addProperty("title", field("오류 분류. 사람이 읽는 짧은 이름"))
+                .addProperty("status", new IntegerSchema().description("HTTP 상태 코드"))
+                .addProperty("detail", field("무엇이 왜 안 됐는가. 화면은 이 문장을 그대로 보여준다"))
+                .addProperty("instance", field("오류가 난 요청 경로"))
+                .required(List.of("title", "status", "detail", "instance"));
+    }
+
+    private static Schema<?> field(String description) {
+        return new StringSchema().description(description);
     }
 }
