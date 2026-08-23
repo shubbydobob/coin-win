@@ -12,7 +12,13 @@ public record Price(BigDecimal value)       // 스케일 2, HALF_UP, 음수 금�
 public record Quantity(BigDecimal value)    // 스케일 8 (BTC)
 public record Money(BigDecimal value)       // USDT, 스케일 2
 public record Percentage(BigDecimal value)  // 스케일 4
+public record Won(BigDecimal value)         // 원화, 스케일 0. 원 아래 단위가 없다
+public record ExchangeRate(BigDecimal wonPerUsdt, Instant observedAt)
 ```
+
+`Won` 은 **표시 단위**라 사칙연산이 없다. 매매 계산은 전부 USDT 에서 끝난다.
+`ExchangeRate` 가 시각을 함께 갖는 이유는 어느 환율로 옮긴 값인지 말하지 않으면 사람이
+언제나 지금 값으로 읽기 때문이다.
 
 계산 메서드는 값 객체 안에만 둔다. 반올림 정책이 밖으로 나가면 결과가 갈라진다.
 
@@ -27,6 +33,7 @@ Percentage.asFraction() → BigDecimal     // 100 기준 → 1 기준
 Price.absoluteDifference(Price) → Money
 Price.multipliedBy(BigDecimal) → Price   // 청산가 계수
 Quantity.times(Money[, int parts]) → Money
+ExchangeRate.convert(Money) → Won        // 환산은 이 객체만 한다
 ```
 
 `DomainValues.required(value, label)` 로 null 을 검사한다. `Objects.requireNonNull` 은
@@ -269,6 +276,75 @@ public record ProjectionDistribution(List<ProjectionOutcome> outcomes, Money ini
   **실제보다 얕다.** 거래 내부를 보려면 캔들이 필요하고 그것은 Phase 6 이다.
   → Phase 6 의 `BacktestResult` 가 **같은 `EquityCurve`** 로 낙폭을 내므로 두 수치를 나란히
   놓으면 이 한계가 수치로 확인된다. 같은 정의를 쓰는 것이 그 비교의 전제다(`docs/adr/018`).
+
+### 목표 복리 — 방향이 반대인 세 타입
+
+같은 패키지에 있지만 **묻는 방향이 반대다.** 위쪽은 규칙(승률·손익비)을 주면 결과가 어떻게
+갈리는지를 내고, 이쪽은 결과(월 목표)를 정해 놓고 **거래 한 건에 무엇이 필요한지**를 낸다.
+
+```java
+// 수수료·슬리피지는 증거금이 아니라 명목에 붙는다. 레버리지가 비용을 그대로 곱한다.
+public record TradingCost(
+        Percentage feeRate, Percentage slippage, BigDecimal leverage,
+        Percentage marginUsage, int tradesPerMonth) {
+    BigDecimal effectiveLeverage();                     // 투입 비율 × 레버리지
+    BigDecimal perTrade();                              // 자산 대비. (수수료+슬리피지)×2×실효배율
+    BigDecimal netPerTrade(Percentage monthlyTarget);   // (1+월목표)^(1/월거래수) − 1
+    BigDecimal grossPerTrade(Percentage monthlyTarget); // 순수익 + 비용
+    BigDecimal priceMovePerTrade(Percentage monthlyTarget);  // 총수익 ÷ 실효배율
+    Money notionalOf(Money equity);   int tradesOver(int months);
+}
+
+// 같은 거래 하나를 네 각도에서 본 것. 순수익+비용=총수익, 총수익=레버리지×가격변동
+public record RequiredEdge(Percentage netPerTrade, Percentage costPerTrade,
+                           Percentage grossPerTrade, Percentage priceMove) {
+    Percentage costShare();          // 필요 총수익 중 비용의 몫
+}
+
+public record CompoundTarget(
+        Money startingCapital, Percentage monthlyTarget, int months, TradingCost cost) {
+    RequiredEdge requiredEdge();
+    List<Money> monthlyEquity();     // 개월 + 1 점. 첫 점이 시작 자산
+    Money finalEquity();  Money totalProfit();   // 도착점과 "얼마 버나"
+    Percentage totalReturn();
+    Money totalCost();    Money notional();  int totalTrades();
+}
+```
+
+`totalProfit` 이 도메인에 있는 이유는 화면이 뺄셈하지 않게 하기 위해서다 — 화면에 나오는
+모든 수는 응답에 그대로 있던 수여야 한다(`docs/adr/020`). 원화 환산도 같은 이유로 서버가
+한다: `common/domain` 의 `ExchangeRate.convert(Money) → Won` 이고, 환율은
+`market` 의 `LoadExchangeRateUseCase`(업비트 공개 시세)에서 온다. **못 얻으면 응답의 원화
+묶음이 통째로 빈다** — 옛 환율이나 0 원으로 채우지 않는다.
+
+**목표는 비용을 낸 뒤에 남는 순수익이다.** 그래서 비용을 바꿔도 월별 자산 곡선은 한 푼도
+달라지지 않고, 달라지는 것은 그 곡선에 필요한 가격 변동과 거래소에 내는 총액이다. 비용이
+목표를 깎게 두면 화면이 "목표를 넣었는데 목표에 못 미치는 곡선" 을 내고, 그것은 목표
+계산기가 아니다.
+
+**명목은 `자산 × 투입 비율 × 레버리지` 다.** 초안은 투입 비율이 없었고, 그것은 *매 거래에
+자산 전액을 증거금으로 넣는다*는 뜻이었다. 800 을 10배로 매 거래 전액 투입하면 월 20건에
+수수료만 자산의 28% 가 나오고, **경고하려던 수가 "말이 안 되는 수" 가 되어 아무도 안
+믿게 된다.** 계산이 실제로 보는 것은 둘의 곱(`effectiveLeverage`) 하나뿐이며 — 자산의 20% 를
+10배는 전액을 2배와 같다 — 둘을 따로 받는 이유는 사람이 그 둘을 따로 정하기 때문이다.
+
+**월 거래 수는 진입·청산 한 쌍이 1건이다.** 20 이면 주문은 40번이고 수수료도 40번 낸다.
+**월 목표 수익률은 명목이 아니라 자산(증거금) 기준이다** — 월 10% 는 800 이 880 이 된다는
+뜻이지 명목의 10% 가 아니다. 같은 화면에서 두 수가 다른 것에 대한 비율이므로 라벨에 적는다.
+
+**월 목표를 월 거래 수로 나누지 않고 제곱근을 쓴다.** 거래마다 자산이 불어나므로 나눗셈은
+필요한 것보다 큰 수를 요구한다. `BigDecimal` 에 n 제곱근이 없어 `StrictMath.pow` 를 쓰는데,
+이유는 정밀도가 아니라 **재현성**이다 — `SeededRandom` 이 알고리즘 이름을 박아 둔 것과 같다.
+
+**총 거래 수 상한은 `TradeFrequency.MAXIMUM_TRADES` 를 함께 쓴다.** 상한이 둘로 갈라지면
+같은 규모의 요청이 엔드포인트마다 다르게 거절된다.
+
+#### 하지 않는 것
+
+- **지는 거래를 세지 않는다.** 모든 거래가 목표대로 끝난다는 가정 위의 산수이므로 나온 수는
+  **최선의 경우에 필요한 최소치**다. 승률을 섞고 싶으면 그것은 `MonteCarloProjection` 쪽이다.
+- **수수료율의 기본값을 도메인에 두지 않는다.** 거래소가 등급과 프로모션에 따라 바꾸는 값이라
+  서버가 들고 있으면 바뀐 날 서버만 옛 숫자를 말한다. 화면에 떠 있는 값이 그대로 실려 온다.
 
 ## 지표 (`indicator/domain`)
 

@@ -24,7 +24,14 @@ public record Price(BigDecimal value)       // 스케일 2, HALF_UP, 음수 금�
 public record Quantity(BigDecimal value)    // 스케일 8 (BTC)
 public record Money(BigDecimal value)       // USDT, 스케일 2
 public record Percentage(BigDecimal value)  // 스케일 4
+public record Won(BigDecimal value)         // 원화, 스케일 0 (원 아래 단위가 없다)
+public record ExchangeRate(BigDecimal wonPerUsdt, Instant observedAt)  // Money → Won
 ```
+
+`Won` 은 **표시 단위**다. 매매 계산은 전부 USDT 에서 끝나고 원화는 사람이 감을 잡기 위한
+환산이므로, 이 타입에는 사칙연산이 없다 — 원화끼리 더해야 할 일이 생겼다면 그 계산은
+USDT 쪽에서 끝냈어야 한다. `ExchangeRate` 가 시각을 함께 갖는 이유는 환율이 매 순간
+달라지기 때문이다. 어느 환율로 옮긴 값인지 말하지 않으면 사람은 언제나 지금 값으로 읽는다.
 
 이유: 스케일과 반올림 정책이 여러 곳에 흩어지면 계산 결과가 갈라진다. 정책은 값 객체 안에만 존재해야 한다.
 

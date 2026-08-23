@@ -10,8 +10,15 @@ import com.coinwin.common.domain.DomainValues;
  */
 public record TradeFrequency(int tradesPerWeek, int weeks) {
 
-    /** 시뮬레이션 비용은 {@code 거래 수 × 시행 횟수} 로 늘어난다. 상한이 없으면 요청 하나가 서버를 잡는다. */
-    private static final int MAXIMUM_TRADES = 10_000;
+    /**
+     * 시뮬레이션 비용은 {@code 거래 수 × 시행 횟수} 로 늘어난다. 상한이 없으면 요청 하나가
+     * 서버를 잡는다.
+     *
+     * <p>{@link CompoundTarget} 이 같은 상한을 쓴다. 그쪽은 개월과 월 거래 수의 곱이지만
+     * 막으려는 것은 같다 — 상한이 둘로 갈라지면 같은 규모의 요청이 엔드포인트마다 다르게
+     * 거절된다.
+     */
+    static final int MAXIMUM_TRADES = 10_000;
 
     public TradeFrequency {
         DomainValues.atLeast(tradesPerWeek, 1, "주당 거래 수");

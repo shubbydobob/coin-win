@@ -31,7 +31,7 @@
 ```
 com.coinwin
 ├── common/
-│   ├── domain/                  # Money, Price, Quantity, Percentage
+│   ├── domain/                  # Money, Price, Quantity, Percentage, Won, ExchangeRate
 │   └── config/
 │
 ├── market/                      # ◆ 포트/어댑터
@@ -39,12 +39,13 @@ com.coinwin
 │   ├── application/
 │   │   ├── port/in/             # LoadMarketDataUseCase
 │   │   ├── port/out/            # LoadCandlesPort, SaveCandlesPort,
-│   │   │                        #   LoadMarketMetricsPort
+│   │   │                        #   LoadMarketMetricsPort, LoadExchangeRatePort
 │   │   └── service/
 │   └── adapter/
 │       ├── in/web/
 │       └── out/
 │           ├── binance/         # BinanceCandleAdapter, BinanceMarketMetricsAdapter
+│           ├── upbit/           # UpbitExchangeRateAdapter — 원/USDT. 바이낸스에 원화 시장이 없다
 │           ├── persistence/     # JdbcCandleAdapter
 │           ├── snapshot/        # ClasspathLeverageBracketAdapter
 │           └── memory/          # InMemoryCandleAdapter
@@ -133,6 +134,7 @@ api → application → domain
 
 ```
 common              ← 모든 모듈 (역방향 금지)
+projection.api      → market.application.port.in, common.domain
 backtest            → indicator, position,
                       market.application.port.out, market.domain,
                       journal.domain, projection.domain
@@ -160,6 +162,22 @@ account             → journal.application.port.in, journal.domain,
 `position/application`에서 `market`의 인바운드 포트를 소비한다. 근거는 `docs/adr/008`.
 아웃바운드가 아니라 인바운드를 쓰는 이유는, "구간표를 어디서 얻는가"가 `market`의 정책이기
 때문이다.
+
+**`projection.api → market.application.port.in`** 은 원/USDT 환율 하나 때문이다. 복리
+계산기가 결과를 원화로도 보여 주는데, 환율은 거래소에서 오므로 `projection` 이 스스로 얻을
+수 없다. **아웃바운드가 아니라 인바운드를 쓰는 이유는 "환율을 어디서 얻는가" 가 `market` 의
+정책이기 때문이다** — `position.application → market.application.port.in` 과 같은 판단이다.
+`projection` 은 여전히 계층형이고 자기 포트를 갖지 않는다.
+
+**환율은 값을 못 얻어도 계산을 세우지 않는다.** 포트가 `Optional` 을 돌려주고 응답의 원화
+묶음이 통째로 빈다. 다른 아웃바운드 포트가 못 읽으면 던지는 것과 다른데, 원화는 **곁들임**
+이라 이것 때문에 복리 계산 전체가 503 이 될 이유가 없기 때문이다. 대신 옛 환율이나 0 원으로
+채우지 않는다 — 비어 있는 것과 알 수 없는 것을 가르는 `account` 의 규칙과 같다.
+
+**`ExchangeRate` · `Won` 은 `common/domain` 에 있다.** `Money` 와 `Won` 사이의 단위 변환이고,
+어느 거래소에서 얻었는가는 어댑터의 사정이라 그 타입은 거래소를 모른다. `common` 이 넓어지는
+것을 경계한 `docs/adr/013` 의 기준으로 봐도 이 둘은 **반올림 정책을 가진 값 객체**이지 공용
+모델이 아니다.
 
 **`journal → indicator.domain`** 은 `BandPosition` 하나 때문이다. 진입 시점에 가격이 구름과
 밴드의 어느 쪽에 있었는지를 기록하는데, 그 세 값은 Phase 4 에서 이미 확정돼 있다. `journal`에

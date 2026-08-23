@@ -60,6 +60,46 @@ final class ProjectionApiExamples {
               "lossProbability": 0.8000
             }""";
 
+    static final String COMPOUND_REQUEST = """
+            {
+              "startingCapital": 800,
+              "monthlyTarget": 5,
+              "months": 12,
+              "leverage": 10,
+              "marginUsage": 20,
+              "feeRate": 0.05,
+              "slippage": 0.02,
+              "tradesPerMonth": 20
+            }""";
+
+    static final String COMPOUND_RESPONSE = """
+            {
+              "equity": [800.00, 840.00, 882.00, 926.10, 972.41, 1021.03, 1072.08,
+                         1125.68, 1181.96, 1241.06, 1303.12, 1368.27, 1436.69],
+              "finalEquity": 1436.69,
+              "grossProfit": 1366.57,
+              "totalProfit": 636.69,
+              "months": 12,
+              "totalReturn": 79.5856,
+              "totalCost": 729.88,
+              "notional": 1600.00,
+              "effectiveLeverage": 2.00,
+              "totalTrades": 240,
+              "netPerTrade": 0.2442,
+              "costPerTrade": 0.2800,
+              "grossPerTrade": 0.5242,
+              "priceMovePerTrade": 0.2621,
+              "costShare": 53.4147,
+              "won": {
+                "wonPerUsdt": 1370.00,
+                "observedAt": "2026-08-23T15:04:04Z",
+                "finalEquity": 1968265,
+                "totalProfit": 872265,
+                "totalCost": 999936,
+                "notional": 2192000
+              }
+            }""";
+
     private ProjectionApiExamples() {
     }
 }

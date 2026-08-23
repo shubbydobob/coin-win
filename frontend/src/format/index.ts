@@ -23,6 +23,13 @@ const MONEY_SCALE = 2;
 const PERCENT_SCALE = 4;
 
 /**
+ * 원화의 스케일. **0 인 것이 요점이다** — 원에는 그 아래 단위가 없고, `Won` 값 객체가 이미
+ * 소수점 없이 내려보낸다. 여기서 자릿수를 늘리면 서버가 반올림해 없앤 자리를 화면이
+ * `.00` 으로 되살려, 원화에 소수점이 있는 것처럼 보이게 한다.
+ */
+const WON_SCALE = 0;
+
+/**
  * 손익비처럼 단위가 없는 배수. 값 객체가 아니라 도메인이 직접 정한 자릿수다
  * (`PositionPlan.RATIO_SCALE`, `JournalSummary` 의 손익비도 같다).
  */
@@ -59,6 +66,9 @@ const PERCENT = formatter(PERCENT_SCALE, false);
 
 const RATIO = formatter(RATIO_SCALE, false);
 
+/** 원화도 금액 크기의 수다. 백만 단위가 예사라 구분이 없으면 자릿수를 눈으로 세게 된다. */
+const WON = formatter(WON_SCALE, true);
+
 export function price(value: number): string {
   return PRICE.format(signed(value));
 }
@@ -77,6 +87,11 @@ export function percent(value: number): string {
 
 export function ratio(value: number): string {
   return RATIO.format(signed(value));
+}
+
+/** 원화 금액. 단위를 붙여 낸다 — USDT 와 나란히 놓이므로 어느 쪽인지가 수에 붙어 있어야 한다. */
+export function won(value: number): string {
+  return `${WON.format(signed(value))}원`;
 }
 
 /** 값이 없다는 표시. **0 과 다른 사실이다** — "손익비가 0" 과 "손익비를 말할 수 없다"는 다르다. */
