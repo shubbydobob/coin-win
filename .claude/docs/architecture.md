@@ -14,6 +14,7 @@
 | `backtest` | 계층형 | `market` 포트를 소비하는 쪽. 자체 포트 불필요 |
 | `ai` | 포트/어댑터 | LLM·벡터스토어를 `application` 밖에 묶어 두기 위해서 |
 | `account` | 포트/어댑터 | 거래소 포지션 소스가 둘 (서명 호출 / 인메모리). 서명 키를 `application` 밖에 가둔다 |
+| `watch` | 포트/어댑터 | 공지 소스가 둘(바이낸스 / 인메모리). 일정은 스냅샷 하나뿐인데도 포트를 갖는다 — 아래 |
 
 `backtest`가 백테스트 시에는 과거 캔들 어댑터를, 실사용 시에는 실시간 어댑터를 같은 포트로 소비한다. 이 지점이 없었다면 전부 계층형으로 충분했다.
 
@@ -218,6 +219,19 @@ account             → journal.application.port.in, journal.domain,
 **방향은 한쪽뿐이다** — `journal` 은 `backtest` 를 모른다. `MarketContext` 의 지지·저항을
 `PriceZone` 으로 구조화하는 것은 새 방향을 만드는 별개의 결정이므로 하지 않았다.
 
+**`watch` 는 아무 모듈도 참조하지 않는다.** 예정 이벤트와 거래소 공지는 다른 모듈을 몰라도
+성립한다. 이것이 의도된 제약인 이유는, 캘린더가 `position` 을 알게 되는 순간 "이벤트가 가까우면
+명목을 자동으로 줄인다" 로 미끄러지기 때문이다. 그것은 `scope.md` 가 금지한 자동 판단이다.
+경고는 화면에 띄우고 줄이는 것은 사람이 한다.
+
+**`watch` 의 일정 어댑터는 구현체가 하나뿐인데도 포트를 갖는다.** 설계 초안은 "구현체가
+하나뿐인 인터페이스는 만들지 않는다" 는 위 원칙을 따라 서비스가 어댑터를 직접 들게 했는데
+**규칙 2 와 6 이 그것을 거부했다.** 규칙이 옳다 — 서비스가 어댑터를 직접 들면 "스냅샷에서
+읽는다" 가 응용 계층의 사실이 되고 출처가 바뀔 때 서비스가 함께 바뀐다.
+`ClasspathLeverageBracketAdapter` 도 같은 이유로 이미 `LoadLeverageBracketsPort` 를 구현하고
+있었다. **위 원칙은 "포트를 새로 만들 이유가 되는가" 를 묻는 것이지 "만들면 안 된다" 가
+아니다** — 계층 규칙이 요구하면 그쪽이 이긴다.
+
 **모듈 간 의존은 ArchUnit이 강제하지 않는다.** 아래 6개 규칙 중 어느 것도 모듈 경계를 보지
 않는다 — 규칙 3(순환 참조)이 최악의 경우만 막는다. 이 표는 문서와 리뷰가 지킨다.
 Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 규칙으로 세우지 않았다 —
@@ -231,7 +245,7 @@ Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 
 1. `domain` 패키지의 Spring / JPA / Jackson import 금지
 2. 계층 의존 방향 (`(api|adapter) → application → domain`)
 3. 패키지 순환 참조 0건
-4. `market.application` / `journal.application` / `ai.application` / `account.application` → `adapter` 참조 금지
+4. `market.application` / `journal.application` / `ai.application` / `account.application` / `watch.application` → `adapter` 참조 금지
 5. `backtest` → `market.adapter` 참조 금지 (포트만 허용)
 6. `adapter.out` 구현체는 반드시 `application.port.out` 인터페이스를 구현
 
@@ -239,7 +253,11 @@ Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 
 규칙 4가 깨지면 **서명 키가 `application` 으로 샌다.**
 
 규칙 4는 모듈 이름을 손으로 열거하므로 모듈마다 위반 픽스처가 필요하다:
-`r4`(market) · `r4j`(journal) · `r4a`(ai) · `r4acc`(account).
+`r4`(market) · `r4j`(journal) · `r4a`(ai) · `r4acc`(account) · `r4w`(watch).
+
+`r4w` 는 상상해서 만든 것이 아니다. `watch` 를 만들면서 실제로 그렇게 짰고 규칙 2·6 이 먼저
+잡았다. 규칙 4 에까지 넣은 것은 공지 어댑터가 붙으면서 같은 실수를 다시 할 자리가 생겼기
+때문이다.
 
 **`allowEmptyShould` 는 이제 하나도 없다.** 대상 패키지가 아직 없는 규칙을 통과시키던 임시
 플래그였고, 마지막 하나(규칙 5)가 Phase 6 에서 빠졌다. 여섯 규칙이 전부 실제 클래스를 센다.

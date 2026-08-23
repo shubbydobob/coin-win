@@ -1,0 +1,91 @@
+import { money, percent, price, quantity, ratio } from "../../format";
+import { Term } from "../../shared/Term";
+import type { components } from "../../api/schema";
+
+type Book = components["schemas"]["OrderBookResponse"];
+
+type Level = components["schemas"]["PriceLevelResponse"];
+
+/**
+ * 호가. 매도를 위에, 매수를 아래에 놓는다 — 거래소 화면과 같은 배치라야 눈이 옮겨 가지 않는다.
+ *
+ * **방향을 말하지 않는다.** 불균형이 양수라는 것은 매수 잔량이 더 많다는 사실이고, 그것이
+ * 오른다는 뜻은 아니다 — 호가는 취소될 수 있고 큰 벽은 오히려 미끼인 경우가 많다.
+ *
+ * 막대 길이는 `format/` 을 거치지 않는다. **표시되는 수가 아니라 그리기 좌표**이기 때문이다 —
+ * 사람이 읽는 값은 전부 옆의 숫자이고, 그것은 서버가 낸 값을 `format/` 이 옮긴 것이다.
+ */
+export function OrderBookPanel({ book }: { book: Book }) {
+  const 최대잔량 = Math.max(
+    ...book.bids.map((level) => level.quantity),
+    ...book.asks.map((level) => level.quantity),
+  );
+
+  return (
+    <section aria-label="호가" className="rounded border border-slate-200 p-3">
+      <h2 className="text-sm font-medium text-slate-700">호가</h2>
+      <p className="mt-0.5 text-xs leading-snug text-slate-400">
+        지금 이 가격에 얼마나 걸려 있나. 유동성이 <b>얇은 쪽</b>으로 가격이 빨리 움직인다 —
+        그것은 예측이 아니라 체결의 성질이다. 다만 호가는 취소될 수 있고 큰 벽은 미끼인 경우가
+        많아, 이 수치로 방향을 읽으면 안 된다.
+      </p>
+
+      <div className="mt-3 space-y-0.5">
+        {[...book.asks].reverse().map((level) => (
+          <Row key={`ask-${level.price}`} level={level} max={최대잔량} tone="ask" />
+        ))}
+        <div className="flex justify-between border-y border-slate-300 py-1 text-sm tabular-nums">
+          <span className="text-slate-500">스프레드</span>
+          <span>
+            {money(book.spread)}{" "}
+            <span className="text-slate-400">({percent(book.spreadPercent)})</span>
+          </span>
+        </div>
+        {book.bids.map((level) => (
+          <Row key={`bid-${level.price}`} level={level} max={최대잔량} tone="bid" />
+        ))}
+      </div>
+
+      <dl className="mt-3 grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2 text-sm tabular-nums">
+        <Term label="매수 잔량" hint="보이는 단수까지의 합(BTC)." />
+        <dd className="text-right">{quantity(book.bidVolume)}</dd>
+        <Term label="매도 잔량" hint="보이는 단수까지의 합(BTC)." />
+        <dd className="text-right">{quantity(book.askVolume)}</dd>
+        <Term
+          label="불균형"
+          hint="(매수 − 매도) ÷ 합. 양수면 매수가 두껍다. 방향을 뜻하지 않는다."
+        />
+        <dd className="text-right">
+          {ratio(book.imbalance)}
+          <span className="ml-1 text-xs text-slate-400">{두께(book.imbalance)}</span>
+        </dd>
+      </dl>
+    </section>
+  );
+}
+
+function 두께(imbalance: number): string {
+  if (imbalance > 0) {
+    return "매수 두꺼움";
+  }
+  return imbalance < 0 ? "매도 두꺼움" : "균형";
+}
+
+/** 한 단. 잔량을 막대로도 보인다 — 어느 쪽이 두꺼운지는 숫자보다 길이가 빨리 읽힌다. */
+function Row({ level, max, tone }: { level: Level; max: number; tone: "bid" | "ask" }) {
+  const 길이 = max === 0 ? 0 : (level.quantity / max) * 100;
+
+  return (
+    <div className="relative flex justify-between px-1 text-sm tabular-nums">
+      <div
+        className={`absolute inset-y-0 right-0 ${tone === "bid" ? "bg-emerald-50" : "bg-red-50"}`}
+        style={{ width: `${길이}%` }}
+        aria-hidden="true"
+      />
+      <span className={`relative ${tone === "bid" ? "text-emerald-700" : "text-red-700"}`}>
+        {price(level.price)}
+      </span>
+      <span className="relative text-slate-600">{quantity(level.quantity)}</span>
+    </div>
+  );
+}

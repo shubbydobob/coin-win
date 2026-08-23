@@ -6,6 +6,7 @@ import { OverviewScreen } from "./features/overview/OverviewScreen";
 import { JournalScreen } from "./features/journal/JournalScreen";
 import { PlanScreen } from "./features/plan/PlanScreen";
 import { ProjectionScreen } from "./features/projection/ProjectionScreen";
+import { WatchScreen } from "./features/watch/WatchScreen";
 
 /**
  * 화면의 정체는 그 URL 이다. 새로고침해도 같은 화면이 나와야 하고, 그러려면 라우터가 화면
@@ -23,6 +24,7 @@ export const routes: RouteObject[] = [
       { path: "journal", element: <JournalScreen /> },
       { path: "backtest", element: <BacktestScreen /> },
       { path: "projection", element: <ProjectionScreen /> },
+      { path: "watch", element: <WatchScreen /> },
     ],
   },
 ];
