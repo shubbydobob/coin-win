@@ -1,5 +1,6 @@
 import { NOTHING, percent, price, quantity, ratio } from "../../format";
 import { PositionMeter, type Side } from "../../shared/Meter";
+import { BG_TONE, TEXT_TONE, type Tone } from "../../shared/tone";
 import { Sparkline } from "../../shared/Sparkline";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
@@ -40,6 +41,36 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
         <b> 어느 쪽이 붐비나</b>. 붐비는 쪽이지 유리한 쪽이 아니다 — 어느 쪽이 유리한가는 이
         도구가 답하지 않는다.
       </p>
+
+      {/*
+        **범례.** 색이 무슨 뜻인지가 어디에도 없었다. 첫 판은 글로 적었는데 그것도 틀렸다 —
+        "오르면 초록" 은 아무것도 말하지 않는다. 선의 모양이 이미 오른 것을 보여 주기 때문이다.
+
+        고친 것은 범례가 아니라 **색 자체**다. 지금은 색 하나가 뜻 하나를 갖고
+        (`shared/tone`), 범례는 그 넷을 점으로 보인다 — 읽는 것이 아니라 맞대어 보는 것이다.
+      */}
+      <div className="mt-2 rounded bg-surface-2 px-2 py-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+          <span className="text-ink-4">색</span>
+          <Swatch tone="long" label="롱 쪽" />
+          <Swatch tone="short" label="숏 쪽" />
+          <Swatch tone="outlier" label="평소와 다름" />
+          <Swatch tone="none" label="방향 없음" />
+        </div>
+        {/* 눈금 읽는 법. 라벨을 막대 아래 제자리에 놓아 화살표 없이도 무엇을 가리키는지 보인다. */}
+        <div className="mt-2 max-w-72">
+          <PositionMeter ratio={0.68} outlier={false} neutral={0.42} side="LONG" label="눈금 읽는 법 예시" />
+          <div className="relative mt-0.5 h-3 text-[10px] text-ink-4">
+            <span className="absolute left-0">숏 쪽</span>
+            <span className="absolute -translate-x-1/2" style={{ left: "42%" }}>│중립</span>
+            <span className="absolute -translate-x-1/2" style={{ left: "68%" }}>●지금</span>
+            <span className="absolute right-0">롱 쪽</span>
+          </div>
+          <p className="mt-2 text-[10px] leading-snug text-ink-4">
+            칠해진 길이가 <b>중립에서 얼마나 치우쳤나</b>. 양 끝 옅은 띠는 평소와 다른 구간(각 5%).
+          </p>
+        </div>
+      </div>
 
       {/*
         붐비는 쪽 셈. **두 수를 하나로 합치지 않는다** — 합치려면 지표에 가중치를 줘야 하고
@@ -90,6 +121,7 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
   const 가운데 = 눈금위치(metric.neutralPercent) ?? undefined;
   const 변화 = metric.change ?? null;
   const 오름 = 변화 === null ? null : 변화 > 0;
+  const 흐름 = 흐름색(metric, 오름);
 
   return (
     <div className="text-sm tabular-nums">
@@ -97,11 +129,7 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
         <Term label={LABEL[metric.metric] ?? metric.metric} hint={HINT[metric.metric] ?? ""} />
         <dd className="shrink-0 text-right">
           <span className="text-ink">{현재값(metric)}</span>
-          <span
-            className={`mt-0.5 block text-xs font-normal ${
-              오름 === null ? "text-ink-4" : 오름 ? "text-up" : "text-down"
-            }`}
-          >
+          <span className={`mt-0.5 block text-xs font-normal ${TEXT_TONE[흐름]}`}>
             {변화 === null ? "변화를 말할 수 없다" : `${오름 ? "▲" : "▼"} ${변화표기(metric)}`}
           </span>
         </dd>
@@ -118,7 +146,7 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
       <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-3">
         <Sparkline
           samples={metric.samples}
-          rising={오름}
+          tone={흐름}
           label={`${LABEL[metric.metric] ?? metric.metric} 최근 ${metric.sampleCount}개 추세`}
         />
         <span className="text-[10px] text-ink-4">최근 {metric.sampleCount}개</span>
@@ -152,6 +180,38 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
       )}
     </div>
   );
+}
+
+/** 색 견본 하나. 글로 설명하는 대신 실제 색을 옆에 놓는다. */
+function Swatch({ tone, label }: { tone: Tone; label: string }) {
+  return (
+    <span className="flex items-center gap-1 text-ink-3">
+      <span className={`size-2 rounded-full ${BG_TONE[tone]}`} aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+/**
+ * 변화가 **어느 쪽으로 간 것인가**. 화살표와 스파크라인이 이 색을 쓴다.
+ *
+ * **"올랐다" 가 아니라 "롱 쪽으로 갔다" 를 뜻한다.** 네 지표는 전부 값이 클수록 롱 쪽이므로
+ * (펀딩비 0 초과 · 비율 1 초과) 오름은 곧 롱 쪽으로 간 것이다. 가격도 같다 — 오르면 롱 쪽으로
+ * 움직인 것이다.
+ *
+ * **미결제약정만 회색이다.** 축이 없어서 늘든 줄든 어느 편도 아니다. 여기에 초록·빨강을 쓰면
+ * "포지션이 쌓이는 것은 좋은 일" 이라는 뜻이 없는 말이 색으로 생긴다.
+ *
+ * 이상치는 진영보다 앞선다 — 드문 쪽이 흔한 쪽에 덮이면 경고가 사라진다.
+ */
+function 흐름색(metric: Outlier, 오름: boolean | null): Tone {
+  if (metric.outlier) {
+    return "outlier";
+  }
+  if (오름 === null || metric.metric === "OPEN_INTEREST") {
+    return "none";
+  }
+  return 오름 ? "long" : "short";
 }
 
 /** 위쪽으로부터의 비율(%)을 왼쪽부터의 눈금 위치(0~1)로. 없으면 없다. */

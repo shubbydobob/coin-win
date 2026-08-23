@@ -13,6 +13,9 @@ type Level = components["schemas"]["PriceLevelResponse"];
  * **방향을 말하지 않는다.** 불균형이 양수라는 것은 매수 잔량이 더 많다는 사실이고, 그것이
  * 오른다는 뜻은 아니다 — 호가는 취소될 수 있고 큰 벽은 오히려 미끼인 경우가 많다.
  *
+ * **단 목록은 접혀 있다.** 요약(스프레드·잔량·불균형)은 밖에 남으므로 접어도 잃는 사실이
+ * 없고, 40줄이 이 탭에서 가장 긴 블록이었다.
+ *
  * 막대 길이는 `format/` 을 거치지 않는다. **표시되는 수가 아니라 그리기 좌표**이기 때문이다 —
  * 사람이 읽는 값은 전부 옆의 숫자이고, 그것은 서버가 낸 값을 `format/` 이 옮긴 것이다.
  */
@@ -31,21 +34,35 @@ export function OrderBookPanel({ book }: { book: Book }) {
         많아, 이 수치로 방향을 읽으면 안 된다.
       </p>
 
-      <div className="mt-3 space-y-0.5">
-        {[...book.asks].reverse().map((level) => (
-          <Row key={`ask-${level.price}`} level={level} max={최대잔량} tone="ask" />
-        ))}
-        <div className="my-1 flex justify-between rounded bg-surface-2 px-1 py-1.5 text-sm tabular-nums">
-          <span className="text-ink-2">스프레드</span>
-          <span>
-            {money(book.spread)}{" "}
-            <span className="text-ink-3">({percent(book.spreadPercent)})</span>
-          </span>
-        </div>
-        {book.bids.map((level) => (
-          <Row key={`bid-${level.price}`} level={level} max={최대잔량} tone="bid" />
-        ))}
+      <div className="mt-3 flex justify-between rounded bg-surface-2 px-1 py-1.5 text-sm tabular-nums">
+        <span className="text-ink-2">스프레드</span>
+        <span>
+          {money(book.spread)}{" "}
+          <span className="text-ink-3">({percent(book.spreadPercent)})</span>
+        </span>
       </div>
+
+      {/*
+        **단 목록을 접어 둔다.** 40줄이 이 탭에서 가장 긴 블록이고, 그것 때문에 아래의 지표와
+        일정이 스크롤 밖으로 밀려났다. 접어도 잃는 것이 없는 이유는 **요약이 밖에 남기**
+        때문이다 — 스프레드·잔량·불균형은 언제나 보이고, 펼치는 것은 "어느 가격에 벽이 있나"
+        를 실제로 볼 때뿐이다.
+      */}
+      <details className="group mt-1">
+        <summary className="cursor-pointer list-none text-xs text-ink-3 hover:text-ink-2">
+          <span className="group-open:hidden">단 {book.asks.length + book.bids.length}개 펼치기</span>
+          <span className="hidden group-open:inline">접기</span>
+        </summary>
+        <div className="mt-2 space-y-0.5">
+          {[...book.asks].reverse().map((level) => (
+            <Row key={`ask-${level.price}`} level={level} max={최대잔량} tone="ask" />
+          ))}
+          <div className="my-1 border-t border-line-soft" />
+          {book.bids.map((level) => (
+            <Row key={`bid-${level.price}`} level={level} max={최대잔량} tone="bid" />
+          ))}
+        </div>
+      </details>
 
       <div className="mt-3 space-y-1">
         <div className="flex justify-between text-xs">

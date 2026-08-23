@@ -17,8 +17,21 @@ public record MacroQuoteResponse(
         @Schema(description = "바이낸스 심볼", example = "QQQUSDT")
         String symbol,
 
-        @Schema(description = "사람이 읽는 이름", example = "나스닥 100")
+        @Schema(description = """
+                사람이 읽는 이름. **레버리지 상품은 배수를 이름에 적는다** —
+                배수를 숨기면 '미 장기국채 +0.4%' 가 국채가 0.4% 움직였다는 뜻으로 읽히는데
+                실제로는 그 3분의 1이다.""",
+                example = "나스닥 100")
         String label,
+
+        @Schema(description = """
+                어느 묶음인가. 열두 종목을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다.""",
+                example = "EQUITY",
+                allowableValues = {"EQUITY", "METAL", "ENERGY", "RATES", "FEAR"})
+        String group,
+
+        @Schema(description = "묶음의 사람이 읽는 이름", example = "주가")
+        String groupLabel,
 
         @Schema(description = "현재가 (USDT)", example = "612.34")
         BigDecimal last,
@@ -31,6 +44,8 @@ public record MacroQuoteResponse(
                 .map(quote -> new MacroQuoteResponse(
                         quote.symbol().value(),
                         quote.label(),
+                        quote.group().name(),
+                        quote.group().label(),
                         quote.last().value(),
                         quote.change24hPercent()))
                 .toList();

@@ -1,3 +1,5 @@
+import { BG_TONE, type Tone } from "./tone";
+
 /**
  * 값 하나를 눈금 위에 찍는다.
  *
@@ -9,6 +11,17 @@
 
 /** 진영. 서버가 정하고 화면은 색과 방향만 고른다. */
 export type Side = "LONG" | "SHORT" | "BALANCED" | "NONE";
+
+/** 진영을 색의 뜻으로 옮긴다. 색이 뜻하는 것은 `shared/tone` 한 곳에만 적혀 있다. */
+export function toneOf(side: Side, outlier = false): Tone {
+  if (outlier) {
+    return "outlier";
+  }
+  if (side === "LONG") {
+    return "long";
+  }
+  return side === "SHORT" ? "short" : "none";
+}
 
 /**
  * 0~1 사이의 위치를 눈금 위에 점으로 찍는다. 이상치면 색이 바뀐다.
@@ -45,7 +58,7 @@ export function PositionMeter({
         <>
           {/* 중립점에서 지금까지. 얼마나 치우쳤나가 길이로 보인다. */}
           <div
-            className={`absolute inset-y-0 ${side === "LONG" ? "bg-up/35" : "bg-down/35"}`}
+            className={`absolute inset-y-0 opacity-35 ${BG_TONE[toneOf(side)]}`}
             style={{
               left: `${Math.min(위치, 가운데)}%`,
               width: `${Math.abs(위치 - 가운데)}%`,
@@ -59,7 +72,9 @@ export function PositionMeter({
         </>
       )}
       <div
-        className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface ${점색(outlier, 가운데 === null ? "NONE" : side)}`}
+        className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface ${
+          BG_TONE[toneOf(가운데 === null ? "NONE" : side, outlier)]
+        }`}
         style={{ left: `${위치}%` }}
       />
     </div>
@@ -68,19 +83,6 @@ export function PositionMeter({
 
 const 눈금 = (ratio: number) => Math.min(100, Math.max(0, ratio * 100));
 
-/**
- * **이상치가 진영보다 앞선다.** 둘 다 색을 요구하는데, "평소와 다르다" 는 드물게 뜨고
- * 진영은 언제나 있다 — 흔한 쪽이 드문 쪽을 덮으면 경고가 사라진다.
- */
-function 점색(outlier: boolean, side: Side): string {
-  if (outlier) {
-    return "bg-warn";
-  }
-  if (side === "LONG") {
-    return "bg-up";
-  }
-  return side === "SHORT" ? "bg-down" : "bg-ink-2";
-}
 
 /**
  * 두 양의 비율을 좌우로 나눈 막대. 호가 불균형이 이 모양이다.

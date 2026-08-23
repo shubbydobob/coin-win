@@ -80,9 +80,14 @@ const OUTLIERS: components["schemas"]["MetricOutliersResponse"] = {
 };
 
 const MACRO: components["schemas"]["MacroQuoteListResponse"] = {
+  // 열둘을 물었는데 둘만 왔다. **원래 둘인 줄 알게 두지 않는다** — 화면이 뺄셈을 할 수
+  // 있도록 물어본 수를 서버가 함께 낸다.
+  requested: 12,
   quotes: [
-    { symbol: "QQQUSDT", label: "나스닥 100", last: 612.34, change24hPercent: 0.84 },
-    { symbol: "XAUUSDT", label: "금", last: 2410.5, change24hPercent: -0.31 },
+    { symbol: "QQQUSDT", label: "나스닥 100", group: "EQUITY", groupLabel: "주가",
+      last: 612.34, change24hPercent: 0.84 },
+    { symbol: "XAUUSDT", label: "금", group: "METAL", groupLabel: "금속",
+      last: 2410.5, change24hPercent: -0.31 },
   ],
 };
 
@@ -154,8 +159,8 @@ describe("감시", () => {
     server.use(...전부성공);
     renderScreen(<WatchScreen />);
 
-    // 다섯 중 둘만 왔다 — 원래 둘인 줄 알게 두지 않는다.
-    expect(await screen.findByText("3종목을 못 읽었다")).toBeVisible();
+    // 열둘 중 둘만 왔다 — 원래 둘인 줄 알게 두지 않는다.
+    expect(await screen.findByText("10종목을 못 읽었다")).toBeVisible();
   });
 
   /**
@@ -224,6 +229,48 @@ describe("감시", () => {
     문장들.forEach((문장) => {
       expect(문장).not.toMatch(/유리|불리|추천|신호|기회|노려|잡아|들어가|진입하|매수하|매도하/);
     });
+  });
+
+  /**
+   * <b>색은 뜻 하나만 갖는다.</b> 첫 판은 스파크라인이 오르내림(초록/빨강)을, 막대가
+   * 진영(초록/빨강)을 뜻해서 <b>같은 초록이 한 줄 안에서 두 가지를 가리켰다.</b> 게다가 그
+   * 두 색은 매매에서 좋다/나쁘다로 읽히는데 미결제약정이 오르는 것이 좋은 일인지는 아무도
+   * 모른다.
+   *
+   * 지금은 넷뿐이다 — 롱 쪽 · 숏 쪽 · 평소와 다름 · 방향 없음.
+   */
+  it("색이 무엇을 뜻하는지를 화면이 스스로 말한다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    await screen.findByText("평소와 다른가");
+    const 블록 = screen.getByRole("region", { name: "이상치" });
+    ["롱 쪽", "숏 쪽", "평소와 다름", "방향 없음"].forEach((뜻) => {
+      expect(within(블록).getAllByText(뜻).length).toBeGreaterThan(0);
+    });
+    // 눈금을 어떻게 읽는지도 그림 옆에 붙는다.
+    expect(within(블록).getByRole("img", { name: "눈금 읽는 법 예시" })).toBeVisible();
+  });
+
+  /**
+   * <b>미결제약정은 늘든 줄든 어느 편도 아니다.</b> 축이 없는 값에 초록·빨강을 쓰면
+   * "포지션이 쌓이는 것은 좋은 일" 이라는, 뜻이 없는 말이 색으로 생긴다.
+   *
+   * 픽스처에서 미결제약정은 이상치(양 끝 5%)이므로 <b>주황</b>이어야 하고, 롱 쪽으로 가는
+   * 테이커는 초록이어야 한다.
+   */
+  it("축이 없는 지표에는 진영 색을 쓰지 않는다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    await screen.findByText("평소와 다른가");
+    const 블록 = screen.getByRole("region", { name: "이상치" });
+
+    const 미결제 = within(블록).getByRole("img", { name: /미결제약정 최근/ });
+    expect(미결제.getAttribute("class")).toContain("text-warn");
+
+    const 테이커 = within(블록).getByRole("img", { name: /테이커 매수\/매도 최근/ });
+    expect(테이커.getAttribute("class")).toContain("text-up");
   });
 
   /**

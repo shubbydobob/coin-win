@@ -72,7 +72,8 @@ class PositionReconciliationServiceTest {
     void 다른_종목의_포지션은_섞이지_않는다() {
         ExchangePosition other = new ExchangePosition(
                 new Symbol("ETHUSDT"), Direction.LONG, Quantity.of("1"),
-                Price.of("3000"), Optional.of(Price.of("2500")), Money.of("0"), OBSERVED);
+                Price.of("3000"), Price.of("3000"), Optional.of(Price.of("2500")),
+                Money.of("0"), OBSERVED);
 
         PositionReconciliation result = reconcile(List.of(JournalFixtures.open()), other);
 

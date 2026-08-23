@@ -65,8 +65,13 @@ const RECONCILIATION: components["schemas"]["PositionReconciliationResponse"] = 
       actual: {
         symbol: "BTCUSDT",
         entryPrice: 76250.7,
+        // 표시가는 평단보다 조금 낮다 — 숏이라 이기고 있고, 미실현의 부호가 그것과 맞는다.
+        markPrice: 76217.9,
         quantity: 0.032,
         liquidationPrice: 83503.63,
+        // 서버가 낸다. 화면에서 다시 계산하지 않는다 — docs/adr/020.
+        liquidationDistancePercent: 9.5591,
+        notional: 2438.97,
         unrealizedPnl: 1.05,
       },
     },
