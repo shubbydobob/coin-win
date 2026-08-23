@@ -1,5 +1,6 @@
 import { instant, orNothing, price } from "../format";
 import { DIRECTION } from "./labels";
+import { SmallButton } from "./SmallButton";
 import type { components } from "../api/schema";
 
 type Trade = components["schemas"]["TradeResponse"];
@@ -57,20 +58,14 @@ export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAc
 }
 
 function NextAction({ trade, onAct }: { trade: Trade; onAct: (action: Action) => void }) {
-  const 버튼 = "rounded border border-slate-300 px-2 py-0.5 text-xs";
-
   switch (trade.state) {
     case "PLANNED":
       return (
-        <button type="button" className={버튼} onClick={() => onAct({ id: trade.id, kind: "fills" })}>
-          체결 기록
-        </button>
+        <SmallButton onClick={() => onAct({ id: trade.id, kind: "fills" })}>체결 기록</SmallButton>
       );
     case "OPEN":
       return (
-        <button type="button" className={버튼} onClick={() => onAct({ id: trade.id, kind: "closure" })}>
-          청산 기록
-        </button>
+        <SmallButton onClick={() => onAct({ id: trade.id, kind: "closure" })}>청산 기록</SmallButton>
       );
     default:
       return null;

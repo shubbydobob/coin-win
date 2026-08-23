@@ -1,5 +1,6 @@
 import { instant, money, orNothing, price, quantity } from "../format";
 import { DIRECTION } from "./labels";
+import { SmallButton } from "./SmallButton";
 import type { components } from "../api/schema";
 
 type Reconciliation = components["schemas"]["PositionReconciliationResponse"];
@@ -16,13 +17,36 @@ type Match = components["schemas"]["PositionMatchResponse"];
  * 비교하면 "스케일 8 까지 정확히 같아야 한다" 는 규칙이 서버와 화면 두 곳에 생긴다.
  * 근거: `docs/adr/020`.
  */
-export function PositionReconciliationPanel({ reconciliation }: { reconciliation: Reconciliation }) {
+export function PositionReconciliationPanel({
+  reconciliation,
+  onRefresh,
+  refreshing = false,
+}: {
+  reconciliation: Reconciliation;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}) {
   return (
     <section aria-label="거래소 대조" className="space-y-2">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-medium text-slate-700">기록과 거래소</h2>
-        <span className="text-xs text-slate-500">관측 {instant(reconciliation.observedAt)}</span>
+        <div className="flex items-baseline gap-2 text-xs text-slate-500">
+          <span>
+            거래소에 물어본 시각 {instant(reconciliation.observedAt)}
+            {/*
+              갱신 중임을 버튼이 아니라 이 자리에 적는다. 버튼의 글자를 바꾸면 15초마다
+              라벨이 흔들리고, 그러면 사람이 누르려던 순간에 대상이 달라진다.
+            */}
+            {refreshing && <span className="ml-1 text-slate-400">· 갱신 중</span>}
+          </span>
+          {onRefresh && <SmallButton onClick={onRefresh}>새로고침</SmallButton>}
+        </div>
       </div>
+      <p className="text-xs leading-snug text-slate-400">
+        왼쪽은 <b>내가 무엇을 하려 했는지</b>(기록), 오른쪽은 <b>지금 무엇이 열려 있는지</b>
+        (거래소)다. 거래소 값으로 기록을 덮어쓰지 않는다 — 덮어쓰면 &quot;청산을 적지 않았다&quot; 같은
+        사실이 화면에서 통째로 사라진다.
+      </p>
 
       {reconciliation.matches.length === 0 ? (
         <p className="text-sm text-slate-500">양쪽 모두 열려 있는 포지션이 없다</p>
@@ -53,25 +77,29 @@ function MatchRow({ match }: { match: Match }) {
       </div>
 
       <div className="mt-2 grid grid-cols-2 gap-4 text-sm tabular-nums">
-        <Side title="기록">
+        <Side title="기록" hint="이 앱에 남긴 것">
           {match.recorded ? (
             <>
-              <Row label="평단" value={price(match.recorded.averageEntryPrice)} />
-              <Row label="수량" value={quantity(match.recorded.quantity)} />
-              <Row label="진입" value={instant(match.recorded.openedAt)} />
+              <Row label="평단" hint="적어 둔 체결 내역으로 다시 계산한 평균 진입가." value={price(match.recorded.averageEntryPrice)} />
+              <Row label="수량" hint="체결 내역의 합(BTC)." value={quantity(match.recorded.quantity)} />
+              <Row label="진입" hint="첫 체결 시각." value={instant(match.recorded.openedAt)} />
             </>
           ) : (
             <p className="text-slate-500">없음</p>
           )}
         </Side>
 
-        <Side title="거래소">
+        <Side title="거래소" hint="바이낸스가 지금 말하는 것">
           {match.actual ? (
             <>
-              <Row label="평단" value={price(match.actual.entryPrice)} />
-              <Row label="수량" value={quantity(match.actual.quantity)} />
-              <Row label="청산가" value={orNothing(match.actual.liquidationPrice, price)} />
-              <Row label="미실현" value={money(match.actual.unrealizedPnl)} />
+              <Row label="평단" hint="거래소가 계산한 평균 진입가." value={price(match.actual.entryPrice)} />
+              <Row label="수량" hint="실제 보유 수량(BTC). 방향은 위에 적혀 있다." value={quantity(match.actual.quantity)} />
+              <Row
+                label="청산가"
+                hint="여기 닿으면 강제로 닫힌다. 거래소가 말할 수 없으면 — 다."
+                value={orNothing(match.actual.liquidationPrice, price)}
+              />
+              <Row label="미실현" hint="지금 닫으면 확정될 손익. 아직 확정된 것이 아니다." value={money(match.actual.unrealizedPnl)} />
             </>
           ) : (
             <p className="text-slate-500">없음</p>
@@ -84,20 +112,29 @@ function MatchRow({ match }: { match: Match }) {
   );
 }
 
-function Side({ title, children }: { title: string; children: React.ReactNode }) {
+function Side({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-xs text-slate-500">{title}</h3>
-      <dl className="mt-1 space-y-0.5">{children}</dl>
+      <h3 className="text-xs text-slate-500">
+        {title} <span className="text-slate-400">— {hint}</span>
+      </h3>
+      <dl className="mt-1 space-y-1.5">{children}</dl>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+/**
+ * 값 한 줄. 뜻은 라벨 아래에 적는다 — `shared/Term` 과 같은 이유이고, 여기서 그것을 쓰지 않는
+ * 것은 이 줄이 격자가 아니라 좌우 정렬이기 때문이다.
+ */
+function Row({ label, hint, value }: { label: string; hint: string; value: string }) {
   return (
     <div className="flex justify-between gap-2">
-      <dt className="text-slate-500">{label}</dt>
-      <dd>{value}</dd>
+      <dt className="text-slate-500">
+        {label}
+        <span className="mt-0.5 block text-xs leading-snug text-slate-400">{hint}</span>
+      </dt>
+      <dd className="shrink-0">{value}</dd>
     </div>
   );
 }
