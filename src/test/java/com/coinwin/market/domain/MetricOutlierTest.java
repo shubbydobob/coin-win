@@ -63,7 +63,8 @@ class MetricOutlierTest {
     @Test
     void 위치는_null_일_수_없다() {
         assertThatThrownBy(() -> new MetricOutlier(
-                        MetricKind.FUNDING_RATE, BigDecimal.ONE, null, Optional.empty(), List.of()))
+                        MetricKind.FUNDING_RATE, BigDecimal.ONE, null, Optional.empty(),
+                        CrowdedSide.LONG, Optional.empty(), List.of()))
                 .isInstanceOf(InvalidValueException.class);
     }
 
@@ -88,6 +89,8 @@ class MetricOutlierTest {
                 MetricKind.FUNDING_RATE,
                 BigDecimal.ONE,
                 Optional.of(new Percentile(new BigDecimal("0.99"))),
+                Optional.empty(),
+                CrowdedSide.LONG,
                 Optional.empty(),
                 List.of(BigDecimal.ONE));
 

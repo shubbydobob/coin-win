@@ -79,6 +79,27 @@ public enum MetricKind {
         return change;
     }
 
+    /**
+     * 이 지표의 <b>중립점</b>. 값이 이보다 크면 롱 쪽, 작으면 숏 쪽이다.
+     *
+     * <p>비어 있다는 것은 <b>축이 없다</b>는 뜻이지 중립이라는 뜻이 아니다. 미결제약정은 크기이지
+     * 방향이 아니고, 가격은 기준선이다. 둘 다 "몇이면 롱 쪽인가" 라는 질문이 성립하지 않는다.
+     *
+     * <p>열거 상수의 필드가 아니라 {@code switch} 인 이유는 생성자 인자가 이미 넷이기 때문이다
+     * (컨벤션 한계). 그리고 이 모양이 더 낫다 — 지표를 새로 넣으면 <b>여기서 컴파일이 멈추고</b>
+     * "이것은 어느 쪽에 실리는 값인가" 를 반드시 한 번 답하게 된다.
+     */
+    public java.util.Optional<java.math.BigDecimal> neutral() {
+        return switch (this) {
+            // 0 을 넘으면 롱이 숏에게 낸다.
+            case FUNDING_RATE -> java.util.Optional.of(java.math.BigDecimal.ZERO);
+            // 셋 다 롱 ÷ 숏 이므로 1 이 양쪽이 같은 지점이다.
+            case LONG_SHORT_RATIO, TAKER_RATIO, TOP_POSITION_RATIO ->
+                    java.util.Optional.of(java.math.BigDecimal.ONE);
+            case OPEN_INTEREST, PRICE -> java.util.Optional.empty();
+        };
+    }
+
     /** 화면에 놓이는 지표들. {@link #PRICE} 는 기준선이라 빠진다. */
     public static java.util.List<MetricKind> displayed() {
         return java.util.List.of(

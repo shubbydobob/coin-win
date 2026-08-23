@@ -55,13 +55,17 @@ class ResponseSchemaContractTest {
      *
      * <p>{@code topPercent} 는 표본이 모자라 위치를 잴 수 없을 때 비어 있다. "표본 3개 중 상위
      * 33%" 는 수치의 모양만 갖춘 거짓말이다 — 같은 규칙의 세 번째 자리다.
+     *
+     * <p>{@code neutralPercent} 는 <b>두 가지 이유로</b> 빈다 — 축이 없는 지표(미결제약정·가격)
+     * 이거나, 축은 있는데 눈금을 그릴 표본이 모자라거나. 진영({@code side})은 그때도 있다.
+     * 어느 쪽인가는 중립점과 견주기만 하면 되고 눈금은 필요 없기 때문이다.
      */
     private static final Map<String, List<String>> NULLABLE_FIELDS = Map.of(
             "SummaryResponse", List.of("profitFactor"),
             "TradeResponse", List.of("entry", "outcome"),
             "PositionMatchResponse", List.of("recorded", "actual"),
             "ExchangeSideResponse", List.of("liquidationPrice"),
-            "MetricOutlierResponse", List.of("topPercent", "change"));
+            "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"));
 
     @Autowired
     private WebApplicationContext context;

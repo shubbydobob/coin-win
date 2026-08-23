@@ -1901,6 +1901,17 @@ export interface components {
              * @example 6
              */
             changeWindow: number;
+            /**
+             * @description 어느 쪽 진영인가. 중립점(펀딩비 0, 비율 1)보다 크면 LONG, 작으면 SHORT, 같으면 BALANCED 다. NONE 은 중립이 아니라 **축이 없다**는 뜻이다 — 미결제약정은 크기이지 방향이 아니다. **붐비는 쪽이라는 뜻이지 유리한 쪽이라는 뜻이 아니다**
+             * @example LONG
+             * @enum {string}
+             */
+            side: "LONG" | "SHORT" | "BALANCED" | "NONE";
+            /**
+             * @description 중립점이 눈금 어디에 오는가 (위쪽으로부터의 비율 %). 현재값과 같은 방식으로 잰 위치라 나란히 놓을 수 있다. 축이 없거나 표본이 모자라면 null
+             * @example 63
+             */
+            neutralPercent: number | null;
             /** @description 표본 시계열. 화면이 스파크라인을 그리는 데 쓴다. 위치와 변화율만으로는 서서히인가 급격한가가 사라진다 */
             samples: number[];
         };
@@ -1910,20 +1921,26 @@ export interface components {
          *       "symbol": "BTCUSDT",
          *       "at": "2026-08-23T09:00:00Z",
          *       "hasOutlier": false,
+         *       "crowdedLong": 1,
+         *       "crowdedShort": 0,
          *       "metrics": [
          *         {
          *           "metric": "FUNDING_RATE",
          *           "current": 0.01,
          *           "topPercent": 12,
          *           "outlier": false,
-         *           "sampleCount": 90
+         *           "sampleCount": 90,
+         *           "side": "LONG",
+         *           "neutralPercent": 98
          *         },
          *         {
          *           "metric": "OPEN_INTEREST",
          *           "current": 107134.492,
          *           "topPercent": null,
          *           "outlier": false,
-         *           "sampleCount": 3
+         *           "sampleCount": 3,
+         *           "side": "NONE",
+         *           "neutralPercent": null
          *         }
          *       ]
          *     }
@@ -1951,6 +1968,18 @@ export interface components {
             price: components["schemas"]["MetricOutlierResponse"];
             /** @description 지금 기계적으로 성립하는 사실들. **비어 있는 것이 정상이다.** 무엇을 하라고 말하지 않고 방향도 말하지 않는다 */
             situations: string[];
+            /**
+             * Format: int64
+             * @description 방향 있는 지표 중 롱 쪽이 몇인가. **셈이지 판정이 아니다** — 넷 중 셋이 롱 쪽이라는 것은 사실이고, 그래서 어느 쪽이 유리한가는 이 프로젝트가 답하지 않는다
+             * @example 3
+             */
+            crowdedLong: number;
+            /**
+             * Format: int64
+             * @description 방향 있는 지표 중 숏 쪽이 몇인가. 롱 쪽 수와 합해도 지표 수가 되지 않을 수 있다 — 미결제약정은 축이 없다
+             * @example 1
+             */
+            crowdedShort: number;
         };
         /**
          * @description 현재가와 호가

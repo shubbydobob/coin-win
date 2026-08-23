@@ -44,4 +44,28 @@ public record MarketOutliers(
     public boolean hasOutlier() {
         return metrics.stream().anyMatch(MetricOutlier::isOutlier);
     }
+
+    /**
+     * 방향 있는 지표 중 롱 쪽이 몇인가.
+     *
+     * <p><b>이것은 셈이지 판정이 아니다.</b> 넷 중 셋이 롱 쪽이라는 것은 사실이고, 그래서 어느
+     * 쪽이 유리한가는 이 프로젝트가 답하지 않기로 한 질문이다({@code scope.md}). 우열을 내려면
+     * 지표에 가중치를 줘야 하는데 그 가중치는 검증할 방법이 없다 — {@code docs/adr/021} 이
+     * 파라미터 고르기에서 이미 겪은 함정과 같은 모양이다.
+     *
+     * <p>두 수를 따로 내는 이유는 <b>합이 지표 수와 다를 수 있기</b> 때문이다. 축이 없는
+     * 미결제약정은 어느 쪽에도 안 들어가고, 정확히 중립점인 값도 그렇다.
+     */
+    public long crowdedLong() {
+        return sided(CrowdedSide.LONG);
+    }
+
+    /** 방향 있는 지표 중 숏 쪽이 몇인가. {@link #crowdedLong()} 과 같은 규칙이다. */
+    public long crowdedShort() {
+        return sided(CrowdedSide.SHORT);
+    }
+
+    private long sided(CrowdedSide side) {
+        return metrics.stream().filter(metric -> metric.side() == side).count();
+    }
 }

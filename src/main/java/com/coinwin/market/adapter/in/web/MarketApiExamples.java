@@ -33,20 +33,26 @@ final class MarketApiExamples {
               "symbol": "BTCUSDT",
               "at": "2026-08-23T09:00:00Z",
               "hasOutlier": false,
+              "crowdedLong": 1,
+              "crowdedShort": 0,
               "metrics": [
                 {
                   "metric": "FUNDING_RATE",
                   "current": 0.010000,
                   "topPercent": 12.0000,
                   "outlier": false,
-                  "sampleCount": 90
+                  "sampleCount": 90,
+                  "side": "LONG",
+                  "neutralPercent": 98.0000
                 },
                 {
                   "metric": "OPEN_INTEREST",
                   "current": 107134.49200000,
                   "topPercent": null,
                   "outlier": false,
-                  "sampleCount": 3
+                  "sampleCount": 3,
+                  "side": "NONE",
+                  "neutralPercent": null
                 }
               ]
             }""";

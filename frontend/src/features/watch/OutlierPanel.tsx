@@ -1,5 +1,5 @@
 import { NOTHING, percent, price, quantity, ratio } from "../../format";
-import { PositionMeter } from "../../shared/Meter";
+import { PositionMeter, type Side } from "../../shared/Meter";
 import { Sparkline } from "../../shared/Sparkline";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
@@ -17,6 +17,15 @@ type Outlier = components["schemas"]["MetricOutlierResponse"];
  * **가격을 맨 위에 기준선으로 놓는다.** 미결제약정 −3.2% 는 가격 +1.1% 옆에서만 뜻이 된다 —
  * 포지션이 줄면서 가격이 올랐다면 청산이고, 포지션이 줄면서 가격도 내렸다면 그냥 손을 턴 것이다.
  *
+ * **네 번째를 뒤늦게 더했다 — 어느 쪽 진영인가.** 화면이 "상위 96.7%" 까지만 말하고 그것이
+ * 롱 쪽인지 숏 쪽인지를 말하지 않고 있었다. 지표 다섯 중 넷은 중립점(펀딩비 0, 비율 1)을
+ * 기준으로 **부호가 곧 진영**인데 그 사실이 어디에도 그려져 있지 않았다.
+ *
+ * **여기까지가 사실이고 그 다음은 아니다.** 펀딩비가 양수면 롱이 숏에게 낸다는 것은 정의다.
+ * "그러니 숏이 유리하다" 는 정의가 아니라 예측이고, 이 저장소는 그 예측에 증거가 없다 —
+ * `docs/adr/021` 이 같은 종류의 전제를 7년 15,110봉에서 반증했다. 그래서 붐비는 쪽은 세고
+ * 우열은 내지 않는다.
+ *
  * **무엇을 하라고 말하지 않는다.** 상황 문장도 일어난 일까지만 적는다.
  */
 export function OutlierPanel({ outliers }: { outliers: Outliers }) {
@@ -27,9 +36,23 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
         {outliers.hasOutlier && <span className="text-xs text-warn">평소와 다른 지표가 있다</span>}
       </div>
       <p className="mt-0.5 text-xs leading-snug text-ink-3">
-        최근 표본에서 지금 값이 어디인가(<b>양 끝 5%</b> 면 표시), 그리고 정해진 창에서 어느
-        쪽으로 갔나. 무엇을 하라는 뜻은 아니다 — 지금이 평소와 다르다는 사실뿐이다.
+        최근 표본에서 지금 값이 어디인가(<b>양 끝 5%</b> 면 표시), 어느 쪽으로 갔나, 그리고
+        <b> 어느 쪽이 붐비나</b>. 붐비는 쪽이지 유리한 쪽이 아니다 — 어느 쪽이 유리한가는 이
+        도구가 답하지 않는다.
       </p>
+
+      {/*
+        붐비는 쪽 셈. **두 수를 하나로 합치지 않는다** — 합치려면 지표에 가중치를 줘야 하고
+        그 가중치는 검증할 방법이 없다. 셋 대 하나라는 것은 사실이고, 그래서 어느 쪽이
+        유리한가는 사실이 아니다.
+      */}
+      <div className="mt-2 flex items-center gap-2 rounded bg-surface-2 px-2 py-1.5 text-xs">
+        <span className="text-ink-3">붐비는 쪽</span>
+        <span className="font-medium tabular-nums text-up">롱 {outliers.crowdedLong}</span>
+        <span className="text-ink-4">·</span>
+        <span className="font-medium tabular-nums text-down">숏 {outliers.crowdedShort}</span>
+        <span className="ml-auto text-[10px] text-ink-4">방향 있는 지표만 센다</span>
+      </div>
 
       {/*
         상황 문장. **비어 있는 것이 정상이다** — 늘 떠 있으면 배경이 되고, 배경이 된 경고는
@@ -62,10 +85,9 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
 }
 
 function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean }) {
-  const 위치 =
-    metric.topPercent === null || metric.topPercent === undefined
-      ? null
-      : 1 - metric.topPercent / 100;
+  const 위치 = 눈금위치(metric.topPercent);
+  const 진영 = metric.side as Side;
+  const 가운데 = 눈금위치(metric.neutralPercent) ?? undefined;
   const 변화 = metric.change ?? null;
   const 오름 = 변화 === null ? null : 변화 > 0;
 
@@ -85,6 +107,14 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
         </dd>
       </div>
 
+      {/*
+        진영. **표본과 무관하므로 언제나 있다** — 펀딩비가 양수면 롱이 숏에게 낸다는 것은
+        정의이지 관측이 아니다. 기준선(가격)에는 축이 없으므로 뜨지 않는다.
+      */}
+      {!baseline && (
+        <p className={`mt-1 text-xs font-normal ${진영색(진영)}`}>{SIDE_TEXT[metric.metric]?.[진영] ?? ""}</p>
+      )}
+
       <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-3">
         <Sparkline
           samples={metric.samples}
@@ -100,14 +130,18 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
           <PositionMeter
             ratio={위치}
             outlier={metric.outlier}
-            label={`${LABEL[metric.metric] ?? metric.metric}: 상위 ${percent(metric.topPercent as number)}`}
+            neutral={가운데}
+            side={진영}
+            label={`${LABEL[metric.metric] ?? metric.metric}: 상위 ${percent(metric.topPercent as number)}${
+              가운데 === undefined ? "" : `, ${SIDE_LABEL[진영]}`
+            }`}
           />
           <div className="mt-0.5 flex justify-between text-[10px] text-ink-4">
-            <span>낮음</span>
+            <span>{가운데 === undefined ? "낮음" : "숏 쪽"}</span>
             <span className={metric.outlier ? "font-medium text-warn" : "text-ink-3"}>
               상위 {percent(metric.topPercent as number)}
             </span>
-            <span>높음</span>
+            <span>{가운데 === undefined ? "높음" : "롱 쪽"}</span>
           </div>
         </div>
       )}
@@ -118,6 +152,18 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
       )}
     </div>
   );
+}
+
+/** 위쪽으로부터의 비율(%)을 왼쪽부터의 눈금 위치(0~1)로. 없으면 없다. */
+function 눈금위치(topPercent: number | null | undefined): number | null {
+  return topPercent === null || topPercent === undefined ? null : 1 - topPercent / 100;
+}
+
+function 진영색(side: Side): string {
+  if (side === "LONG") {
+    return "text-up";
+  }
+  return side === "SHORT" ? "text-down" : "text-ink-4";
 }
 
 /**
@@ -169,4 +215,45 @@ const HINT: Record<string, string> = {
   LONG_SHORT_RATIO: "롱 계정 수 ÷ 숏 계정 수. 1계정 1표다.",
   TAKER_RATIO: "시장가 매수량 ÷ 매도량. 계정 수가 아니라 실제 체결량이라 취소가 없다.",
   TOP_POSITION_RATIO: "상위 계정의 롱숏비. 계정 수가 아니라 포지션 크기 기준이다.",
+};
+
+const SIDE_LABEL: Record<Side, string> = {
+  LONG: "롱 쪽",
+  SHORT: "숏 쪽",
+  BALANCED: "양쪽이 같다",
+  NONE: "축 없음",
+};
+
+/**
+ * 진영을 **그 지표의 말로** 옮긴다. 같은 "롱 쪽" 이어도 근거가 전부 다르기 때문이다 —
+ * 펀딩비는 비용이고, 롱숏비율은 머릿수이고, 테이커는 체결량이고, 상위 계정은 크기다.
+ * 한 문장으로 뭉뚱그리면 "롱 3" 이라는 셈이 무엇을 센 것인지가 사라진다.
+ *
+ * **전부 일어난 일까지만 적는다.** "롱이 숏에게 낸다" 는 정의이고 "그러니 숏이 유리하다" 는
+ * 예측이다. 뒤쪽은 이 표에 없고, `어떤_문장도_행동을_지시하지_않는다` 가 그것을 지킨다.
+ */
+export const SIDE_TEXT: Record<string, Partial<Record<Side, string>>> = {
+  FUNDING_RATE: {
+    LONG: "롱이 숏에게 낸다 — 들고 있는 쪽은 롱이 비용을 문다",
+    SHORT: "숏이 롱에게 낸다 — 들고 있는 쪽은 숏이 비용을 문다",
+    BALANCED: "양쪽 다 내지 않는다",
+  },
+  OPEN_INTEREST: {
+    NONE: "방향 없음 — 크기다. 위 가격과 짝지어야 뜻이 된다",
+  },
+  LONG_SHORT_RATIO: {
+    LONG: "계정 수로는 롱이 많다",
+    SHORT: "계정 수로는 숏이 많다",
+    BALANCED: "계정 수가 반반이다",
+  },
+  TAKER_RATIO: {
+    LONG: "시장가로 때린 쪽은 매수다",
+    SHORT: "시장가로 때린 쪽은 매도다",
+    BALANCED: "때린 양이 반반이다",
+  },
+  TOP_POSITION_RATIO: {
+    LONG: "큰손은 롱 쪽에 실려 있다",
+    SHORT: "큰손은 숏 쪽에 실려 있다",
+    BALANCED: "큰손이 반반이다",
+  },
 };
