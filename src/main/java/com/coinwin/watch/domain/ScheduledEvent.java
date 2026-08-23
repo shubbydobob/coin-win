@@ -3,6 +3,7 @@ package com.coinwin.watch.domain;
 import com.coinwin.common.domain.DomainValues;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 /**
  * 날짜가 정해진 이벤트 하나.
@@ -30,10 +31,19 @@ public record ScheduledEvent(EventKind kind, Instant at, String title, Importanc
         DomainValues.required(importance, "중요도");
     }
 
-    /** 지금부터 남은 시간. 이미 지났으면 음수다. */
+    /**
+     * 지금부터 남은 시간. 이미 지났으면 음수다.
+     *
+     * <p><b>분 단위로 자른다.</b> 이 수를 보는 목적은 "얼마나 남았나" 라는 감각이지 초 단위
+     * 정확도가 아니다 — 발표까지 열아홉 날 남았는데 "27초" 를 함께 읽는 것은 아무것도 더해
+     * 주지 않고, 매초 바뀌는 자리가 화면에 하나 늘 뿐이다.
+     *
+     * <p>자르는 곳이 도메인인 이유는 화면이 둘 이상이 될 수 있기 때문이다. 표시하는 쪽에서
+     * 자르면 "남은 시간은 분 단위" 라는 규칙이 화면마다 생긴다.
+     */
     public Duration until(Instant now) {
         DomainValues.required(now, "현재 시각");
-        return Duration.between(now, at);
+        return Duration.between(now, at).truncatedTo(ChronoUnit.MINUTES);
     }
 
     public boolean isUpcoming(Instant now) {
