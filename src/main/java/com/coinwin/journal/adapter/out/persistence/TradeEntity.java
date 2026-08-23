@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.ListIndexBase;
 import org.hibernate.type.SqlTypes;
 
 /**
@@ -60,11 +61,13 @@ class TradeEntity {
     @ElementCollection
     @CollectionTable(name = "trade_planned_entry", joinColumns = @JoinColumn(name = "trade_id"))
     @OrderColumn(name = "seq")
+    @ListIndexBase(1)
     List<PlannedEntryRow> plannedEntries = new ArrayList<>();
 
     @ElementCollection
     @CollectionTable(name = "trade_fill", joinColumns = @JoinColumn(name = "trade_id"))
     @OrderColumn(name = "seq")
+    @ListIndexBase(1)
     List<FillRow> fills = new ArrayList<>();
 
     @Column(name = "price_at_entry")
