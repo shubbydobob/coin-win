@@ -39,7 +39,7 @@ export function CloseTradeForm({ onSubmit, pending }: { onSubmit: (request: Requ
         });
       }}
     >
-      <h3 className="text-sm font-medium text-slate-700">청산 기록</h3>
+      <h3 className="text-sm font-medium text-ink">청산 기록</h3>
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="청산가" value={exitPrice} onChange={setExitPrice} />
@@ -48,12 +48,12 @@ export function CloseTradeForm({ onSubmit, pending }: { onSubmit: (request: Requ
         <Field label="펀딩비" value={funding} onChange={setFunding} />
       </div>
 
-      <label className="block text-xs text-slate-500">
+      <label className="block text-xs text-ink-2">
         청산 이유
         <select
           value={exitReason}
           onChange={(event) => setExitReason(event.target.value as ExitReason)}
-          className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
         >
           {Object.entries(EXIT_REASON).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
@@ -61,7 +61,7 @@ export function CloseTradeForm({ onSubmit, pending }: { onSubmit: (request: Requ
         </select>
       </label>
 
-      <button type="submit" disabled={pending} className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+      <button type="submit" disabled={pending} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-50">
         청산 저장
       </button>
     </form>

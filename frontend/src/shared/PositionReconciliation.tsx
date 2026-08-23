@@ -29,27 +29,27 @@ export function PositionReconciliationPanel({
   return (
     <section aria-label="거래소 대조" className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-medium text-slate-700">기록과 거래소</h2>
-        <div className="flex items-baseline gap-2 text-xs text-slate-500">
+        <h2 className="text-sm font-medium text-ink">기록과 거래소</h2>
+        <div className="flex items-baseline gap-2 text-xs text-ink-2">
           <span>
             거래소에 물어본 시각 {instant(reconciliation.observedAt)}
             {/*
               갱신 중임을 버튼이 아니라 이 자리에 적는다. 버튼의 글자를 바꾸면 15초마다
               라벨이 흔들리고, 그러면 사람이 누르려던 순간에 대상이 달라진다.
             */}
-            {refreshing && <span className="ml-1 text-slate-400">· 갱신 중</span>}
+            {refreshing && <span className="ml-1 text-ink-3">· 갱신 중</span>}
           </span>
           {onRefresh && <SmallButton onClick={onRefresh}>새로고침</SmallButton>}
         </div>
       </div>
-      <p className="text-xs leading-snug text-slate-400">
+      <p className="text-xs leading-snug text-ink-3">
         왼쪽은 <b>내가 무엇을 하려 했는지</b>(기록), 오른쪽은 <b>지금 무엇이 열려 있는지</b>
         (거래소)다. 거래소 값으로 기록을 덮어쓰지 않는다 — 덮어쓰면 &quot;청산을 적지 않았다&quot; 같은
         사실이 화면에서 통째로 사라진다.
       </p>
 
       {reconciliation.matches.length === 0 ? (
-        <p className="text-sm text-slate-500">양쪽 모두 열려 있는 포지션이 없다</p>
+        <p className="text-sm text-ink-2">양쪽 모두 열려 있는 포지션이 없다</p>
       ) : (
         <ul className="space-y-2">
           {reconciliation.matches.map((match) => (
@@ -67,11 +67,11 @@ export function PositionReconciliationPanel({
 function MatchRow({ match }: { match: Match }) {
   return (
     <div
-      className={`rounded border p-3 ${match.discrepancy ? "border-amber-400 bg-amber-50" : "border-slate-200"}`}
+      className={`rounded-lg border p-3 ${match.discrepancy ? "border-warn/50 bg-warn/10" : "border-line"}`}
     >
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium">{DIRECTION[match.direction as "LONG" | "SHORT"]}</span>
-        <span className={`text-xs ${match.discrepancy ? "text-amber-700" : "text-slate-500"}`}>
+        <span className={`text-xs ${match.discrepancy ? "text-warn" : "text-ink-2"}`}>
           {OUTCOME[match.outcome as Outcome]}
         </span>
       </div>
@@ -85,7 +85,7 @@ function MatchRow({ match }: { match: Match }) {
               <Row label="진입" hint="첫 체결 시각." value={instant(match.recorded.openedAt)} />
             </>
           ) : (
-            <p className="text-slate-500">없음</p>
+            <p className="text-ink-2">없음</p>
           )}
         </Side>
 
@@ -102,12 +102,12 @@ function MatchRow({ match }: { match: Match }) {
               <Row label="미실현" hint="지금 닫으면 확정될 손익. 아직 확정된 것이 아니다." value={money(match.actual.unrealizedPnl)} />
             </>
           ) : (
-            <p className="text-slate-500">없음</p>
+            <p className="text-ink-2">없음</p>
           )}
         </Side>
       </div>
 
-      {match.discrepancy && <p className="mt-2 text-xs text-amber-800">{ADVICE[match.outcome as Outcome]}</p>}
+      {match.discrepancy && <p className="mt-2 text-xs text-warn">{ADVICE[match.outcome as Outcome]}</p>}
     </div>
   );
 }
@@ -115,8 +115,8 @@ function MatchRow({ match }: { match: Match }) {
 function Side({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-xs text-slate-500">
-        {title} <span className="text-slate-400">— {hint}</span>
+      <h3 className="text-xs text-ink-2">
+        {title} <span className="text-ink-3">— {hint}</span>
       </h3>
       <dl className="mt-1 space-y-1.5">{children}</dl>
     </div>
@@ -130,9 +130,9 @@ function Side({ title, hint, children }: { title: string; hint: string; children
 function Row({ label, hint, value }: { label: string; hint: string; value: string }) {
   return (
     <div className="flex justify-between gap-2">
-      <dt className="text-slate-500">
+      <dt className="text-ink-2">
         {label}
-        <span className="mt-0.5 block text-xs leading-snug text-slate-400">{hint}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-ink-3">{hint}</span>
       </dt>
       <dd className="shrink-0">{value}</dd>
     </div>

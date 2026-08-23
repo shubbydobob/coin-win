@@ -12,6 +12,7 @@ import com.coinwin.market.MarketFixtures;
 import com.coinwin.market.adapter.out.memory.InMemoryCandleAdapter;
 import com.coinwin.market.application.port.out.LoadCandlesPort;
 import com.coinwin.market.application.port.out.LoadMarketMetricsPort;
+import com.coinwin.market.adapter.out.memory.InMemoryMacroQuoteAdapter;
 import com.coinwin.market.adapter.out.memory.InMemoryMetricHistoryAdapter;
 import com.coinwin.market.adapter.out.memory.InMemoryOrderBookAdapter;
 import com.coinwin.market.application.service.MarketDataService;
@@ -92,7 +93,8 @@ class MarketControllerTest {
                         marketData,
                         new MarketMetricsService(metrics),
                         new OrderBookService(books),
-                        new OutlierService(metrics, history))))
+                        new OutlierService(metrics, history),
+                        InMemoryMacroQuoteAdapter.withSample()::quotes)))
                 .setControllerAdvice(new DomainExceptionHandler())
                 .build();
     }

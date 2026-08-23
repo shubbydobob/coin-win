@@ -14,7 +14,7 @@ type Comparison = components["schemas"]["ComparisonResponse"];
 export function ComparisonPanel({ comparison, label }: { comparison: Comparison; label: string }) {
   return (
     <section className="space-y-3" aria-label={label}>
-      <h3 className="text-sm font-medium text-slate-700">{label}</h3>
+      <h3 className="text-sm font-medium text-ink">{label}</h3>
 
       <div className="grid grid-cols-2 gap-4">
         <ResultSummary summary={comparison.baseline.summary} label="기준" />
@@ -22,9 +22,9 @@ export function ComparisonPanel({ comparison, label }: { comparison: Comparison;
       </div>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums">
-        <dt className="text-slate-500">순손익 차이</dt>
+        <dt className="text-ink-2">순손익 차이</dt>
         <dd className="text-right">{money(comparison.pnlDifference)}</dd>
-        <dt className="text-slate-500">거래 수 차이</dt>
+        <dt className="text-ink-2">거래 수 차이</dt>
         <dd className="text-right">{comparison.tradeDifference}</dd>
       </dl>
     </section>

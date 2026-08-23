@@ -26,27 +26,27 @@ export function JournalQuery() {
   const problem = ask.error instanceof ApiFailure ? ask.error.problem : null;
 
   return (
-    <section className="space-y-2 rounded border border-slate-200 p-3" aria-label="기록 질의">
-      <h3 className="text-xs text-slate-500">지난 매매에 묻기 (AI 보조)</h3>
+    <section className="space-y-2 rounded-lg border border-line bg-surface p-3" aria-label="기록 질의">
+      <h3 className="text-xs text-ink-2">지난 매매에 묻기 (AI 보조)</h3>
 
       <input
         aria-label="질문"
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
-        className="block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        className="block w-full rounded border border-line px-2 py-1 text-sm"
       />
 
       <button
         type="button"
         onClick={() => ask.mutate(question)}
         disabled={ask.isPending}
-        className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-50"
+        className="rounded border border-line px-2 py-1 text-sm disabled:opacity-50"
       >
         {ask.isPending ? "찾는 중" : "묻기"}
       </button>
 
       {problem && (
-        <p role="status" className="text-sm text-slate-600">
+        <p role="status" className="text-sm text-ink-2">
           {problem.detail}
         </p>
       )}
@@ -56,7 +56,7 @@ export function JournalQuery() {
           <p>{ask.data.answer}</p>
 
           {ask.data.citedTradeIds.length > 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-2">
               근거:{" "}
               {ask.data.citedTradeIds.map((id) => (
                 <a key={id} href={`#trade-${id}`} className="mr-2 underline">
@@ -66,7 +66,7 @@ export function JournalQuery() {
             </p>
           )}
 
-          <ul className="space-y-1 text-xs text-slate-500">
+          <ul className="space-y-1 text-xs text-ink-2">
             {ask.data.retrieved.map((trade) => (
               <li key={trade.tradeId}>{trade.summary}</li>
             ))}

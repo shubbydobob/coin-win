@@ -1,0 +1,66 @@
+package com.coinwin.market.adapter.out.binance;
+
+import com.coinwin.common.domain.Price;
+import com.coinwin.market.application.port.out.LoadMacroQuotesPort;
+import com.coinwin.market.domain.MacroQuote;
+import com.coinwin.market.domain.MacroWatchlist;
+import com.coinwin.market.domain.Symbol;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+
+/**
+ * 거시 자산 다섯의 시세를 바이낸스에서 읽는다. 키가 필요 없다.
+ *
+ * <p><b>못 읽은 것은 목록에서 빠진다.</b> 다섯 종목을 각각 부르므로 하나가 실패해도 나머지
+ * 넷은 보인다 — 한 번에 다 실패시키면 상장폐지된 종목 하나가 이 블록 전체를 죽인다.
+ * 빠진 것은 조용히 사라지지 않고 <b>경고 로그에 남는다</b>: "실패의 원인을 볼 수 있게" 가
+ * 세운 규칙이고, 다섯이 셋으로 줄어든 화면은 그것만 봐서는 이유를 알 수 없다.
+ *
+ * <p>다섯 번 부르는 것이 이 어댑터의 사정이다. 종목 없이 부르면 744종이 한꺼번에 오고
+ * 가중치가 40 이라, 다섯 번(가중치 5)이 오히려 싸다.
+ */
+@Component
+public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BinanceMacroQuoteAdapter.class);
+
+    private static final String TICKER = "/fapi/v1/ticker/24hr";
+
+    private final RestClient client;
+
+    public BinanceMacroQuoteAdapter(RestClient binanceRestClient) {
+        this.client = binanceRestClient;
+    }
+
+    @Override
+    public List<MacroQuote> quotes() {
+        return MacroWatchlist.ordered().stream().map(this::quoteOf).flatMap(Optional::stream).toList();
+    }
+
+    private Optional<MacroQuote> quoteOf(Symbol symbol) {
+        try {
+            BinanceTicker ticker = client.get()
+                    .uri(uri -> uri.path(TICKER).queryParam("symbol", symbol.value()).build())
+                    .retrieve()
+                    .body(BinanceTicker.class);
+            if (ticker == null || ticker.lastPrice() == null) {
+                LOG.warn("거시 시세가 비어 있다: {}", symbol.value());
+                return Optional.empty();
+            }
+            return Optional.of(new MacroQuote(
+                    symbol,
+                    MacroWatchlist.labelOf(symbol),
+                    Price.of(ticker.lastPrice()),
+                    new BigDecimal(ticker.priceChangePercent())));
+        } catch (RestClientException e) {
+            LOG.warn("거시 시세를 가져오지 못했다: {}", symbol.value(), e);
+            return Optional.empty();
+        }
+    }
+}

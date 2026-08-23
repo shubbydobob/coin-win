@@ -31,14 +31,14 @@ export function CandleSync({ form }: { form: BacktestForm }) {
         type="button"
         onClick={() => sync.mutate()}
         disabled={sync.isPending}
-        className="rounded border border-slate-300 px-3 py-1.5 disabled:opacity-50"
+        className="rounded border border-line px-3 py-1.5 disabled:opacity-50"
       >
         {sync.isPending ? "캔들 가져오는 중" : "캔들 동기화"}
       </button>
 
-      {sync.data && <span className="text-slate-500">새로 저장 {sync.data.newlyStored}개</span>}
+      {sync.data && <span className="text-ink-2">새로 저장 {sync.data.newlyStored}개</span>}
       {sync.error && (
-        <span role="alert" className="text-red-700">
+        <span role="alert" className="text-down">
           {sync.error instanceof ApiFailure ? sync.error.problem.detail : sync.error.message}
         </span>
       )}

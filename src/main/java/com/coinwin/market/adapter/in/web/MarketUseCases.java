@@ -1,5 +1,6 @@
 package com.coinwin.market.adapter.in.web;
 
+import com.coinwin.market.application.port.in.LoadMacroQuotesUseCase;
 import com.coinwin.market.application.port.in.LoadMarketDataUseCase;
 import com.coinwin.market.application.port.in.LoadMarketMetricsUseCase;
 import com.coinwin.market.application.port.in.LoadOrderBookUseCase;
@@ -24,5 +25,6 @@ public record MarketUseCases(
         SyncMarketDataUseCase syncMarketData,
         LoadMarketMetricsUseCase loadMetrics,
         LoadOrderBookUseCase loadOrderBook,
-        LoadOutliersUseCase loadOutliers) {
+        LoadOutliersUseCase loadOutliers,
+        LoadMacroQuotesUseCase loadMacroQuotes) {
 }

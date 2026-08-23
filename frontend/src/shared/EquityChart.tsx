@@ -20,7 +20,7 @@ export function EquityChart({ equity, label }: { equity: readonly number[]; labe
 
   return (
     <figure>
-      <figcaption className="mb-2 text-sm font-medium text-slate-700">{label}</figcaption>
+      <figcaption className="mb-2 text-sm font-medium text-ink">{label}</figcaption>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points}>

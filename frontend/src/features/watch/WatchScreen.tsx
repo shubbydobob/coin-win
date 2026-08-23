@@ -5,6 +5,7 @@ import { get } from "../../api/client";
 import { ApiFailure } from "../../api/problem";
 import { SmallButton } from "../../shared/SmallButton";
 import { EventCalendarPanel } from "./EventCalendarPanel";
+import { MacroPanel } from "./MacroPanel";
 import { NoticePanel } from "./NoticePanel";
 import { OrderBookPanel } from "./OrderBookPanel";
 import { OutlierPanel } from "./OutlierPanel";
@@ -53,6 +54,13 @@ export function WatchScreen() {
     retry: false,
     refetchInterval: (query) => (query.state.error ? false : OUTLIER_POLL_MS),
   });
+  // 거시 시세는 24시간 변동률이라 자주 물을 이유가 없다. 5분이면 충분히 최신이다.
+  const macro = useQuery({
+    queryKey: ["markets", "macro"],
+    queryFn: () => get("/api/markets/macro"),
+    retry: false,
+    refetchInterval: (query) => (query.state.error ? false : OUTLIER_POLL_MS),
+  });
   const calendar = useQuery({
     queryKey: ["watch", "events"],
     queryFn: () => get("/api/watch/events"),
@@ -84,6 +92,12 @@ export function WatchScreen() {
         <OutlierPanel outliers={outliers.data} />
       ) : (
         <Failed label="이상치" query={outliers} fallback="지표 이력을 가져오지 못했다" />
+      )}
+
+      {macro.data ? (
+        <MacroPanel macro={macro.data} />
+      ) : (
+        <Failed label="거시 자산" query={macro} fallback="거시 시세를 가져오지 못했다" />
       )}
 
       {calendar.data ? (
@@ -119,9 +133,9 @@ function Failed({
   return (
     <section
       aria-label={label}
-      className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm"
+      className="flex items-center gap-3 rounded-lg border border-line bg-surface p-3 text-sm"
     >
-      <span className="text-slate-500">
+      <span className="text-ink-2">
         {query.isPending
           ? "가져오는 중"
           : query.error instanceof ApiFailure

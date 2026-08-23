@@ -62,8 +62,9 @@ class MetricOutlierTest {
 
     @Test
     void 위치는_null_일_수_없다() {
-        assertThatThrownBy(
-                        () -> new MetricOutlier(MetricKind.FUNDING_RATE, BigDecimal.ONE, null, 1))
+        assertThatThrownBy(() -> new MetricOutlier(
+                        MetricKind.FUNDING_RATE, BigDecimal.ONE, null, Optional.empty(),
+                        CrowdedSide.LONG, Optional.empty(), List.of()))
                 .isInstanceOf(InvalidValueException.class);
     }
 
@@ -73,9 +74,12 @@ class MetricOutlierTest {
         MetricOutlier 보통 = MetricOutlier.of(MetricKind.OPEN_INTEREST, new BigDecimal("15"), 표본(30));
         Instant at = Instant.parse("2026-08-23T09:00:00Z");
 
-        assertThat(new MarketOutliers(Symbol.of("BTCUSDT"), at, List.of(보통, 이상치)).hasOutlier())
+        MetricOutlier 가격 = MetricOutlier.of(MetricKind.PRICE, new BigDecimal("15"), 표본(30));
+
+        assertThat(MarketOutliers.of(Symbol.of("BTCUSDT"), at, List.of(보통, 이상치), 가격)
+                        .hasOutlier())
                 .isTrue();
-        assertThat(new MarketOutliers(Symbol.of("BTCUSDT"), at, List.of(보통)).hasOutlier())
+        assertThat(MarketOutliers.of(Symbol.of("BTCUSDT"), at, List.of(보통), 가격).hasOutlier())
                 .isFalse();
     }
 
@@ -85,7 +89,10 @@ class MetricOutlierTest {
                 MetricKind.FUNDING_RATE,
                 BigDecimal.ONE,
                 Optional.of(new Percentile(new BigDecimal("0.99"))),
-                90);
+                Optional.empty(),
+                CrowdedSide.LONG,
+                Optional.empty(),
+                List.of(BigDecimal.ONE));
 
         assertThat(outlier.isOutlier()).isTrue();
     }

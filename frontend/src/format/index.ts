@@ -124,6 +124,31 @@ export function instant(iso: string): string {
   return `${seoul.slice(0, 10)} ${seoul.slice(11, 16)}`;
 }
 
+/**
+ * 남은 날짜. `PT456H13M` 을 `D-19` 로 옮긴다.
+ *
+ * **`duration` 과 다른 질문에 답한다.** 그쪽은 "얼마나 걸렸나"(보유 기간·거래 간격)이고
+ * 이쪽은 "며칠 남았나" 다. 열아홉 날 남은 것을 `19일 0시간 13분` 으로 읽으면 사람이 앞의
+ * 숫자만 떼어 다시 세게 되고, 그 세기는 남은 시간이 24시간 아래로 내려가는 순간 틀린다.
+ *
+ * **하루 미만은 `D-0` 이 아니라 시분으로 말한다.** 오늘 안에 벌어질 일에 `D-0` 만 띄우면
+ * 세 시간 뒤인지 이십 분 뒤인지가 사라지는데, 그 구분이 필요해지는 유일한 날이 바로 그날이다.
+ *
+ * 지난 것은 `지남` 이다. 음수 날짜(`D+3`)는 카운트다운처럼 읽히므로 쓰지 않는다.
+ */
+export function dday(iso: string): string {
+  const parts = ISO_DURATION.exec(iso);
+  if (!parts) {
+    return iso;
+  }
+  const hours = amount(parts[1]);
+  const days = Math.floor(hours / HOURS_PER_DAY);
+  if (days > 0) {
+    return `D-${days}`;
+  }
+  return duration(iso);
+}
+
 const ISO_DURATION = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$/;
 
 const HOURS_PER_DAY = 24;

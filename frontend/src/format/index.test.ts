@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { duration, instant, money, orNothing, percent, price, quantity, ratio } from "./index";
+import { dday, duration, instant, money, orNothing, percent, price, quantity, ratio } from "./index";
 
 /**
  * 이 모듈이 지키는 것은 하나다 — **서버가 정한 자릿수를 되살리되 줄이지 않는다.**
@@ -69,6 +69,24 @@ describe("표시 형식", () => {
   it("시각을 읽어내지 못하면 그대로 낸다", () => {
     // 화면이 멈추지도, 없는 시각을 지어내지도 않는다. `duration` 과 같은 규칙이다.
     expect(instant("시각 아님")).toBe("시각 아님");
+  });
+
+  it("남은 날짜는 D-n 으로 읽는다", () => {
+    expect(dday("PT456H13M")).toBe("D-19");
+    expect(dday("PT24H")).toBe("D-1");
+  });
+
+  /**
+   * <b>하루 미만은 D-0 이 아니라 시분이다.</b> 오늘 안에 벌어질 일에 D-0 만 띄우면 세 시간
+   * 뒤인지 이십 분 뒤인지가 사라지는데, 그 구분이 필요해지는 유일한 날이 바로 그날이다.
+   */
+  it("하루가 안 남으면 시분으로 말한다", () => {
+    expect(dday("PT3H20M")).toBe("3시간 20분");
+    expect(dday("PT20M")).toBe("20분");
+  });
+
+  it("읽어내지 못한 문자열은 그대로 낸다", () => {
+    expect(dday("기간 아님")).toBe("기간 아님");
   });
 
   it("기간은 하루가 넘으면 일로 올린다", () => {

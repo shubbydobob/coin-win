@@ -1,7 +1,7 @@
 {
   "_source": {
     "FOMC": "federalreserve.gov/monetarypolicy/fomccalendars.htm — 회의 둘째 날 성명 발표 14:00 ET",
-    "CPI": "bls.gov/schedule/news_release/cpi.htm — 08:30 ET",
+    "CPI": "bls.gov/schedule/news_release/cpi.htm — 08:30 ET. 직접 조회는 403 이라 9월분만 1차 출처에서 받았고, 10월~1월분은 usinflationcalculator.com 과 cpiinflationcalculator.com 두 곳이 일치하는 값이다. 갱신할 때 BLS 로 다시 확인한다",
     "QRA": "home.treasury.gov/policy-issues/financing-the-government/quarterly-refunding",
     "_fetchedAt": "2026-08-23",
     "_note": "시각은 UTC 다. 미국 서머타임은 2026-11-01 에 끝나므로 그 전은 ET=UTC-4, 그 뒤는 UTC-5 로 환산했다."
@@ -11,6 +11,30 @@
       "kind": "CPI",
       "at": "2026-09-11T12:30:00Z",
       "title": "미국 CPI (8월분)",
+      "importance": "HIGH"
+    },
+    {
+      "kind": "CPI",
+      "at": "2026-10-14T12:30:00Z",
+      "title": "미국 CPI (9월분)",
+      "importance": "HIGH"
+    },
+    {
+      "kind": "CPI",
+      "at": "2026-11-10T13:30:00Z",
+      "title": "미국 CPI (10월분)",
+      "importance": "HIGH"
+    },
+    {
+      "kind": "CPI",
+      "at": "2026-12-10T13:30:00Z",
+      "title": "미국 CPI (11월분)",
+      "importance": "HIGH"
+    },
+    {
+      "kind": "CPI",
+      "at": "2027-01-13T13:30:00Z",
+      "title": "미국 CPI (12월분)",
       "importance": "HIGH"
     },
     {

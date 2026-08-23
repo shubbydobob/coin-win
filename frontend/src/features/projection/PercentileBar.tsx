@@ -24,12 +24,12 @@ export function PercentileBar({ worst, p5, median, p95, best }: Props) {
 
   return (
     <figure className="space-y-2">
-      <figcaption className="text-sm font-medium text-slate-700">최종 자산 분포</figcaption>
+      <figcaption className="text-sm font-medium text-ink">최종 자산 분포</figcaption>
 
       <div className="relative h-10">
-        <div className="absolute inset-x-0 top-4 h-1.5 rounded bg-slate-200" />
+        <div className="absolute inset-x-0 top-4 h-1.5 rounded bg-surface-2" />
         <div
-          className="absolute top-4 h-1.5 rounded bg-slate-400"
+          className="absolute top-4 h-1.5 rounded bg-ink-4"
           style={{ left: `${at(p5)}%`, width: `${at(p95) - at(p5)}%` }}
         />
         {[
@@ -39,7 +39,7 @@ export function PercentileBar({ worst, p5, median, p95, best }: Props) {
         ].map((mark) => (
           <div
             key={mark.label}
-            className="absolute top-2 h-6 w-0.5 bg-slate-900"
+            className="absolute top-2 h-6 w-0.5 bg-accent"
             style={{ left: `${at(mark.value)}%` }}
             title={`${mark.label} ${money(mark.value)}`}
           />
@@ -55,7 +55,7 @@ export function PercentileBar({ worst, p5, median, p95, best }: Props) {
           { label: "최고", value: best },
         ].map((point) => (
           <div key={point.label}>
-            <dt className="text-slate-500">{point.label}</dt>
+            <dt className="text-ink-2">{point.label}</dt>
             <dd>{money(point.value)}</dd>
           </div>
         ))}

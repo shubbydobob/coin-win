@@ -12,17 +12,17 @@ type Summary = components["schemas"]["SummaryResponse"];
 export function ResultSummary({ summary, label }: { summary: Summary; label: string }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums" aria-label={label}>
-      <dt className="text-slate-500">거래</dt>
+      <dt className="text-ink-2">거래</dt>
       <dd className="text-right">{summary.totalTrades}</dd>
-      <dt className="text-slate-500">승률</dt>
+      <dt className="text-ink-2">승률</dt>
       <dd className="text-right">{percent(summary.winRate)}</dd>
-      <dt className="text-slate-500">손익비</dt>
+      <dt className="text-ink-2">손익비</dt>
       <dd className="text-right">{orNothing(summary.profitFactor, ratio)}</dd>
-      <dt className="text-slate-500">순손익</dt>
+      <dt className="text-ink-2">순손익</dt>
       <dd className="text-right">{money(summary.netPnl)}</dd>
-      <dt className="text-slate-500">최종 자산</dt>
+      <dt className="text-ink-2">최종 자산</dt>
       <dd className="text-right">{money(summary.finalEquity)}</dd>
-      <dt className="text-slate-500">최대낙폭</dt>
+      <dt className="text-ink-2">최대낙폭</dt>
       <dd className="text-right">{percent(summary.maxDrawdown)}</dd>
     </dl>
   );

@@ -2,6 +2,7 @@ package com.coinwin.market.domain;
 
 import com.coinwin.common.domain.DomainValues;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,9 @@ import java.util.Optional;
  */
 public record MetricHistory(List<BigDecimal> samples) {
 
+    /** 변화율의 자릿수. 0.0001 = 0.01% 까지 구분된다. */
+    private static final int CHANGE_SCALE = 6;
+
     public MetricHistory {
         samples = List.copyOf(DomainValues.required(samples, "표본"));
     }
@@ -37,6 +41,41 @@ public record MetricHistory(List<BigDecimal> samples) {
             return Optional.empty();
         }
         return Optional.of(Percentile.of(current, samples));
+    }
+
+
+    /**
+     * 최근 {@code window} 개 구간의 변화. 창의 <b>첫 값 대비</b>다.
+     *
+     * <p>표본이 창보다 적으면 비어 있다 — 두 점이 없으면 변화라는 것이 성립하지 않는다.
+     *
+     * <p>{@code RATIO} 는 비율(0.032 = 3.2% 증가), {@code DIFFERENCE} 는 차이(%p)다.
+     * 부호가 바뀌는 값에서 비율이 무너지기 때문이고, 그 판단은 {@link MetricKind} 가 갖는다.
+     *
+     * <p><b>0 에서 출발한 비율은 내지 않는다.</b> 분모가 0 이면 몇 배가 됐는지 말할 수 없다 —
+     * 무한대를 큰 수로 적으면 화면이 그것을 급변으로 읽는다.
+     */
+    public Optional<BigDecimal> changeOver(int window, MetricKind.Change kind) {
+        DomainValues.atLeast(window, 2, "변화의 창");
+        DomainValues.required(kind, "변화 표기");
+        if (samples.size() < window) {
+            return Optional.empty();
+        }
+        BigDecimal first = samples.get(samples.size() - window);
+        BigDecimal last = samples.getLast();
+        if (kind == MetricKind.Change.DIFFERENCE) {
+            return Optional.of(last.subtract(first));
+        }
+        if (first.signum() == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(last.subtract(first)
+                .divide(first.abs(), CHANGE_SCALE, RoundingMode.HALF_UP));
+    }
+
+    /** 가장 최근 값. 표본이 비어 있으면 없다. */
+    public Optional<BigDecimal> latest() {
+        return samples.isEmpty() ? Optional.empty() : Optional.of(samples.getLast());
     }
 
     public int sampleCount() {

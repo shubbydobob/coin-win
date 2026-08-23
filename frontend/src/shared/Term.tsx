@@ -15,9 +15,9 @@
  */
 export function Term({ label, hint }: { label: string; hint: string }) {
   return (
-    <dt className="text-slate-500">
+    <dt className="text-ink-2">
       {label}
-      <span className="mt-0.5 block text-xs leading-snug text-slate-400">{hint}</span>
+      <span className="mt-0.5 block text-xs leading-snug text-ink-3">{hint}</span>
     </dt>
   );
 }

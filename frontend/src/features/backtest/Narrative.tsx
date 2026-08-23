@@ -26,18 +26,18 @@ export function Narrative({ form }: { form: BacktestForm }) {
   const problem = narrate.error instanceof ApiFailure ? narrate.error.problem : null;
 
   return (
-    <section className="space-y-2 rounded border border-slate-200 p-3" aria-label="결과 요약">
+    <section className="space-y-2 rounded-lg border border-line bg-surface p-3" aria-label="결과 요약">
       <button
         type="button"
         onClick={() => narrate.mutate()}
         disabled={narrate.isPending}
-        className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-50"
+        className="rounded border border-line px-2 py-1 text-sm disabled:opacity-50"
       >
         {narrate.isPending ? "요약하는 중" : "요약 (AI 보조)"}
       </button>
 
       {problem && (
-        <p role="status" className="text-sm text-slate-600">
+        <p role="status" className="text-sm text-ink-2">
           {problem.detail}
         </p>
       )}
@@ -45,7 +45,7 @@ export function Narrative({ form }: { form: BacktestForm }) {
       {narrate.data && (
         <div className="space-y-2 text-sm">
           <p>{narrate.data.narrative}</p>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-500 tabular-nums">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-ink-2 tabular-nums">
             {Object.entries(narrate.data.facts).map(([name, value]) => (
               <div key={name} className="contents">
                 <dt>{name}</dt>

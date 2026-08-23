@@ -20,7 +20,7 @@ export function Reindex() {
   const problem = reindex.error instanceof ApiFailure ? reindex.error.problem : null;
 
   return (
-    <p className="text-xs text-slate-400">
+    <p className="text-xs text-ink-3">
       <button
         type="button"
         onClick={() => reindex.mutate()}

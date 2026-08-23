@@ -20,15 +20,15 @@ type Trade = components["schemas"]["BacktestTradeResponse"];
  */
 export function BacktestTrades({ trades }: { trades: readonly Trade[] }) {
   if (trades.length === 0) {
-    return <p className="text-sm text-slate-500">이 구간에서 선 거래가 없다</p>;
+    return <p className="text-sm text-ink-2">이 구간에서 선 거래가 없다</p>;
   }
 
   return (
     <table className="w-full text-right text-sm tabular-nums">
-      <caption className="mb-2 text-left text-sm font-medium text-slate-700">
+      <caption className="mb-2 text-left text-sm font-medium text-ink">
         거래 {trades.length}건
       </caption>
-      <thead className="border-b border-slate-300 text-xs text-slate-500">
+      <thead className="border-b border-line text-xs text-ink-2">
         <tr>
           <th scope="col" className="py-1 text-left">진입</th>
           <th scope="col" className="py-1">방향</th>
@@ -42,7 +42,7 @@ export function BacktestTrades({ trades }: { trades: readonly Trade[] }) {
       </thead>
       <tbody>
         {trades.map((trade) => (
-          <tr key={`${trade.openedAt}-${trade.averageEntryPrice}`} className="border-b border-slate-100 align-top">
+          <tr key={`${trade.openedAt}-${trade.averageEntryPrice}`} className="border-b border-line-soft align-top">
             <th scope="row" className="py-1 text-left font-normal">{instant(trade.openedAt)}</th>
             <td className="py-1">{DIRECTION[trade.direction]}</td>
             <td className="py-1">{trade.filledEntries}</td>
@@ -50,7 +50,7 @@ export function BacktestTrades({ trades }: { trades: readonly Trade[] }) {
             <td className="py-1">{price(trade.exitPrice)}</td>
             <td className="py-1">{EXIT_REASON[trade.exitReason]}</td>
             <td className="py-1">{money(trade.realizedPnl)}</td>
-            <td className="py-1 pl-3 text-left text-xs text-slate-500">{trade.rationale}</td>
+            <td className="py-1 pl-3 text-left text-xs text-ink-2">{trade.rationale}</td>
           </tr>
         ))}
       </tbody>

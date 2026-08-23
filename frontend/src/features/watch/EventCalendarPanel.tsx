@@ -1,4 +1,4 @@
-import { duration, instant } from "../../format";
+import { dday, instant } from "../../format";
 import type { components } from "../../api/schema";
 
 type Calendar = components["schemas"]["EventCalendarResponse"];
@@ -20,15 +20,15 @@ type Event = components["schemas"]["ScheduledEventResponse"];
  */
 export function EventCalendarPanel({ calendar }: { calendar: Calendar }) {
   return (
-    <section aria-label="예정 이벤트" className="rounded border border-slate-200 p-3">
-      <h2 className="text-sm font-medium text-slate-700">예정 이벤트</h2>
-      <p className="mt-0.5 text-xs leading-snug text-slate-400">
+    <section aria-label="예정 이벤트" className="rounded-lg border border-line bg-surface p-3">
+      <h2 className="text-sm font-medium text-ink">예정 이벤트</h2>
+      <p className="mt-0.5 text-xs leading-snug text-ink-3">
         발표가 무엇을 뜻할지는 미리 알 수 없지만 <b>언제인지는 알 수 있다.</b> 경고는 규모에
         대한 것이다 — 그날은 명목을 줄이라는 뜻이지 방향에 대한 말이 아니다.
       </p>
 
       {calendar.stale && (
-        <p className="mt-2 rounded border border-amber-400 bg-amber-50 p-2 text-xs text-amber-800">
+        <p className="mt-2 rounded border border-warn/50 bg-warn/10 p-2 text-xs text-warn">
           일정표가 낡았다 — 이 목록을 믿으면 안 된다.{" "}
           <code>src/main/resources/watch/scheduled-events.json</code> 의 <code>_source</code> 를
           보고 갱신한다.
@@ -36,10 +36,15 @@ export function EventCalendarPanel({ calendar }: { calendar: Calendar }) {
       )}
 
       {calendar.events.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">예정된 이벤트가 없다</p>
+        <p className="mt-2 text-sm text-ink-2">예정된 이벤트가 없다</p>
       ) : (
         <ul className="mt-3 space-y-1.5">
-          {calendar.events.map((event) => (
+          {/*
+            서버는 가까운 순서로 준다. 화면에서 뒤집어 **먼 것부터** 놓는다 — 목록의 끝,
+            눈이 마지막으로 머무는 자리에 가장 임박한 것이 오게 하려는 배치다.
+            되돌리려면 이 `[...].reverse()` 를 빼면 된다.
+          */}
+          {[...calendar.events].reverse().map((event) => (
             <li key={`${event.kind}-${event.at}`}>
               <Row event={event} />
             </li>
@@ -54,21 +59,22 @@ function Row({ event }: { event: Event }) {
   return (
     <div
       className={`flex items-baseline gap-3 rounded p-1.5 text-sm ${
-        event.warning ? "bg-amber-50" : ""
+        event.warning ? "bg-warn/10" : ""
       }`}
     >
+      {/* D-day 로 읽는다. "19일 0시간 13분" 은 사람이 앞의 숫자만 떼어 다시 세게 만든다. */}
       <span
-        className={`w-16 shrink-0 tabular-nums ${
-          event.warning ? "font-medium text-amber-800" : "text-slate-500"
+        className={`w-20 shrink-0 text-right tabular-nums ${
+          event.warning ? "font-semibold text-warn" : "text-ink-2"
         }`}
       >
-        {duration(event.until)}
+        {dday(event.until)}
       </span>
-      <span className="w-32 shrink-0 tabular-nums text-slate-600">{instant(event.at)}</span>
-      <span className="w-12 shrink-0 text-xs text-slate-400">{event.kind}</span>
+      <span className="w-32 shrink-0 tabular-nums text-ink-2">{instant(event.at)}</span>
+      <span className="w-12 shrink-0 text-xs text-ink-3">{event.kind}</span>
       <span className="flex-1">{event.title}</span>
       {event.warning && (
-        <span className="shrink-0 text-xs text-amber-800">명목을 줄인다</span>
+        <span className="shrink-0 text-xs text-warn">명목을 줄인다</span>
       )}
     </div>
   );

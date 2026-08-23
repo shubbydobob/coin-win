@@ -29,33 +29,33 @@ export function PlanDraft({ onDrafted }: { onDrafted: (draft: Draft) => void }) 
   const problem = draft.error instanceof ApiFailure ? draft.error.problem : null;
 
   return (
-    <section className="space-y-2 rounded border border-slate-200 p-3" aria-label="문장으로 입력">
-      <h3 className="text-xs text-slate-500">문장으로 입력 (AI 보조)</h3>
+    <section className="space-y-2 rounded-lg border border-line bg-surface p-3" aria-label="문장으로 입력">
+      <h3 className="text-xs text-ink-2">문장으로 입력 (AI 보조)</h3>
 
       <textarea
         aria-label="계획 문장"
         rows={2}
         value={text}
         onChange={(event) => setText(event.target.value)}
-        className="block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        className="block w-full rounded border border-line px-2 py-1 text-sm"
       />
 
       <button
         type="button"
         onClick={() => draft.mutate(text)}
         disabled={draft.isPending}
-        className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-50"
+        className="rounded border border-line px-2 py-1 text-sm disabled:opacity-50"
       >
         {draft.isPending ? "읽는 중" : "칸 채우기"}
       </button>
 
       {/* 서버가 쓴 문장을 그대로 보여 준다. 422 는 무엇이 빠졌는지를 말해 준다. */}
       {problem && (
-        <p role="status" className="text-sm text-slate-600">
+        <p role="status" className="text-sm text-ink-2">
           {problem.detail}
         </p>
       )}
-      {draft.isSuccess && <p className="text-xs text-slate-500">칸을 채웠다. 확인하고 제출한다</p>}
+      {draft.isSuccess && <p className="text-xs text-ink-2">칸을 채웠다. 확인하고 제출한다</p>}
     </section>
   );
 }

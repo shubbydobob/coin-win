@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { origin, server } from "../../../test/msw/server";
 import { renderScreen } from "../../../test/render";
+import { SIDE_TEXT } from "./OutlierPanel";
 import { WatchScreen } from "./WatchScreen";
 import type { components } from "../../api/schema";
 
@@ -27,15 +28,61 @@ const BOOK: components["schemas"]["OrderBookResponse"] = {
   asks: [{ price: 76567.5, quantity: 12.029 }],
 };
 
+/** 표본은 스파크라인이 그려지도록 두 개 이상 둔다. */
+const 표본 = (from: number, step: number) =>
+  Array.from({ length: 6 }, (_, index) => from + step * index);
+
+/**
+ * 인자가 여덟이라 이름을 붙인다. **`side` 와 `neutralPercent` 를 여기서 계산하지 않는다** —
+ * 서버가 하는 판단을 픽스처가 다시 하면 화면이 그 계산을 잘못 써도 테스트가 통과한다.
+ * Phase 8 이 겪은 "픽스처가 거짓 타입으로 작성돼 전부 초록" 과 같은 함정이다.
+ */
+const 지표 = (fields: {
+  metric: components["schemas"]["MetricOutlierResponse"]["metric"];
+  current: number;
+  topPercent: number | null;
+  outlier?: boolean;
+  change: number | null;
+  side: components["schemas"]["MetricOutlierResponse"]["side"];
+  neutralPercent: number | null;
+  samples: number[];
+}): components["schemas"]["MetricOutlierResponse"] => ({
+  ...fields,
+  outlier: fields.outlier ?? false,
+  sampleCount: fields.samples.length,
+  changeWindow: 6,
+});
+
 const OUTLIERS: components["schemas"]["MetricOutliersResponse"] = {
   symbol: "BTCUSDT",
   at: "2026-08-23T09:00:00Z",
   hasOutlier: true,
+  // 방향 있는 넷 중 셋이 롱 쪽이다. 합이 다섯이 아닌 것은 미결제약정에 축이 없어서다.
+  crowdedLong: 3,
+  crowdedShort: 1,
+  price: 지표({ metric: "PRICE", current: 76567.5, topPercent: null, change: 0.011,
+    side: "NONE", neutralPercent: null, samples: 표본(76000, 100) }),
+  situations: ["미결제약정이 줄면서 가격이 올랐다 — 새로 들어온 돈이 아니라 포지션이 정리되며 만들어진 움직임이다"],
   metrics: [
-    { metric: "FUNDING_RATE", current: 0.01, topPercent: 7.22, outlier: false, sampleCount: 90 },
-    { metric: "OPEN_INTEREST", current: 106613.964, topPercent: 0, outlier: true, sampleCount: 30 },
-    // 표본이 모자라 위치를 말할 수 없는 경우. 이 화면에서 유일하게 null 이 오는 자리다.
-    { metric: "LONG_SHORT_RATIO", current: 1.0396, topPercent: null, outlier: false, sampleCount: 3 },
+    // 표본이 전부 0 보다 커서 가운데선이 눈금 왼쪽 끝에 붙는다 — 30일 내내 롱 쪽이었다는 뜻.
+    지표({ metric: "FUNDING_RATE", current: 0.01, topPercent: 7.22, change: 0.002,
+      side: "LONG", neutralPercent: 100, samples: 표본(0.008, 0.0004) }),
+    지표({ metric: "OPEN_INTEREST", current: 106613.964, topPercent: 0, outlier: true,
+      change: -0.032, side: "NONE", neutralPercent: null, samples: 표본(110000, -700) }),
+    // 표본이 모자라 위치를 말할 수 없는 경우. 그때도 진영은 있다.
+    지표({ metric: "LONG_SHORT_RATIO", current: 1.0396, topPercent: null, change: null,
+      side: "LONG", neutralPercent: null, samples: [1.03, 1.04] }),
+    지표({ metric: "TAKER_RATIO", current: 1.1866, topPercent: 44.1, change: 0.05,
+      side: "LONG", neutralPercent: 100, samples: 표본(1.1, 0.02) }),
+    지표({ metric: "TOP_POSITION_RATIO", current: 0.87, topPercent: 58.33, change: -0.01,
+      side: "SHORT", neutralPercent: 0, samples: 표본(0.9, -0.01) }),
+  ],
+};
+
+const MACRO: components["schemas"]["MacroQuoteListResponse"] = {
+  quotes: [
+    { symbol: "QQQUSDT", label: "나스닥 100", last: 612.34, change24hPercent: 0.84 },
+    { symbol: "XAUUSDT", label: "금", last: 2410.5, change24hPercent: -0.31 },
   ],
 };
 
@@ -68,6 +115,7 @@ const NOTICES: components["schemas"]["NoticeListResponse"] = {
 const 전부성공 = [
   http.get(origin + "/api/markets/BTCUSDT/orderbook", () => HttpResponse.json(BOOK)),
   http.get(origin + "/api/markets/BTCUSDT/outliers", () => HttpResponse.json(OUTLIERS)),
+  http.get(origin + "/api/markets/macro", () => HttpResponse.json(MACRO)),
   http.get(origin + "/api/watch/events", () => HttpResponse.json(CALENDAR)),
   http.get(origin + "/api/watch/notices", () => HttpResponse.json(NOTICES)),
 ];
@@ -88,6 +136,26 @@ describe("감시", () => {
     expect(await screen.findByText("평소와 다른가")).toBeVisible();
     expect(await screen.findByText(/국채 바이백 규모/)).toBeVisible();
     expect(await screen.findByText(/UNITREEUSDT/)).toBeVisible();
+    expect(await screen.findByText("나스닥 100")).toBeVisible();
+  });
+
+  /**
+   * <b>상황 문장은 비어 있는 것이 정상이다.</b> 조건이 맞을 때만 뜨고, 문장은 일어난 일까지만
+   * 적는다 — 무엇을 하라고 말하지 않는다.
+   */
+  it("조건이 맞으면 상황을 문장으로 말한다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    expect(await screen.findByText(/포지션이 정리되며 만들어진 움직임/)).toBeVisible();
+  });
+
+  it("거시 자산을 못 읽은 개수를 말한다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    // 다섯 중 둘만 왔다 — 원래 둘인 줄 알게 두지 않는다.
+    expect(await screen.findByText("3종목을 못 읽었다")).toBeVisible();
   });
 
   /**
@@ -100,8 +168,62 @@ describe("감시", () => {
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
-    expect(within(블록).getByText("표본 3개 — 아직 말할 수 없다")).toBeVisible();
+    expect(within(블록).getByText("표본 2개 — 위치를 아직 말할 수 없다")).toBeVisible();
     expect(within(블록).getByText("상위 7.2200%")).toBeVisible();
+    // 변화를 말할 수 없는 것과 0 은 다른 사실이다.
+    expect(within(블록).getByText("변화를 말할 수 없다")).toBeVisible();
+  });
+
+  /**
+   * <b>위치만으로는 어느 쪽인지 모른다.</b> "상위 96.7%" 는 그것이 롱 쪽인지 숏 쪽인지를
+   * 말하지 않는다. 지표마다 근거가 다르므로 문장도 지표의 말로 적는다 — 펀딩비는 비용이고
+   * 상위 계정은 크기다.
+   */
+  it("지표마다 어느 쪽이 붐비는지를 그 지표의 말로 적는다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    await screen.findByText("평소와 다른가");
+    const 블록 = screen.getByRole("region", { name: "이상치" });
+    // 물음표 설명에도 같은 구절이 있다. 진영 문장은 그 뒤가 다르므로 통째로 가리킨다.
+    expect(within(블록).getByText("롱이 숏에게 낸다 — 들고 있는 쪽은 롱이 비용을 문다"))
+        .toBeVisible();
+    expect(within(블록).getByText("큰손은 숏 쪽에 실려 있다")).toBeVisible();
+    // 축이 없는 것과 가운데 있는 것은 다르다.
+    expect(within(블록).getByText(/방향 없음 — 크기다/)).toBeVisible();
+    // 표본이 모자라 위치는 못 말해도 진영은 말한다.
+    expect(within(블록).getByText("계정 수로는 롱이 많다")).toBeVisible();
+  });
+
+  /**
+   * <b>셈이지 판정이 아니다.</b> 두 수를 나란히 두고 하나로 합치지 않는다 — 합치려면 지표에
+   * 가중치를 줘야 하고 그 가중치는 검증할 방법이 없다(<code>docs/adr/021</code>).
+   */
+  it("붐비는 쪽을 세되 어느 쪽이 유리한지는 말하지 않는다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    await screen.findByText("평소와 다른가");
+    const 블록 = screen.getByRole("region", { name: "이상치" });
+    expect(within(블록).getByText("롱 3")).toBeVisible();
+    expect(within(블록).getByText("숏 1")).toBeVisible();
+  });
+
+  /**
+   * 서버의 <code>어떤_문장도_행동을_지시하지_않는다</code> 와 짝이다. 진영 문장은 화면이
+   * 갖고 있으므로 여기서 재야 한다.
+   *
+   * <b>화면 전체를 훑지 않는다.</b> 머리말이 "유리한 쪽이 아니다" 라고 부인하고 있어서
+   * 낱말만 세면 그 부인까지 위반으로 잡힌다 — 재야 할 것은 문장 표 자체다. 뜨지 않는
+   * 경우(<code>BALANCED</code>)까지 함께 걸리는 것도 이쪽이 낫다.
+   */
+  it("진영 문장은 어느 쪽이 유리한지를 말하지 않는다", () => {
+    const 문장들 = Object.values(SIDE_TEXT).flatMap((쪽) => Object.values(쪽));
+
+    expect(문장들.length).toBeGreaterThan(0);
+    문장들.forEach((문장) => {
+      expect(문장).not.toMatch(/유리|불리|추천|신호|기회|노려|잡아|들어가|진입하|매수하|매도하/);
+    });
   });
 
   /**

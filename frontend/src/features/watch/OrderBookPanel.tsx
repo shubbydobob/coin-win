@@ -1,4 +1,5 @@
 import { money, percent, price, quantity, ratio } from "../../format";
+import { SplitMeter } from "../../shared/Meter";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -22,9 +23,9 @@ export function OrderBookPanel({ book }: { book: Book }) {
   );
 
   return (
-    <section aria-label="호가" className="rounded border border-slate-200 p-3">
-      <h2 className="text-sm font-medium text-slate-700">호가</h2>
-      <p className="mt-0.5 text-xs leading-snug text-slate-400">
+    <section aria-label="호가" className="rounded-lg border border-line bg-surface p-3">
+      <h2 className="text-sm font-medium text-ink">호가</h2>
+      <p className="mt-0.5 text-xs leading-snug text-ink-3">
         지금 이 가격에 얼마나 걸려 있나. 유동성이 <b>얇은 쪽</b>으로 가격이 빨리 움직인다 —
         그것은 예측이 아니라 체결의 성질이다. 다만 호가는 취소될 수 있고 큰 벽은 미끼인 경우가
         많아, 이 수치로 방향을 읽으면 안 된다.
@@ -34,11 +35,11 @@ export function OrderBookPanel({ book }: { book: Book }) {
         {[...book.asks].reverse().map((level) => (
           <Row key={`ask-${level.price}`} level={level} max={최대잔량} tone="ask" />
         ))}
-        <div className="flex justify-between border-y border-slate-300 py-1 text-sm tabular-nums">
-          <span className="text-slate-500">스프레드</span>
+        <div className="my-1 flex justify-between rounded bg-surface-2 px-1 py-1.5 text-sm tabular-nums">
+          <span className="text-ink-2">스프레드</span>
           <span>
             {money(book.spread)}{" "}
-            <span className="text-slate-400">({percent(book.spreadPercent)})</span>
+            <span className="text-ink-3">({percent(book.spreadPercent)})</span>
           </span>
         </div>
         {book.bids.map((level) => (
@@ -46,20 +47,26 @@ export function OrderBookPanel({ book }: { book: Book }) {
         ))}
       </div>
 
-      <dl className="mt-3 grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2 text-sm tabular-nums">
-        <Term label="매수 잔량" hint="보이는 단수까지의 합(BTC)." />
-        <dd className="text-right">{quantity(book.bidVolume)}</dd>
-        <Term label="매도 잔량" hint="보이는 단수까지의 합(BTC)." />
-        <dd className="text-right">{quantity(book.askVolume)}</dd>
-        <Term
-          label="불균형"
-          hint="(매수 − 매도) ÷ 합. 양수면 매수가 두껍다. 방향을 뜻하지 않는다."
+      <div className="mt-3 space-y-1">
+        <div className="flex justify-between text-xs">
+          <span className="text-up">매수 {quantity(book.bidVolume)}</span>
+          <span className="text-ink-3">{두께(book.imbalance)}</span>
+          <span className="text-down">{quantity(book.askVolume)} 매도</span>
+        </div>
+        {/* 0.0910 을 읽고 "매수가 9% 두껍다" 로 옮기는 일을 사람이 하지 않게 한다. */}
+        <SplitMeter
+          left={book.bidVolume}
+          right={book.askVolume}
+          label={`매수 잔량 ${quantity(book.bidVolume)} 대 매도 잔량 ${quantity(book.askVolume)}, 불균형 ${ratio(book.imbalance)}`}
         />
-        <dd className="text-right">
-          {ratio(book.imbalance)}
-          <span className="ml-1 text-xs text-slate-400">{두께(book.imbalance)}</span>
-        </dd>
-      </dl>
+        <dl className="grid grid-cols-[1fr_auto] items-start gap-x-4 pt-1 text-sm tabular-nums">
+          <Term
+            label="불균형"
+            hint="(매수 − 매도) ÷ 합. 보이는 단수까지만 센다. 방향을 뜻하지 않는다."
+          />
+          <dd className="text-right">{ratio(book.imbalance)}</dd>
+        </dl>
+      </div>
     </section>
   );
 }
@@ -78,14 +85,14 @@ function Row({ level, max, tone }: { level: Level; max: number; tone: "bid" | "a
   return (
     <div className="relative flex justify-between px-1 text-sm tabular-nums">
       <div
-        className={`absolute inset-y-0 right-0 ${tone === "bid" ? "bg-emerald-50" : "bg-red-50"}`}
+        className={`absolute inset-y-0 right-0 rounded-sm ${tone === "bid" ? "bg-up/20" : "bg-down/20"}`}
         style={{ width: `${길이}%` }}
         aria-hidden="true"
       />
-      <span className={`relative ${tone === "bid" ? "text-emerald-700" : "text-red-700"}`}>
+      <span className={`relative ${tone === "bid" ? "text-up" : "text-down"}`}>
         {price(level.price)}
       </span>
-      <span className="relative text-slate-600">{quantity(level.quantity)}</span>
+      <span className="relative text-ink-2">{quantity(level.quantity)}</span>
     </div>
   );
 }

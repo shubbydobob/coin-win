@@ -60,7 +60,7 @@ export function ProjectionScreen() {
           type="button"
           onClick={() => curve.mutate()}
           disabled={pending}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-50"
         >
           표본 경로
         </button>
@@ -68,14 +68,14 @@ export function ProjectionScreen() {
           type="button"
           onClick={() => distribution.mutate()}
           disabled={pending}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+          className="rounded border border-line px-3 py-1.5 text-sm disabled:opacity-50"
         >
           {distribution.isPending ? "돌리는 중" : "분포"}
         </button>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-down">
           {error instanceof ApiFailure ? error.problem.detail : error.message}
         </p>
       )}
@@ -84,11 +84,11 @@ export function ProjectionScreen() {
         <section className="space-y-2" aria-label="표본 경로">
           <EquityChart equity={curve.data.equity} label="시드 하나가 만든 자산 곡선" />
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums">
-            <dt className="text-slate-500">최종 자산</dt>
+            <dt className="text-ink-2">최종 자산</dt>
             <dd className="text-right">{money(curve.data.finalEquity)}</dd>
-            <dt className="text-slate-500">최대낙폭</dt>
+            <dt className="text-ink-2">최대낙폭</dt>
             <dd className="text-right">{percent(curve.data.maxDrawdown)}</dd>
-            <dt className="text-slate-500">거래 수</dt>
+            <dt className="text-ink-2">거래 수</dt>
             <dd className="text-right">{curve.data.trades}</dd>
           </dl>
         </section>

@@ -15,12 +15,12 @@ export function MonteCarloResult({ distribution }: { distribution: Distribution 
   return (
     <section className="space-y-4" aria-label="몬테카를로 결과">
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded border border-slate-300 p-3">
-          <h3 className="text-xs text-slate-500">운이 나쁘면 (하위 5%)</h3>
+        <div className="rounded-lg border border-line bg-surface p-3">
+          <h3 className="text-xs text-ink-2">운이 나쁘면 (하위 5%)</h3>
           <p className="mt-1 text-2xl tabular-nums">{money(distribution.percentile5Equity)}</p>
         </div>
-        <div className="rounded border border-slate-300 p-3">
-          <h3 className="text-xs text-slate-500">가장 깊었던 낙폭</h3>
+        <div className="rounded-lg border border-line bg-surface p-3">
+          <h3 className="text-xs text-ink-2">가장 깊었던 낙폭</h3>
           <p className="mt-1 text-2xl tabular-nums">{percent(distribution.worstMaxDrawdown)}</p>
         </div>
       </div>
@@ -34,13 +34,13 @@ export function MonteCarloResult({ distribution }: { distribution: Distribution 
       />
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums">
-        <dt className="text-slate-500">초기 자본에 못 미친 비율</dt>
+        <dt className="text-ink-2">초기 자본에 못 미친 비율</dt>
         <dd className="text-right">{percent(distribution.lossProbability)}</dd>
-        <dt className="text-slate-500">낙폭 중앙값</dt>
+        <dt className="text-ink-2">낙폭 중앙값</dt>
         <dd className="text-right">{percent(distribution.medianMaxDrawdown)}</dd>
-        <dt className="text-slate-500">거래당 기댓값 (R)</dt>
+        <dt className="text-ink-2">거래당 기댓값 (R)</dt>
         <dd className="text-right">{ratio(distribution.expectancyPerTrade)}</dd>
-        <dt className="text-slate-500">시행 / 시행당 거래</dt>
+        <dt className="text-ink-2">시행 / 시행당 거래</dt>
         <dd className="text-right">{distribution.runs} / {distribution.tradesPerRun}</dd>
       </dl>
     </section>
