@@ -1,8 +1,13 @@
 package com.coinwin.journal.adapter.out.persistence;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.coinwin.journal.JournalFixtures;
 import com.coinwin.journal.application.port.out.LoadTradesPort;
 import com.coinwin.journal.application.port.out.SaveTradePort;
 import com.coinwin.journal.application.port.out.TradeRepositoryContract;
+import com.coinwin.journal.domain.Fill;
+import com.coinwin.journal.domain.OpenTrade;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import java.util.Map;
@@ -10,6 +15,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
@@ -77,6 +83,43 @@ class JpaTradeAdapterContractTest extends TradeRepositoryContract {
     @Override
     protected LoadTradesPort loadPort() {
         return adapter;
+    }
+
+    /**
+     * 저장된 순번은 <b>1 부터다.</b>
+     *
+     * <p>JPA {@code @OrderColumn} 은 리스트 인덱스를 그대로 적으므로 기본값이 0 이다. 화면은
+     * "1회차 진입가" 라고 부르는데 표에는 {@code seq = 0} 이 들어 있었고, 그러면 SQL 을 직접
+     * 읽는 사람이 매번 한 칸을 옮겨 세야 한다. {@code @ListIndexBase(1)} 이 그 어긋남을 없앤다 —
+     * 자바 리스트는 그대로 0 부터이고 저장만 1 부터다.
+     *
+     * <p><b>이 사실은 계약 테스트가 잡지 못한다.</b> 포트 계약은 "넣은 순서대로 나오는가" 만
+     * 보고, 그것은 0 부터여도 1 부터여도 똑같이 통과한다. 컬럼을 직접 읽는 수밖에 없다.
+     */
+    @Test
+    void 저장된_순번은_0_이_아니라_1_부터다() {
+        savePort().save(JournalFixtures.open());
+
+        assertThat(jdbc.queryForList("SELECT seq FROM trade_planned_entry ORDER BY seq", Integer.class))
+                .containsExactly(1, 2);
+        assertThat(jdbc.queryForList("SELECT seq FROM trade_fill ORDER BY seq", Integer.class))
+                .containsExactly(1, 2);
+    }
+
+    /**
+     * 그리고 <b>1 부터 적은 것이 순서 그대로 읽힌다.</b> 저장만 옮기고 읽기가 따라오지 않으면
+     * 분할 진입의 순서가 뒤집히고, 그 순서가 곧 평단의 변천사다.
+     */
+    @Test
+    void 순번을_옮겨도_체결_순서는_그대로다() {
+        OpenTrade saved = JournalFixtures.open();
+        savePort().save(saved);
+
+        OpenTrade loaded = (OpenTrade) loadPort().findById(saved.id()).orElseThrow();
+
+        assertThat(loaded.entries().fills())
+                .extracting(Fill::at)
+                .containsExactly(JournalFixtures.FIRST_FILL_AT, JournalFixtures.SECOND_FILL_AT);
     }
 
     private static EntityManager createEntityManager() {
