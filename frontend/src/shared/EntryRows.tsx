@@ -19,35 +19,35 @@ export function EntryRows({ entries, onChange }: Props) {
 
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium text-slate-700">진입 회차</legend>
+      <legend className="text-sm font-medium text-ink">진입 회차</legend>
 
       {entries.map((entry, index) => (
         <div key={index} className="flex items-end gap-2">
-          <label className="flex-1 text-xs text-slate-500">
+          <label className="flex-1 text-xs text-ink-2">
             {index + 1}회차 진입가
             <input
               type="number"
               step="any"
               value={entry.price}
               onChange={(event) => replace(index, { ...entry, price: event.target.value })}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+              className="mt-1 w-full rounded border border-line px-2 py-1 text-sm"
             />
           </label>
-          <label className="w-24 text-xs text-slate-500">
+          <label className="w-24 text-xs text-ink-2">
             {index + 1}회차 비중
             <input
               type="number"
               step="any"
               value={entry.allocation}
               onChange={(event) => replace(index, { ...entry, allocation: event.target.value })}
-              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+              className="mt-1 w-full rounded border border-line px-2 py-1 text-sm"
             />
           </label>
           <button
             type="button"
             onClick={() => onChange(entries.filter((_, at) => at !== index))}
             disabled={entries.length === 1}
-            className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-40"
+            className="rounded border border-line px-2 py-1 text-sm disabled:opacity-40"
           >
             {index + 1}회차 삭제
           </button>
@@ -58,11 +58,11 @@ export function EntryRows({ entries, onChange }: Props) {
         <button
           type="button"
           onClick={() => onChange([...entries, { price: "", allocation: "" }])}
-          className="rounded border border-slate-300 px-2 py-1"
+          className="rounded border border-line px-2 py-1"
         >
           회차 추가
         </button>
-        <span className="text-slate-500">비중 합계 {allocationSum(entries)}</span>
+        <span className="text-ink-2">비중 합계 {allocationSum(entries)}</span>
       </div>
     </fieldset>
   );

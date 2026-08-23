@@ -15,10 +15,10 @@ type FillState = components["schemas"]["FillStateResponse"];
 export function FillStateTable({ states }: { states: readonly FillState[] }) {
   return (
     <table className="w-full text-right text-sm tabular-nums">
-      <caption className="mb-2 text-left text-sm font-medium text-slate-700">
+      <caption className="mb-2 text-left text-sm font-medium text-ink">
         체결 상태별 리스크
       </caption>
-      <thead className="border-b border-slate-300 text-xs text-slate-500">
+      <thead className="border-b border-line text-xs text-ink-2">
         <tr>
           <th scope="col" className="py-1 text-left">체결</th>
           <th scope="col" className="py-1">평단</th>
@@ -29,7 +29,7 @@ export function FillStateTable({ states }: { states: readonly FillState[] }) {
       </thead>
       <tbody>
         {states.map((state) => (
-          <tr key={state.filledEntries} className="border-b border-slate-100">
+          <tr key={state.filledEntries} className="border-b border-line-soft">
             <th scope="row" className="py-1 text-left font-normal">
               {state.filledEntries}/{states.length}
             </th>

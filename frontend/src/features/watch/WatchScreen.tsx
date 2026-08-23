@@ -119,9 +119,9 @@ function Failed({
   return (
     <section
       aria-label={label}
-      className="flex items-center gap-3 rounded border border-slate-200 p-3 text-sm"
+      className="flex items-center gap-3 rounded-lg border border-line bg-surface p-3 text-sm"
     >
-      <span className="text-slate-500">
+      <span className="text-ink-2">
         {query.isPending
           ? "가져오는 중"
           : query.error instanceof ApiFailure

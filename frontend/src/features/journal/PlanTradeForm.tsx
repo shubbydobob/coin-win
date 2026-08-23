@@ -50,14 +50,14 @@ export function PlanTradeForm({ onSubmit, pending }: { onSubmit: (request: Reque
         });
       }}
     >
-      <h3 className="text-sm font-medium text-slate-700">계획 저장</h3>
+      <h3 className="text-sm font-medium text-ink">계획 저장</h3>
 
-      <label className="block text-xs text-slate-500">
+      <label className="block text-xs text-ink-2">
         계획 방향
         <select
           value={draft.direction}
           onChange={(event) => field("direction", event.target.value as Draft["direction"])}
-          className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
         >
           {Object.entries(DIRECTION).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
@@ -73,7 +73,7 @@ export function PlanTradeForm({ onSubmit, pending }: { onSubmit: (request: Reque
         <Field label="계획 레버리지" value={draft.leverage} onChange={(v) => field("leverage", v)} />
       </div>
 
-      <button type="submit" disabled={pending} className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+      <button type="submit" disabled={pending} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-50">
         계획 저장
       </button>
     </form>

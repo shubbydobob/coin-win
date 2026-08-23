@@ -1,4 +1,5 @@
-import { NOTHING, orNothing, percent, quantity, ratio } from "../../format";
+import { NOTHING, percent, quantity, ratio } from "../../format";
+import { PositionMeter } from "../../shared/Meter";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -20,19 +21,19 @@ type Outlier = components["schemas"]["MetricOutlierResponse"];
  */
 export function OutlierPanel({ outliers }: { outliers: Outliers }) {
   return (
-    <section aria-label="이상치" className="rounded border border-slate-200 p-3">
+    <section aria-label="이상치" className="rounded-lg border border-line bg-surface p-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-medium text-slate-700">평소와 다른가</h2>
+        <h2 className="text-sm font-medium text-ink">평소와 다른가</h2>
         {outliers.hasOutlier && (
-          <span className="text-xs text-amber-700">평소와 다른 지표가 있다</span>
+          <span className="text-xs text-warn">평소와 다른 지표가 있다</span>
         )}
       </div>
-      <p className="mt-0.5 text-xs leading-snug text-slate-400">
+      <p className="mt-0.5 text-xs leading-snug text-ink-3">
         최근 표본에서 지금 값이 어디쯤인가. <b>양 끝 5%</b> 안이면 표시한다. 무엇을 하라는
         뜻은 아니다 — 지금이 평소와 다르다는 사실뿐이다.
       </p>
 
-      <dl className="mt-3 grid grid-cols-[1fr_auto_auto] items-start gap-x-4 gap-y-2 text-sm tabular-nums">
+      <dl className="mt-3 space-y-3">
         {outliers.metrics.map((metric) => (
           <Row key={metric.metric} metric={metric} />
         ))}
@@ -42,21 +43,44 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
 }
 
 function Row({ metric }: { metric: Outlier }) {
-  const 이상치 = metric.outlier;
+  const 위치 = metric.topPercent === null || metric.topPercent === undefined
+    ? null
+    : 1 - metric.topPercent / 100;
 
   return (
-    <>
-      <Term label={LABEL[metric.metric] ?? metric.metric} hint={HINT[metric.metric] ?? ""} />
-      <dd className="text-right">{현재값(metric)}</dd>
-      <dd className={`text-right ${이상치 ? "font-medium text-amber-700" : "text-slate-500"}`}>
-        {orNothing(metric.topPercent, (top) => `상위 ${percent(top)}`)}
-        <span className="mt-0.5 block text-xs font-normal text-slate-400">
-          {metric.topPercent === null || metric.topPercent === undefined
-            ? `표본 ${metric.sampleCount}개 — 아직 말할 수 없다`
-            : `표본 ${metric.sampleCount}개`}
-        </span>
-      </dd>
-    </>
+    <div className="text-sm tabular-nums">
+      <div className="flex items-baseline justify-between gap-4">
+        <Term label={LABEL[metric.metric] ?? metric.metric} hint={HINT[metric.metric] ?? ""} />
+        <dd className="shrink-0 text-right">
+          <span className="text-ink">{현재값(metric)}</span>
+          <span
+            className={`mt-0.5 block text-xs font-normal ${
+              metric.outlier ? "font-medium text-warn" : "text-ink-3"
+            }`}
+          >
+            {위치 === null
+              ? `표본 ${metric.sampleCount}개 — 아직 말할 수 없다`
+              : `상위 ${percent(metric.topPercent as number)}`}
+          </span>
+        </dd>
+      </div>
+
+      {/* 위치를 눈금 위에 찍는다. 양 끝의 옅은 띠가 "양 끝 5%" 그 자체다. */}
+      {위치 !== null && (
+        <div className="mt-1.5">
+          <PositionMeter
+            ratio={위치}
+            outlier={metric.outlier}
+            label={`${LABEL[metric.metric] ?? metric.metric}: 상위 ${percent(metric.topPercent as number)}`}
+          />
+          <div className="mt-0.5 flex justify-between text-[10px] text-ink-4">
+            <span>낮음</span>
+            <span>평소</span>
+            <span>높음</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

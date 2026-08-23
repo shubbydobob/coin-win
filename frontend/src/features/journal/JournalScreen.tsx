@@ -78,7 +78,7 @@ export function JournalScreen() {
       <section className="space-y-4">
         <TradeFilters onApply={(draft) => setQuery(toQuery(draft))} />
 
-        {(trades.isPending || summary.isPending) && <p className="text-sm text-slate-500">불러오는 중</p>}
+        {(trades.isPending || summary.isPending) && <p className="text-sm text-ink-2">불러오는 중</p>}
 
         <Failure error={trades.error ?? summary.error} />
 
@@ -99,7 +99,7 @@ function Failure({ error }: { error: Error | null }) {
     return null;
   }
   return (
-    <p role="alert" className="text-sm text-red-700">
+    <p role="alert" className="text-sm text-down">
       {error instanceof ApiFailure ? error.problem.detail : error.message}
     </p>
   );

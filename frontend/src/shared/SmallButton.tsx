@@ -20,7 +20,7 @@ export function SmallButton({
     <button
       type="button"
       onClick={onClick}
-      className="rounded border border-slate-300 px-2 py-0.5 text-xs"
+      className="rounded border border-line bg-surface-2 px-2 py-0.5 text-xs text-ink-2 hover:border-ink-4"
     >
       {children}
     </button>

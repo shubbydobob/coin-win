@@ -18,10 +18,10 @@ type Tally = components["schemas"]["TallyResponse"];
 export function JournalSummaryPanel({ summary }: { summary: Summary }) {
   return (
     <section className="space-y-4" aria-label="집계">
-      <div className="rounded border border-slate-300 p-3">
-        <h3 className="text-xs text-slate-500">계획을 어겨서 얻은 것</h3>
+      <div className="rounded-lg border border-line bg-surface p-3">
+        <h3 className="text-xs text-ink-2">계획을 어겨서 얻은 것</h3>
         <p className="mt-1 text-2xl tabular-nums">{money(summary.costOfDeviation)}</p>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-ink-2">
           음수면 어기는 편이 손해였다. 어긴 거래를 손절가에서 닫았다면{" "}
           {money(summary.lossIfEveryStopHonored)} 였다.
         </p>
@@ -59,13 +59,13 @@ export function JournalSummaryPanel({ summary }: { summary: Summary }) {
         <dd className="text-right">{duration(summary.intervals.shortest)}</dd>
         {summary.intervals.overlaps > 0 && (
           <>
-            <dt className="text-amber-700">
+            <dt className="text-warn">
               겹쳐서 셀 수 없던 쌍
-              <span className="mt-0.5 block text-xs leading-snug text-amber-600">
+              <span className="mt-0.5 block text-xs leading-snug text-warn/80">
                 앞 거래가 닫히기 전에 뒤 거래가 열린 쌍. 그 사이에는 간격이 없어 평균에서 뺐다.
               </span>
             </dt>
-            <dd className="text-right text-amber-700">{summary.intervals.overlaps}</dd>
+            <dd className="text-right text-warn">{summary.intervals.overlaps}</dd>
           </>
         )}
       </dl>
@@ -75,9 +75,9 @@ export function JournalSummaryPanel({ summary }: { summary: Summary }) {
 
 function TallyBlock({ title, hint, tally }: { title: string; hint: string; tally: Tally }) {
   return (
-    <div className="rounded border border-slate-200 p-3 text-sm tabular-nums">
-      <h3 className="text-xs text-slate-500">{title}</h3>
-      <p className="mt-0.5 text-xs leading-snug text-slate-400">{hint}</p>
+    <div className="rounded-lg border border-line bg-surface p-3 text-sm tabular-nums">
+      <h3 className="text-xs text-ink-2">{title}</h3>
+      <p className="mt-0.5 text-xs leading-snug text-ink-3">{hint}</p>
       <dl className="mt-2 grid grid-cols-[1fr_auto] items-start gap-x-2 gap-y-2">
         <Term label="건수" hint="이 묶음에 든 거래 수." />
         <dd className="text-right">{tally.trades}</dd>

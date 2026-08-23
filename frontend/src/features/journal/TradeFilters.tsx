@@ -29,30 +29,30 @@ export function TradeFilters({ onApply }: Props) {
         onApply(draft);
       }}
     >
-      <label className="text-xs text-slate-500">
+      <label className="text-xs text-ink-2">
         청산 시작일
         <input
           type="date"
           value={draft.closedFrom}
           onChange={(event) => field("closedFrom", event.target.value)}
-          className="mt-1 block rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block rounded border border-line px-2 py-1 text-sm"
         />
       </label>
-      <label className="text-xs text-slate-500">
+      <label className="text-xs text-ink-2">
         청산 종료일
         <input
           type="date"
           value={draft.closedTo}
           onChange={(event) => field("closedTo", event.target.value)}
-          className="mt-1 block rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block rounded border border-line px-2 py-1 text-sm"
         />
       </label>
-      <label className="text-xs text-slate-500">
+      <label className="text-xs text-ink-2">
         방향
         <select
           value={draft.direction}
           onChange={(event) => field("direction", event.target.value as FilterDraft["direction"])}
-          className="mt-1 block rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block rounded border border-line px-2 py-1 text-sm"
         >
           <option value="">전체</option>
           {Object.entries(DIRECTION).map(([value, label]) => (
@@ -60,12 +60,12 @@ export function TradeFilters({ onApply }: Props) {
           ))}
         </select>
       </label>
-      <label className="text-xs text-slate-500">
+      <label className="text-xs text-ink-2">
         청산 이유
         <select
           value={draft.exitReason}
           onChange={(event) => field("exitReason", event.target.value as FilterDraft["exitReason"])}
-          className="mt-1 block rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block rounded border border-line px-2 py-1 text-sm"
         >
           <option value="">전체</option>
           {Object.entries(EXIT_REASON).map(([value, label]) => (
@@ -73,12 +73,12 @@ export function TradeFilters({ onApply }: Props) {
           ))}
         </select>
       </label>
-      <label className="text-xs text-slate-500">
+      <label className="text-xs text-ink-2">
         계획 준수
         <select
           value={draft.followedPlan}
           onChange={(event) => field("followedPlan", event.target.value as FilterDraft["followedPlan"])}
-          className="mt-1 block rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block rounded border border-line px-2 py-1 text-sm"
         >
           <option value="">전체</option>
           <option value="true">지킨 거래</option>
@@ -86,7 +86,7 @@ export function TradeFilters({ onApply }: Props) {
         </select>
       </label>
 
-      <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white">
+      <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink">
         조회
       </button>
     </form>

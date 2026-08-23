@@ -62,7 +62,7 @@ export function BacktestScreen() {
           type="button"
           onClick={() => run.mutate(form)}
           disabled={pending}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-50"
         >
           {run.isPending ? "돌리는 중" : "실행"}
         </button>
@@ -70,7 +70,7 @@ export function BacktestScreen() {
           type="button"
           onClick={() => compare.mutate({ path: "indicator-filter-comparison", label: "지표 필터 비교" })}
           disabled={pending}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+          className="rounded border border-line px-3 py-1.5 text-sm disabled:opacity-50"
         >
           지표 필터 비교
         </button>
@@ -78,14 +78,14 @@ export function BacktestScreen() {
           type="button"
           onClick={() => compare.mutate({ path: "cost-comparison", label: "비용 비교" })}
           disabled={pending}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+          className="rounded border border-line px-3 py-1.5 text-sm disabled:opacity-50"
         >
           비용 비교
         </button>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-down">
           {error instanceof ApiFailure ? error.problem.detail : error.message}
         </p>
       )}

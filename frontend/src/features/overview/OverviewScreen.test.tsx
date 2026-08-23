@@ -85,10 +85,6 @@ const 계좌없음 = {
 /** 폴링 주기. `OverviewScreen` 의 `ACCOUNT_POLL_MS` 와 같아야 한다. */
 const 폴링 = 15_000;
 
-const 시장지표 = () => screen.getByRole("region", { name: "시장 지표" });
-
-const 거래소대조 = () => screen.getByRole("region", { name: "거래소 대조" });
-
 const 거래와_집계 = [
   http.get(origin + "/api/trades/active", () => HttpResponse.json([OPEN])),
   http.get(origin + "/api/trades/summary", () => HttpResponse.json(SUMMARY)),
@@ -97,13 +93,17 @@ const 거래와_집계 = [
 describe("현황", () => {
   beforeEach(() => server.use(...거래와_집계));
 
-  it("지금 열려 있는 것과 집계와 시장 지표를 놓는다", async () => {
-    server.use(http.get(origin + "/api/markets/BTCUSDT/metrics", () => HttpResponse.json(METRICS)));
+  /**
+   * <b>시장 지표와 집계가 이 화면에서 빠졌다.</b> 여섯 탭을 셋으로 합치면서 걷어낸 자리다 —
+   * 세 지표는 같은 탭의 이상치 블록이 평소와 견주어 보여 주므로 이쪽은 덜 아는 사본이었고,
+   * 집계는 「매매」의 기록 옆에 있어야 무엇을 고칠지로 이어진다.
+   */
+  it("지금 열려 있는 것만 놓는다", async () => {
     renderScreen(<OverviewScreen />);
 
     expect(await screen.findByRole("rowheader", { name: "2026-08-20 10:00" })).toBeVisible();
-    expect(await screen.findByText("0.0084%")).toBeVisible();
-    expect(await screen.findByText("계획을 어겨서 얻은 것")).toBeVisible();
+    expect(screen.queryByText("계획을 어겨서 얻은 것")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "시장 지표" })).not.toBeInTheDocument();
   });
 
   it("현황에서는 기록을 고칠 수 없다", async () => {
@@ -115,28 +115,13 @@ describe("현황", () => {
     expect(screen.queryByRole("button", { name: "청산 기록" })).not.toBeInTheDocument();
   });
 
-  it("거래소가 안 닿아도 그 블록만 죽고 나머지는 그대로다", async () => {
-    server.use(
-      http.get(origin + "/api/markets/BTCUSDT/metrics", () =>
-        HttpResponse.json(
-          {
-            title: "외부 데이터를 가져오지 못했다",
-            status: 503,
-            detail: "거래소에 닿지 못했다",
-            instance: "/api/markets/BTCUSDT/metrics",
-          },
-          { status: 503 },
-        ),
-      ),
-    );
+  it("거래소 계좌가 안 닿아도 진행 중인 거래는 그대로다", async () => {
+    server.use(http.get(origin + "/api/account/positions", () =>
+      HttpResponse.json(계좌없음, { status: 503 })));
     renderScreen(<OverviewScreen />);
 
-    expect(await screen.findByText("거래소에 닿지 못했다")).toBeVisible();
-    // "다시 시도" 는 이 화면에 둘이다(시장 지표 · 거래소 계좌). 영역으로 가리킨다.
-    expect(within(시장지표()).getByRole("button", { name: "다시 시도" })).toBeVisible();
-    // 나머지 블록은 그대로 보인다.
+    expect(await screen.findByText("거래소 키가 없다")).toBeVisible();
     expect(await screen.findByRole("rowheader", { name: "2026-08-20 10:00" })).toBeVisible();
-    expect(await screen.findByText("계획을 어겨서 얻은 것")).toBeVisible();
   });
 
   describe("거래소 계좌", () => {
@@ -199,27 +184,10 @@ describe("현황", () => {
       expect(횟수()).toBe(1);
 
       실패 = false;
-      await user.click(within(거래소대조()).getByRole("button", { name: "다시 시도" }));
+      await user.click(within(screen.getByRole("region", { name: "거래소 대조" })).getByRole("button", { name: "다시 시도" }));
 
       expect(await screen.findByRole("button", { name: "새로고침" })).toBeVisible();
     });
   });
 
-  it("다시 시도를 누르면 다시 묻는다", async () => {
-    let 시도 = 0;
-    server.use(
-      http.get(origin + "/api/markets/BTCUSDT/metrics", () => {
-        시도 += 1;
-        return 시도 === 1
-          ? HttpResponse.json({ title: "외부 데이터를 가져오지 못했다", status: 503, detail: "거래소에 닿지 못했다", instance: "/x" }, { status: 503 })
-          : HttpResponse.json(METRICS);
-      }),
-    );
-    const user = userEvent.setup();
-    renderScreen(<OverviewScreen />);
-
-    await user.click(await within(시장지표()).findByRole("button", { name: "다시 시도" }));
-
-    expect(await screen.findByText("0.0084%")).toBeVisible();
-  });
 });
