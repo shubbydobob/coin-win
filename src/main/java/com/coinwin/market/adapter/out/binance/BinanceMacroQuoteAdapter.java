@@ -53,14 +53,20 @@ public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
                 LOG.warn("거시 시세가 비어 있다: {}", symbol.value());
                 return Optional.empty();
             }
-            return Optional.of(new MacroQuote(
-                    symbol,
-                    MacroWatchlist.labelOf(symbol),
-                    Price.of(ticker.lastPrice()),
-                    new BigDecimal(ticker.priceChangePercent())));
+            return Optional.of(toQuote(symbol, ticker));
         } catch (RestClientException e) {
             LOG.warn("거시 시세를 가져오지 못했다: {}", symbol.value(), e);
             return Optional.empty();
         }
+    }
+
+    /** 이름과 묶음은 관심 목록이 안다. 어댑터는 값만 옮긴다. */
+    private static MacroQuote toQuote(Symbol symbol, BinanceTicker ticker) {
+        return new MacroQuote(
+                symbol,
+                MacroWatchlist.labelOf(symbol),
+                MacroWatchlist.groupOf(symbol),
+                Price.of(ticker.lastPrice()),
+                new BigDecimal(ticker.priceChangePercent()));
     }
 }

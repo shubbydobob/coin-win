@@ -34,6 +34,10 @@ const NOTICE_POLL_MS = 60_000;
  * 정해져 있고, 신호를 어떻게 읽든 그 숫자는 변하지 않는다. 이 화면이 하는 일은 급등의 이유를
  * 5분 안에 찾는 것이지 급등을 미리 아는 것이 아니다. 근거: `docs/spec/market-watch.md` § 0
  *
+ * **두 단으로 놓는다.** 왼쪽은 이 시장의 가격 자체와 그 밖의 자산(호가·거시), 오른쪽은 이
+ * 시장 안에서 평소와 다른 것과 예정된 것(지표·일정·공지)이다. 세로로 쌓으면 한 화면에 안 들어가고, 스크롤로 갈라진 두 사실은
+ * **같은 순간의 사실이 아니게 된다.**
+ *
  * **네 블록이 서로 독립적으로 실패한다.** 특히 공지는 문서화되지 않은 엔드포인트를 쓰므로
  * 예고 없이 죽을 수 있고, 그때도 호가와 캘린더는 그대로 보여야 한다.
  *
@@ -74,43 +78,64 @@ export function WatchScreen() {
   });
 
   return (
-    <div className="space-y-4">
-      {book.data ? (
-        <>
-          <TickerHeader
-            book={book.data}
-            refreshing={book.isFetching}
-            onRefresh={() => book.refetch()}
-          />
-          <OrderBookPanel book={book.data} />
-        </>
-      ) : (
-        <Failed label="현재가" query={book} fallback="호가를 가져오지 못했다" />
-      )}
+    /*
+      **두 단으로 나눈다.** 다섯 블록을 세로로 쌓으면 화면이 한 화면에 안 들어가고, 그러면
+      "호가가 얇아진 것" 과 "지표가 평소와 다른 것" 을 나란히 보지 못한다 — 스크롤로 갈라진
+      두 사실은 같은 순간의 사실이 아니게 된다.
 
-      {outliers.data ? (
-        <OutlierPanel outliers={outliers.data} />
-      ) : (
-        <Failed label="이상치" query={outliers} fallback="지표 이력을 가져오지 못했다" />
-      )}
+      **왼쪽은 가격, 오른쪽은 가격이 아닌 것**이다. 호가와 거시 자산은 둘 다 "얼마이고 얼마나
+      움직였나" 라서 눈이 이어서 읽고, 오른쪽은 "평소와 견줘 어떤가" 와 "무엇이 예정돼 있나"
+      라 읽는 방식이 다르다.
 
-      {macro.data ? (
-        <MacroPanel macro={macro.data} />
-      ) : (
-        <Failed label="거시 자산" query={macro} fallback="거시 시세를 가져오지 못했다" />
-      )}
+      좁은 화면에서는 한 단으로 되돌아간다(`lg:` 부터 갈라진다). `items-start` 가 없으면 두
+      단의 높이가 서로를 늘여 짧은 쪽 아래에 빈 칸이 생긴다.
+    */
+    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="space-y-4">
+        {book.data ? (
+          <>
+            <TickerHeader
+              book={book.data}
+              refreshing={book.isFetching}
+              onRefresh={() => book.refetch()}
+            />
+            <OrderBookPanel book={book.data} />
+          </>
+        ) : (
+          <Failed label="현재가" query={book} fallback="호가를 가져오지 못했다" />
+        )}
 
-      {calendar.data ? (
-        <EventCalendarPanel calendar={calendar.data} />
-      ) : (
-        <Failed label="예정 이벤트" query={calendar} fallback="일정표를 읽지 못했다" />
-      )}
+        {/*
+          **거시 자산은 호가 밑이다.** 오른쪽 지표들과 다른 질문에 답하기 때문이다 — 오른쪽은
+          "이 시장 안에서 평소와 다른가" 이고 이쪽은 "이 시장 밖에서 무슨 일이 있나" 다.
+          가격 옆에 두면 둘 다 값과 변동률이라 눈이 이어서 읽는다.
+        */}
+        {macro.data ? (
+          <MacroPanel macro={macro.data} />
+        ) : (
+          <Failed label="거시 자산" query={macro} fallback="거시 시세를 가져오지 못했다" />
+        )}
+      </div>
 
-      {notices.data ? (
-        <NoticePanel notices={notices.data} />
-      ) : (
-        <Failed label="거래소 공지" query={notices} fallback="공지를 가져오지 못했다" />
-      )}
+      <div className="space-y-4">
+        {outliers.data ? (
+          <OutlierPanel outliers={outliers.data} />
+        ) : (
+          <Failed label="이상치" query={outliers} fallback="지표 이력을 가져오지 못했다" />
+        )}
+
+        {calendar.data ? (
+          <EventCalendarPanel calendar={calendar.data} />
+        ) : (
+          <Failed label="예정 이벤트" query={calendar} fallback="일정표를 읽지 못했다" />
+        )}
+
+        {notices.data ? (
+          <NoticePanel notices={notices.data} />
+        ) : (
+          <Failed label="거래소 공지" query={notices} fallback="공지를 가져오지 못했다" />
+        )}
+      </div>
     </div>
   );
 }
