@@ -77,7 +77,7 @@ describe("매매 기록", () => {
   it("끝난 거래가 목록에 나온다", async () => {
     renderScreen(<JournalScreen />);
 
-    expect(await screen.findByRole("rowheader", { name: "2026-08-02 09:30 UTC" })).toBeVisible();
+    expect(await screen.findByRole("rowheader", { name: "2026-08-02 18:30" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "계획 익절" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "14.20" })).toBeVisible();
   });
@@ -123,7 +123,8 @@ describe("매매 기록", () => {
     // 집계가 목록과 다른 모집단을 보고 있으면 화면이 거짓말을 한다.
     expect(물어본것[0]).toBe(물어본것[1]);
     expect(물어본것[0]).toContain("followedPlan=false");
-    expect(물어본것[0]).toContain("closedFrom=2026-08-01T00%3A00%3A00Z");
+    // 화면이 KST 로 표시하므로 구간도 KST 자정에서 끊는다. 오프셋이 그대로 실린다.
+    expect(물어본것[0]).toContain("closedFrom=2026-08-01T00%3A00%3A00%2B09%3A00");
   });
 
   it("조건을 걸지 않으면 질의 문자열이 비어 있다", async () => {
@@ -175,7 +176,7 @@ describe("매매 기록", () => {
     server.use(...응답([], SUMMARY, [CLOSED]));
     renderScreen(<JournalScreen />);
 
-    await screen.findByRole("rowheader", { name: "2026-08-01 00:00 UTC" });
+    await screen.findByRole("rowheader", { name: "2026-08-01 09:00" });
     expect(screen.queryByRole("button", { name: "체결 기록" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "청산 기록" })).not.toBeInTheDocument();
   });
@@ -222,15 +223,15 @@ describe("매매 기록", () => {
 
     await user.click(await screen.findByRole("button", { name: "청산 기록" }));
     await user.type(screen.getByLabelText("청산가"), "63000");
-    await user.type(screen.getByLabelText("청산 시각 (UTC)"), "2026-08-03T12:00");
+    await user.type(screen.getByLabelText("청산 시각 (KST)"), "2026-08-03T12:00");
     await user.type(screen.getByLabelText("수수료"), "0.8");
     await user.type(screen.getByLabelText("펀딩비"), "0");
     const 이전 = 목록조회;
     await user.click(screen.getByRole("button", { name: "청산 저장" }));
 
     await waitFor(() => expect(목록조회).toBeGreaterThan(이전));
-    // datetime-local 이 준 로컬처럼 보이는 값을 UTC 로 읽는다.
-    expect(청산본문.exitAt).toBe("2026-08-03T12:00:00Z");
+    // datetime-local 이 준 값을 KST 로 읽는다. 오프셋을 지우지 않고 그대로 실어 보낸다.
+    expect(청산본문.exitAt).toBe("2026-08-03T12:00:00+09:00");
     expect(청산본문).not.toHaveProperty("realizedPnl");
   });
 

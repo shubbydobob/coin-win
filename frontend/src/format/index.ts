@@ -87,13 +87,41 @@ export function orNothing<T>(value: T | null | undefined, show: (present: T) => 
 }
 
 /**
- * 시각. **UTC 로 표시하고 `UTC` 를 붙인다.**
+ * 한국 표준시의 UTC 오프셋. **고정 상수인 것이 요점이다** — 한국에는 서머타임이 없으므로
+ * 어느 날짜에든 +9 이고, 그래서 시간대 데이터베이스 없이 정확하다.
+ */
+const KST_OFFSET_MINUTES = 9 * 60;
+
+const MS_PER_MINUTE = 60_000;
+
+/**
+ * 시각. **KST 로 표시하고 꼬리표는 붙이지 않는다.**
  *
- * 로컬 타임존으로 바꾸면 캔들 시각·체결 시각과 어긋나 보인다. 문자열을 자르기만 하고 `Date` 로
- * 파싱하지 않는 것이 요점이다 — 파싱하는 순간 브라우저의 타임존이 끼어든다.
+ * 서버는 언제나 UTC(`Instant`)로 보낸다. 그것을 그대로 띄우면 사람이 화면의 시각과 자기
+ * 거래소 화면·자기 시계를 매번 9시간 암산으로 맞춰야 하고, 그 암산은 언젠가 틀린다.
+ *
+ * **`UTC` 를 붙이던 자리에 `KST` 를 붙이지 않는 이유는 그 꼬리표의 목적이 달라졌기
+ * 때문이다.** UTC 는 사용자의 시계와 다른 눈금이라 표시가 필요했다. KST 는 이 도구를 쓰는
+ * 사람의 시계 그 자체다 — 매 줄에 붙는 같은 글자는 읽히지 않고 자리만 차지한다. 눈금이
+ * 무엇인지 말해야 하는 자리는 **입력 위젯**뿐이고, 거기 라벨에는 `(KST)` 가 남아 있다.
+ *
+ * **브라우저의 타임존을 쓰지 않는다.** `toLocaleString` 이나 `getHours` 를 쓰면 같은 값이
+ * 컴퓨터마다 다르게 보이고, 테스트가 통과하는 기계와 아닌 기계가 갈린다 — 위 `LOCALE` 이
+ * 숫자에 대해 정한 것과 같은 태도다. 고정 오프셋을 더한 뒤 UTC 로 읽으면 환경이 끼어들 자리가
+ * 없다.
+ *
+ * **읽어내지 못한 문자열은 그대로 낸다.** `duration` 과 같은 규칙이다 — 화면이 멈추지도, 없는
+ * 시각을 지어내지도 않는다.
+ *
+ * 입력 위젯도 같은 눈금이어야 한다. 짝은 `form/instantAt` 이다.
  */
 export function instant(iso: string): string {
-  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) {
+    return iso;
+  }
+  const seoul = new Date(at.getTime() + KST_OFFSET_MINUTES * MS_PER_MINUTE).toISOString();
+  return `${seoul.slice(0, 10)} ${seoul.slice(11, 16)}`;
 }
 
 const ISO_DURATION = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$/;

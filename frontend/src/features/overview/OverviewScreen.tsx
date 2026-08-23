@@ -6,6 +6,7 @@ import { instant, percent, quantity, ratio } from "../../format";
 import { ActiveTrades } from "../../shared/ActiveTrades";
 import { JournalSummaryPanel } from "../../shared/JournalSummaryPanel";
 import { PositionReconciliationPanel } from "../../shared/PositionReconciliation";
+import { Term } from "../../shared/Term";
 
 const SYMBOL = "BTCUSDT";
 
@@ -60,14 +61,14 @@ export function OverviewScreen() {
         <h2 className="text-xs text-slate-500">{SYMBOL}</h2>
 
         {metrics.data ? (
-          <dl className="mt-2 grid grid-cols-4 gap-x-4 text-sm tabular-nums">
-            <dt className="text-slate-500">펀딩비</dt>
+          <dl className="mt-2 grid grid-cols-[1fr_auto_1fr_auto] items-start gap-x-4 gap-y-2 text-sm tabular-nums">
+            <Term label="펀딩비" hint="8시간마다 오가는 수수료. 양수면 롱이 숏에게 낸다." />
             <dd className="text-right">{percent(metrics.data.fundingRatePercent)}</dd>
-            <dt className="text-slate-500">미결제약정</dt>
+            <Term label="미결제약정" hint="아직 닫히지 않은 계약의 합(BTC). 늘면서 가격이 오르면 신규 롱이 들어온 것이다." />
             <dd className="text-right">{quantity(metrics.data.openInterest)}</dd>
-            <dt className="text-slate-500">롱숏비율</dt>
+            <Term label="롱숏비율" hint="롱 계정 수 ÷ 숏 계정 수. 금액이 아니라 계정 수 기준이다." />
             <dd className="text-right">{ratio(metrics.data.longShortRatio)}</dd>
-            <dt className="text-slate-500">관측 시각</dt>
+            <Term label="관측 시각" hint="거래소가 이 세 값을 낸 시각. 지금이 아니다." />
             <dd className="text-right">{instant(metrics.data.at)}</dd>
           </dl>
         ) : (

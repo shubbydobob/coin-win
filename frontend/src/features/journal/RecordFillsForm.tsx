@@ -60,7 +60,7 @@ export function RecordFillsForm({ onSubmit, pending }: { onSubmit: (request: Req
         <div key={index} className="grid grid-cols-3 gap-2">
           <Field label={`${index + 1}차 체결가`} value={fill.price} onChange={(v) => replace(index, { ...fill, price: v })} />
           <Field label={`${index + 1}차 체결수량`} value={fill.quantity} onChange={(v) => replace(index, { ...fill, quantity: v })} />
-          <Field label={`${index + 1}차 체결시각 (UTC)`} type="datetime-local" value={fill.at} onChange={(v) => replace(index, { ...fill, at: v })} />
+          <Field label={`${index + 1}차 체결시각 (KST)`} type="datetime-local" value={fill.at} onChange={(v) => replace(index, { ...fill, at: v })} />
         </div>
       ))}
 

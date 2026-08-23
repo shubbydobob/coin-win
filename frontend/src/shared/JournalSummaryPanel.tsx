@@ -1,4 +1,5 @@
 import { duration, money, percent } from "../format";
+import { Term } from "./Term";
 import type { components } from "../api/schema";
 
 type Summary = components["schemas"]["JournalSummaryResponse"];
@@ -26,28 +27,44 @@ export function JournalSummaryPanel({ summary }: { summary: Summary }) {
         </p>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums">
-        <dt className="text-slate-500">전체 거래</dt>
+      <dl className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2 text-sm tabular-nums">
+        <Term label="전체 거래" hint="청산까지 끝난 거래만 센다. 진행 중인 것은 빠진다." />
         <dd className="text-right">{summary.totalTrades}</dd>
-        <dt className="text-slate-500">실현 손익</dt>
+        <Term label="실현 손익" hint="끝난 거래 손익의 합. 수수료와 펀딩비를 뺀 뒤의 수다." />
         <dd className="text-right">{money(summary.totalRealizedPnl)}</dd>
-        <dt className="text-slate-500">계획 준수율</dt>
+        <Term label="계획 준수율" hint="계획대로 닫은 거래 ÷ 전체 거래. 이 도구가 실제로 쓰이고 있는지를 본다." />
         <dd className="text-right">{percent(summary.planAdherence)}</dd>
       </dl>
 
       <div className="grid grid-cols-2 gap-4">
-        <TallyBlock title="계획을 지킨 거래" tally={summary.followed} />
-        <TallyBlock title="계획을 어긴 거래" tally={summary.broken} />
+        <TallyBlock
+          title="계획을 지킨 거래"
+          hint="계획 손절·계획 익절에서 닫힌 거래. 손실이어도 지킨 것이다."
+          tally={summary.followed}
+        />
+        <TallyBlock
+          title="계획을 어긴 거래"
+          hint="조기 청산·손절 지나 보유·청산당함. 이익이어도 어긴 것이다."
+          tally={summary.broken}
+        />
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums">
-        <dt className="text-slate-500">거래 간격 (평균)</dt>
+      <dl className="grid grid-cols-[1fr_auto] items-start gap-x-4 gap-y-2 text-sm tabular-nums">
+        <Term label="거래 간격 (평균)" hint="직전 거래를 닫고 다음을 열기까지 걸린 시간의 평균." />
         <dd className="text-right">{duration(summary.intervals.average)}</dd>
-        <dt className="text-slate-500">거래 간격 (최단)</dt>
+        <Term
+          label="거래 간격 (최단)"
+          hint="가장 짧았던 간격. 손실 직후 곧바로 다시 들어가는 습관은 여기서만 보인다."
+        />
         <dd className="text-right">{duration(summary.intervals.shortest)}</dd>
         {summary.intervals.overlaps > 0 && (
           <>
-            <dt className="text-amber-700">겹쳐서 셀 수 없던 쌍</dt>
+            <dt className="text-amber-700">
+              겹쳐서 셀 수 없던 쌍
+              <span className="mt-0.5 block text-xs leading-snug text-amber-600">
+                앞 거래가 닫히기 전에 뒤 거래가 열린 쌍. 그 사이에는 간격이 없어 평균에서 뺐다.
+              </span>
+            </dt>
             <dd className="text-right text-amber-700">{summary.intervals.overlaps}</dd>
           </>
         )}
@@ -56,18 +73,19 @@ export function JournalSummaryPanel({ summary }: { summary: Summary }) {
   );
 }
 
-function TallyBlock({ title, tally }: { title: string; tally: Tally }) {
+function TallyBlock({ title, hint, tally }: { title: string; hint: string; tally: Tally }) {
   return (
     <div className="rounded border border-slate-200 p-3 text-sm tabular-nums">
       <h3 className="text-xs text-slate-500">{title}</h3>
-      <dl className="mt-1 grid grid-cols-2 gap-x-2">
-        <dt className="text-slate-500">건수</dt>
+      <p className="mt-0.5 text-xs leading-snug text-slate-400">{hint}</p>
+      <dl className="mt-2 grid grid-cols-[1fr_auto] items-start gap-x-2 gap-y-2">
+        <Term label="건수" hint="이 묶음에 든 거래 수." />
         <dd className="text-right">{tally.trades}</dd>
-        <dt className="text-slate-500">승 / 패</dt>
+        <Term label="승 / 패" hint="0 원으로 끝난 거래는 승리가 아니다 — 패로 센다." />
         <dd className="text-right">{tally.wins} / {tally.losses}</dd>
-        <dt className="text-slate-500">승률</dt>
+        <Term label="승률" hint="이긴 거래 ÷ 이 묶음의 거래 수." />
         <dd className="text-right">{percent(tally.winRate)}</dd>
-        <dt className="text-slate-500">손익</dt>
+        <Term label="손익" hint="이 묶음의 실현 손익 합." />
         <dd className="text-right">{money(tally.realizedPnl)}</dd>
       </dl>
     </div>

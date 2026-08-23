@@ -67,7 +67,7 @@ describe("현황", () => {
     server.use(http.get(origin + "/api/markets/BTCUSDT/metrics", () => HttpResponse.json(METRICS)));
     renderScreen(<OverviewScreen />);
 
-    expect(await screen.findByRole("rowheader", { name: "2026-08-20 01:00 UTC" })).toBeVisible();
+    expect(await screen.findByRole("rowheader", { name: "2026-08-20 10:00" })).toBeVisible();
     expect(await screen.findByText("0.0084%")).toBeVisible();
     expect(await screen.findByText("계획을 어겨서 얻은 것")).toBeVisible();
   });
@@ -76,7 +76,7 @@ describe("현황", () => {
     server.use(http.get(origin + "/api/markets/BTCUSDT/metrics", () => HttpResponse.json(METRICS)));
     renderScreen(<OverviewScreen />);
 
-    await screen.findByRole("rowheader", { name: "2026-08-20 01:00 UTC" });
+    await screen.findByRole("rowheader", { name: "2026-08-20 10:00" });
     // 기록을 고치는 자리는 /journal 이다. 여기서도 되면 같은 일을 두 곳에서 하게 된다.
     expect(screen.queryByRole("button", { name: "청산 기록" })).not.toBeInTheDocument();
   });
@@ -100,7 +100,7 @@ describe("현황", () => {
     expect(await screen.findByText("거래소에 닿지 못했다")).toBeVisible();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeVisible();
     // 나머지 블록은 그대로 보인다.
-    expect(await screen.findByRole("rowheader", { name: "2026-08-20 01:00 UTC" })).toBeVisible();
+    expect(await screen.findByRole("rowheader", { name: "2026-08-20 10:00" })).toBeVisible();
     expect(await screen.findByText("계획을 어겨서 얻은 것")).toBeVisible();
   });
 

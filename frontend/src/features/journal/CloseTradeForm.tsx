@@ -43,7 +43,7 @@ export function CloseTradeForm({ onSubmit, pending }: { onSubmit: (request: Requ
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="청산가" value={exitPrice} onChange={setExitPrice} />
-        <Field label="청산 시각 (UTC)" type="datetime-local" value={exitAt} onChange={setExitAt} />
+        <Field label="청산 시각 (KST)" type="datetime-local" value={exitAt} onChange={setExitAt} />
         <Field label="수수료" value={fees} onChange={setFees} />
         <Field label="펀딩비" value={funding} onChange={setFunding} />
       </div>
