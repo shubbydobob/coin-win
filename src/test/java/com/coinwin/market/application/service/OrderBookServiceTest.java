@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.coinwin.common.domain.InvalidValueException;
 import com.coinwin.market.adapter.out.memory.InMemoryOrderBookAdapter;
+import com.coinwin.market.domain.OrderBookDepth;
 import com.coinwin.market.domain.Symbol;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -22,21 +23,22 @@ class OrderBookServiceTest {
             InMemoryOrderBookAdapter.withSample(SYMBOL, Instant.parse("2026-08-23T09:00:00Z")));
 
     @Test
-    void 상한_안의_단수는_그대로_통과한다() {
-        assertThat(service.orderBook(SYMBOL, 5).bids()).hasSize(5);
-        assertThat(service.orderBook(SYMBOL, OrderBookService.MAXIMUM_DEPTH).bids()).hasSize(20);
+    void 허용된_단수는_그대로_통과한다() {
+        assertThat(service.orderBook(SYMBOL, OrderBookDepth.of(5)).bids()).hasSize(5);
+        assertThat(service.orderBook(SYMBOL, OrderBookDepth.DEFAULT).bids()).hasSize(20);
     }
 
     /**
-     * 상한을 넘기면 <b>깎지 않고 거부한다.</b> 조용히 20 으로 줄이면 부른 쪽은 자기가 요청한
-     * 깊이를 받았다고 믿고, 불균형을 다른 기준으로 읽는다.
+     * <b>거래소가 정한 값만 받는다.</b> {@code depth=3} 은 바이낸스가 {@code -4021} 로 거절한다.
+     * 처음에는 서비스가 "1 과 20 사이" 로 검사했는데 그 범위는 우리가 상상한 것이었고, 실제로
+     * 3 을 보내 보고서야 드러났다. 규칙이 타입으로 내려가면서 <b>인메모리와 바이낸스가 다르게
+     * 행동할 여지</b>도 함께 사라졌다.
      */
     @Test
-    void 상한을_넘는_단수는_거부한다() {
-        assertThatThrownBy(() -> service.orderBook(SYMBOL, 21))
-                .isInstanceOf(InvalidValueException.class);
-        assertThatThrownBy(() -> service.orderBook(SYMBOL, 0))
-                .isInstanceOf(InvalidValueException.class);
+    void 거래소가_받지_않는_단수는_만들_수조차_없다() {
+        assertThatThrownBy(() -> OrderBookDepth.of(3)).isInstanceOf(InvalidValueException.class);
+        assertThatThrownBy(() -> OrderBookDepth.of(21)).isInstanceOf(InvalidValueException.class);
+        assertThatThrownBy(() -> OrderBookDepth.of(0)).isInstanceOf(InvalidValueException.class);
     }
 
     @Test

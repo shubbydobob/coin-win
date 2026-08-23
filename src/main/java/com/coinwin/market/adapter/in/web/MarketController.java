@@ -2,9 +2,12 @@ package com.coinwin.market.adapter.in.web;
 
 import com.coinwin.market.application.port.in.LoadMarketDataUseCase;
 import com.coinwin.market.application.port.in.LoadMarketMetricsUseCase;
+import com.coinwin.market.application.port.in.LoadOrderBookUseCase;
+import com.coinwin.market.application.port.in.LoadOutliersUseCase;
 import com.coinwin.market.application.port.in.SyncMarketDataUseCase;
 import com.coinwin.market.domain.CandleInterval;
 import com.coinwin.market.domain.CandleQuery;
+import com.coinwin.market.domain.OrderBookDepth;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.TimeRange;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,14 +37,15 @@ public class MarketController {
     private final LoadMarketDataUseCase loadMarketData;
     private final SyncMarketDataUseCase syncMarketData;
     private final LoadMarketMetricsUseCase loadMetrics;
+    private final LoadOrderBookUseCase loadOrderBook;
+    private final LoadOutliersUseCase loadOutliers;
 
-    public MarketController(
-            LoadMarketDataUseCase loadMarketData,
-            SyncMarketDataUseCase syncMarketData,
-            LoadMarketMetricsUseCase loadMetrics) {
-        this.loadMarketData = loadMarketData;
-        this.syncMarketData = syncMarketData;
-        this.loadMetrics = loadMetrics;
+    public MarketController(MarketUseCases useCases) {
+        this.loadMarketData = useCases.loadMarketData();
+        this.syncMarketData = useCases.syncMarketData();
+        this.loadMetrics = useCases.loadMetrics();
+        this.loadOrderBook = useCases.loadOrderBook();
+        this.loadOutliers = useCases.loadOutliers();
     }
 
     @Operation(
@@ -103,5 +107,45 @@ public class MarketController {
     private static CandleQuery query(String symbol, String interval, Instant from, Instant to) {
         return new CandleQuery(Symbol.of(symbol), CandleInterval.ofCode(interval),
                 new TimeRange(from, to));
+    }
+
+    @Operation(
+            summary = "현재가와 호가",
+            description = """
+                    지금 얼마이고 그 값에 얼마나 두껍게 쌓여 있는가. 거래소를 직접 때린다.
+
+                    불균형이 양수라는 것은 매수 잔량이 더 많다는 **사실**이고 방향을 뜻하지
+                    않는다 — 호가는 취소될 수 있고 큰 벽은 오히려 미끼인 경우가 많다.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "현재가와 호가"),
+        @ApiResponse(responseCode = "400", description = "종목 표기가 올바르지 않거나 호가 단수가 5 · 10 · 20 중 하나가 아니다"),
+        @ApiResponse(responseCode = "503", description = "거래소에 닿지 못했다")
+    })
+    @GetMapping("/{symbol}/orderbook")
+    public OrderBookResponse orderBook(
+            @PathVariable String symbol,
+            @RequestParam(defaultValue = "20") int depth) {
+        Symbol parsed = Symbol.of(symbol);
+        return OrderBookResponse.from(
+                loadOrderBook.orderBook(parsed, OrderBookDepth.of(depth)),
+                loadOrderBook.ticker(parsed));
+    }
+
+    @Operation(
+            summary = "세 지표의 평소 대비 위치",
+            description = """
+                    펀딩비·미결제약정·롱숏비율이 최근 표본에서 어디쯤인가.
+
+                    배수가 아니라 위치로 말한다 — 펀딩비는 부호가 바뀌어 배수가 무너진다.
+                    표본이 모자라면 `topPercent` 가 null 이다. 말할 수 없는 것을 수치로 적지
+                    않는다.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "지표별 위치"),
+        @ApiResponse(responseCode = "400", description = "종목 표기가 올바르지 않다"),
+        @ApiResponse(responseCode = "503", description = "거래소에 닿지 못했다")
+    })
+    @GetMapping("/{symbol}/outliers")
+    public MetricOutliersResponse outliers(@PathVariable String symbol) {
+        return MetricOutliersResponse.from(loadOutliers.outliers(Symbol.of(symbol)));
     }
 }

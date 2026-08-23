@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.coinwin.market.domain.OrderBook;
+import com.coinwin.market.domain.OrderBookDepth;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.Ticker;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ public abstract class OrderBookPortContract {
 
     @Test
     void 호가는_요청한_단수를_넘지_않는다() {
-        OrderBook book = port().orderBookFor(SYMBOL, 5);
+        OrderBook book = port().orderBookFor(SYMBOL, OrderBookDepth.of(5));
 
         assertThat(book.bids()).hasSizeLessThanOrEqualTo(5).isNotEmpty();
         assertThat(book.asks()).hasSizeLessThanOrEqualTo(5).isNotEmpty();
@@ -34,7 +35,7 @@ public abstract class OrderBookPortContract {
 
     @Test
     void 최우선_매도가는_최우선_매수가보다_낮지_않다() {
-        OrderBook book = port().orderBookFor(SYMBOL, 20);
+        OrderBook book = port().orderBookFor(SYMBOL, OrderBookDepth.DEFAULT);
 
         assertThat(book.bestAsk().isBelow(book.bestBid())).isFalse();
         assertThat(book.spread().value().signum()).isNotNegative();
@@ -42,7 +43,7 @@ public abstract class OrderBookPortContract {
 
     @Test
     void 매수는_내림차순_매도는_오름차순이다() {
-        OrderBook book = port().orderBookFor(SYMBOL, 20);
+        OrderBook book = port().orderBookFor(SYMBOL, OrderBookDepth.DEFAULT);
 
         assertThat(book.bids()).isSortedAccordingTo(
                 (a, b) -> b.price().value().compareTo(a.price().value()));
@@ -52,7 +53,7 @@ public abstract class OrderBookPortContract {
 
     @Test
     void 불균형은_마이너스1과_1_사이다() {
-        assertThat(port().orderBookFor(SYMBOL, 20).imbalance())
+        assertThat(port().orderBookFor(SYMBOL, OrderBookDepth.DEFAULT).imbalance())
                 .isBetween(java.math.BigDecimal.valueOf(-1), java.math.BigDecimal.ONE);
     }
 
@@ -70,7 +71,7 @@ public abstract class OrderBookPortContract {
     void 모르는_종목은_실패한다() {
         Symbol 없는것 = Symbol.of("NOSUCHPAIR");
 
-        assertThatThrownBy(() -> port().orderBookFor(없는것, 5)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> port().orderBookFor(없는것, OrderBookDepth.of(5))).isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> port().tickerFor(없는것)).isInstanceOf(RuntimeException.class);
     }
 }

@@ -1,6 +1,7 @@
 package com.coinwin.market.application.port.out;
 
 import com.coinwin.market.domain.OrderBook;
+import com.coinwin.market.domain.OrderBookDepth;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.Ticker;
 
@@ -18,8 +19,8 @@ import com.coinwin.market.domain.Ticker;
  */
 public interface LoadOrderBookPort {
 
-    /** 호가 {@code depth} 단. 20 을 넘기지 않는다 — 더 깊이 가면 체결될 일 없는 주문이 섞인다. */
-    OrderBook orderBookFor(Symbol symbol, int depth);
+    /** 호가 {@code depth} 단. 허용값은 {@link OrderBookDepth} 가 정한다 — 거래소가 아무 수나 받지 않는다. */
+    OrderBook orderBookFor(Symbol symbol, OrderBookDepth depth);
 
     Ticker tickerFor(Symbol symbol);
 }

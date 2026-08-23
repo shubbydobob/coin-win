@@ -5,6 +5,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.market.application.port.out.LoadOrderBookPort;
 import com.coinwin.market.domain.OrderBook;
+import com.coinwin.market.domain.OrderBookDepth;
 import com.coinwin.market.domain.PriceLevel;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.Ticker;
@@ -47,11 +48,11 @@ public class BinanceOrderBookAdapter implements LoadOrderBookPort {
     }
 
     @Override
-    public OrderBook orderBookFor(Symbol symbol, int depth) {
+    public OrderBook orderBookFor(Symbol symbol, OrderBookDepth depth) {
         BinanceDepth response = fetch(
                 uri -> uri.path(DEPTH)
                         .queryParam("symbol", symbol.value())
-                        .queryParam("limit", depth)
+                        .queryParam("limit", depth.levels())
                         .build(),
                 BinanceDepth.class,
                 DEPTH,

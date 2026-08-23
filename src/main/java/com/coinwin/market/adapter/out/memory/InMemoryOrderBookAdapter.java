@@ -5,6 +5,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.market.application.port.out.LoadOrderBookPort;
 import com.coinwin.market.domain.OrderBook;
+import com.coinwin.market.domain.OrderBookDepth;
 import com.coinwin.market.domain.PriceLevel;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.Ticker;
@@ -49,12 +50,16 @@ public class InMemoryOrderBookAdapter implements LoadOrderBookPort {
     }
 
     @Override
-    public OrderBook orderBookFor(Symbol symbol, int depth) {
+    public OrderBook orderBookFor(Symbol symbol, OrderBookDepth depth) {
         OrderBook book = books.get(symbol);
         if (book == null) {
             throw new ExternalDataUnavailableException("호가가 없다: " + symbol.value());
         }
-        return new OrderBook(symbol, take(book.bids(), depth), take(book.asks(), depth), book.at());
+        return new OrderBook(
+                symbol,
+                take(book.bids(), depth.levels()),
+                take(book.asks(), depth.levels()),
+                book.at());
     }
 
     @Override

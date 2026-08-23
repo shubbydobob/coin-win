@@ -383,6 +383,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/markets/{symbol}/outliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 세 지표의 평소 대비 위치
+         * @description 펀딩비·미결제약정·롱숏비율이 최근 표본에서 어디쯤인가.
+         *
+         *     배수가 아니라 위치로 말한다 — 펀딩비는 부호가 바뀌어 배수가 무너진다.
+         *     표본이 모자라면 `topPercent` 가 null 이다. 말할 수 없는 것을 수치로 적지
+         *     않는다.
+         */
+        get: operations["outliers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/markets/{symbol}/orderbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 현재가와 호가
+         * @description 지금 얼마이고 그 값에 얼마나 두껍게 쌓여 있는가. 거래소를 직접 때린다.
+         *
+         *     불균형이 양수라는 것은 매수 잔량이 더 많다는 **사실**이고 방향을 뜻하지
+         *     않는다 — 호가는 취소될 수 있고 큰 벽은 오히려 미끼인 경우가 많다.
+         */
+        get: operations["orderBook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{symbol}/metrics": {
         parameters: {
             query?: never;
@@ -1634,6 +1681,201 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 한 지표의 평소 대비 위치 */
+        MetricOutlierResponse: {
+            /**
+             * @description 지표 종류
+             * @example FUNDING_RATE
+             * @enum {string}
+             */
+            metric: "FUNDING_RATE" | "OPEN_INTEREST" | "LONG_SHORT_RATIO";
+            /**
+             * @description 지금 값. 펀딩비는 %, 미결제약정은 BTC, 롱숏비율은 무차원이다
+             * @example 0.01
+             */
+            current: number;
+            /**
+             * @description 최근 표본에서 위쪽으로부터의 비율 (%). 12 면 상위 12% 다. 표본이 모자라면 null
+             * @example 12
+             */
+            topPercent: number | null;
+            /**
+             * @description 양 끝 5% 안에 있는가. 위치를 모르면 거짓이다
+             * @example false
+             */
+            outlier: boolean;
+            /**
+             * Format: int32
+             * @description 위치를 재는 데 쓴 표본 수
+             * @example 90
+             */
+            sampleCount: number;
+        };
+        /**
+         * @description 세 지표의 평소 대비 위치
+         * @example {
+         *       "symbol": "BTCUSDT",
+         *       "at": "2026-08-23T09:00:00Z",
+         *       "hasOutlier": false,
+         *       "metrics": [
+         *         {
+         *           "metric": "FUNDING_RATE",
+         *           "current": 0.01,
+         *           "topPercent": 12,
+         *           "outlier": false,
+         *           "sampleCount": 90
+         *         },
+         *         {
+         *           "metric": "OPEN_INTEREST",
+         *           "current": 107134.492,
+         *           "topPercent": null,
+         *           "outlier": false,
+         *           "sampleCount": 3
+         *         }
+         *       ]
+         *     }
+         */
+        MetricOutliersResponse: {
+            /**
+             * @description 종목
+             * @example BTCUSDT
+             */
+            symbol: string;
+            /**
+             * Format: date-time
+             * @description 현재값을 관측한 시각
+             * @example 2026-08-23T09:00:00Z
+             */
+            at: string;
+            /**
+             * @description 하나라도 양 끝 5% 안에 있는가
+             * @example true
+             */
+            hasOutlier: boolean;
+            /** @description 지표별 결과. 펀딩비 · 미결제약정 · 롱숏비율 순이다 */
+            metrics: components["schemas"]["MetricOutlierResponse"][];
+        };
+        /**
+         * @description 현재가와 호가
+         * @example {
+         *       "symbol": "BTCUSDT",
+         *       "at": "2026-08-23T09:00:00Z",
+         *       "last": 76567.5,
+         *       "change24hPercent": -1.009,
+         *       "high24h": 77590.6,
+         *       "low24h": 75588,
+         *       "volume24h": 113033.306,
+         *       "bestBid": 76567.4,
+         *       "bestAsk": 76567.5,
+         *       "spread": 0.1,
+         *       "spreadPercent": 0.0001,
+         *       "bidVolume": 22.1,
+         *       "askVolume": 18.4,
+         *       "imbalance": 0.091,
+         *       "bids": [
+         *         {
+         *           "price": 76567.4,
+         *           "quantity": 24.778
+         *         }
+         *       ],
+         *       "asks": [
+         *         {
+         *           "price": 76567.5,
+         *           "quantity": 12.029
+         *         }
+         *       ]
+         *     }
+         */
+        OrderBookResponse: {
+            /**
+             * @description 종목
+             * @example BTCUSDT
+             */
+            symbol: string;
+            /**
+             * Format: date-time
+             * @description 호가를 관측한 시각. 거래소가 준 값이다
+             * @example 2026-08-23T09:00:00Z
+             */
+            at: string;
+            /**
+             * @description 마지막 체결가
+             * @example 76567.5
+             */
+            last: number;
+            /**
+             * @description 24시간 변동률 (%). 음수면 하락이다
+             * @example -1.009
+             */
+            change24hPercent: number;
+            /**
+             * @description 24시간 최고가
+             * @example 77590.6
+             */
+            high24h: number;
+            /**
+             * @description 24시간 최저가
+             * @example 75588
+             */
+            low24h: number;
+            /**
+             * @description 24시간 거래량 (BTC)
+             * @example 113033.306
+             */
+            volume24h: number;
+            /**
+             * @description 최우선 매수가
+             * @example 76567.4
+             */
+            bestBid: number;
+            /**
+             * @description 최우선 매도가
+             * @example 76567.5
+             */
+            bestAsk: number;
+            /**
+             * @description 최우선 매수와 매도의 간격
+             * @example 0.1
+             */
+            spread: number;
+            /**
+             * @description 스프레드가 최우선 매도가의 몇 %인가
+             * @example 0.0001
+             */
+            spreadPercent: number;
+            /**
+             * @description 매수 잔량 합 (BTC). 요청한 단수까지만 센다
+             * @example 22.1
+             */
+            bidVolume: number;
+            /**
+             * @description 매도 잔량 합 (BTC)
+             * @example 18.4
+             */
+            askVolume: number;
+            /**
+             * @description (매수 잔량 - 매도 잔량) / 합. 양수면 매수가 두껍다. 방향을 뜻하지 않는다 — 호가는 취소될 수 있다
+             * @example 0.091
+             */
+            imbalance: number;
+            /** @description 매수 호가. 높은 값부터 */
+            bids: components["schemas"]["PriceLevelResponse"][];
+            /** @description 매도 호가. 낮은 값부터 */
+            asks: components["schemas"]["PriceLevelResponse"][];
+        };
+        /** @description 호가 한 단 */
+        PriceLevelResponse: {
+            /**
+             * @description 호가
+             * @example 76567.4
+             */
+            price: number;
+            /**
+             * @description 그 가격에 걸린 수량 (BTC)
+             * @example 24.778
+             */
+            quantity: number;
+        };
         /**
          * @description 한 시점의 펀딩비·미결제약정·롱숏비율
          * @example {
@@ -2571,6 +2813,88 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["TradeResponse"][];
+                };
+            };
+        };
+    };
+    outliers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 지표별 위치 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MetricOutliersResponse"];
+                };
+            };
+            /** @description 종목 표기가 올바르지 않다 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    orderBook: {
+        parameters: {
+            query?: {
+                depth?: number;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 현재가와 호가 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrderBookResponse"];
+                };
+            };
+            /** @description 종목 표기가 올바르지 않거나 호가 단수가 5 · 10 · 20 중 하나가 아니다 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };
