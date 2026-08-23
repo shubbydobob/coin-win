@@ -1,5 +1,6 @@
 import { instant, money, orNothing, price, quantity } from "../format";
 import { DIRECTION } from "./labels";
+import { SmallButton } from "./SmallButton";
 import type { components } from "../api/schema";
 
 type Reconciliation = components["schemas"]["PositionReconciliationResponse"];
@@ -16,14 +17,30 @@ type Match = components["schemas"]["PositionMatchResponse"];
  * 비교하면 "스케일 8 까지 정확히 같아야 한다" 는 규칙이 서버와 화면 두 곳에 생긴다.
  * 근거: `docs/adr/020`.
  */
-export function PositionReconciliationPanel({ reconciliation }: { reconciliation: Reconciliation }) {
+export function PositionReconciliationPanel({
+  reconciliation,
+  onRefresh,
+  refreshing = false,
+}: {
+  reconciliation: Reconciliation;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}) {
   return (
     <section aria-label="거래소 대조" className="space-y-2">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-medium text-slate-700">기록과 거래소</h2>
-        <span className="text-xs text-slate-500">
-          거래소에 물어본 시각 {instant(reconciliation.observedAt)}
-        </span>
+        <div className="flex items-baseline gap-2 text-xs text-slate-500">
+          <span>
+            거래소에 물어본 시각 {instant(reconciliation.observedAt)}
+            {/*
+              갱신 중임을 버튼이 아니라 이 자리에 적는다. 버튼의 글자를 바꾸면 15초마다
+              라벨이 흔들리고, 그러면 사람이 누르려던 순간에 대상이 달라진다.
+            */}
+            {refreshing && <span className="ml-1 text-slate-400">· 갱신 중</span>}
+          </span>
+          {onRefresh && <SmallButton onClick={onRefresh}>새로고침</SmallButton>}
+        </div>
       </div>
       <p className="text-xs leading-snug text-slate-400">
         왼쪽은 <b>내가 무엇을 하려 했는지</b>(기록), 오른쪽은 <b>지금 무엇이 열려 있는지</b>
