@@ -78,4 +78,7 @@ positionPlan.averageEntryPrice();
 ## 커밋
 
 - 작업 단위마다 커밋. 여러 Phase를 한 커밋에 묶지 않는다.
-- 브랜치: `feat/{phase}-{요약}` (예: `feat/phase1-position-sizing`)
+- 작업은 `dev`에서 한다. `main`에 직접 커밋하지 않는다. 갈라지는 지점도 `dev`다.
+- 브랜치: `feat/{요약}`. Phase가 남아 있던 동안은 `feat/{phase}-{요약}`였다 (예: `feat/phase1-position-sizing`)
+- 병합은 `--no-ff`. 브랜치는 지우지 않는다 — 어디서 무엇이 끝났는지가 이력에 남는다
+- 흐름과 "확인"의 뜻은 @CLAUDE.md 의 「어디서 작업하는가」를 본다
