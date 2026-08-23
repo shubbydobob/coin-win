@@ -326,6 +326,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/watch/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 거래소 공지
+         * @description 바이낸스가 최근에 낸 공지. 제목과 시각과 링크뿐이고 분류하지 않는다.
+         *
+         *     **매크로 뉴스가 아니다** — 상장 · 상장폐지 · 점검 같은 거래소 자체 소식이다.
+         *     재무부 발표 같은 것은 여기 걸리지 않고 `/events` 가 담당한다.
+         */
+        get: operations["notices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/watch/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 예정 이벤트
+         * @description FOMC · CPI · 재무부 자금조달계획까지 남은 시간.
+         *
+         *     경고(`warning`)는 **규모**에 대한 것이다 — "그날은 명목을 줄여라" 이지
+         *     "오를 것이다" 가 아니다. 방향은 이 프로젝트가 말하지 않는다.
+         *
+         *     `stale` 이 참이면 커밋된 일정표가 낡은 것이므로 이 목록을 믿으면 안 된다.
+         */
+        get: operations["events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trades/{id}": {
         parameters: {
             query?: never;
@@ -1590,6 +1638,112 @@ export interface components {
             /** @description 색인된 문장. 모델이 본 것도 이것이다 */
             summary: string;
         };
+        /** @description 최근 거래소 공지 */
+        NoticeListResponse: {
+            /**
+             * Format: date-time
+             * @description 이 목록을 받은 시각
+             * @example 2026-08-23T12:00:00Z
+             */
+            at: string;
+            /** @description 공지. 최근 것부터 */
+            notices: components["schemas"]["NoticeResponse"][];
+        };
+        /** @description 거래소 공지 */
+        NoticeResponse: {
+            /**
+             * @description 공지 제목. 거래소가 쓴 그대로다
+             * @example Binance Futures Will Launch UNITREEUSDT USDⓈ-Margined Perpetual Contract
+             */
+            title: string;
+            /**
+             * Format: date-time
+             * @description 게시 시각 (UTC)
+             * @example 2026-08-23T08:10:09Z
+             */
+            at: string;
+            /**
+             * @description 원문 링크
+             * @example https://www.binance.com/support/announcement/abc123
+             */
+            url: string;
+        };
+        /**
+         * @description 예정 이벤트 목록
+         * @example {
+         *       "now": "2026-08-23T12:00:00Z",
+         *       "stale": false,
+         *       "events": [
+         *         {
+         *           "kind": "CPI",
+         *           "at": "2026-09-11T12:30:00Z",
+         *           "title": "미국 CPI (8월분)",
+         *           "importance": "HIGH",
+         *           "until": "PT456H30M",
+         *           "warning": false
+         *         },
+         *         {
+         *           "kind": "FOMC",
+         *           "at": "2026-09-16T18:00:00Z",
+         *           "title": "FOMC 금리 결정 + 경제전망(SEP)",
+         *           "importance": "HIGH",
+         *           "until": "PT582H",
+         *           "warning": false
+         *         }
+         *       ]
+         *     }
+         */
+        EventCalendarResponse: {
+            /**
+             * Format: date-time
+             * @description 이 목록을 계산한 시각
+             * @example 2026-08-23T12:00:00Z
+             */
+            now: string;
+            /**
+             * @description 일정표가 낡았는가. 참이면 사람이 스냅샷을 갱신해야 한다
+             * @example false
+             */
+            stale: boolean;
+            /** @description 아직 오지 않은 이벤트. 가까운 순서다 */
+            events: components["schemas"]["ScheduledEventResponse"][];
+        };
+        /** @description 예정된 이벤트 */
+        ScheduledEventResponse: {
+            /**
+             * @description 종류
+             * @example FOMC
+             * @enum {string}
+             */
+            kind: "FOMC" | "CPI" | "QRA" | "OTHER";
+            /**
+             * Format: date-time
+             * @description 발표 시각 (UTC)
+             * @example 2026-09-16T18:00:00Z
+             */
+            at: string;
+            /**
+             * @description 무엇이 발표되는가
+             * @example FOMC 금리 결정 + 경제전망(SEP)
+             */
+            title: string;
+            /**
+             * @description 사전 경고 대상인가
+             * @example HIGH
+             * @enum {string}
+             */
+            importance: "HIGH" | "NORMAL";
+            /**
+             * @description 지금부터 남은 시간 (ISO-8601 기간)
+             * @example PT576H
+             */
+            until: string;
+            /**
+             * @description 지금 경고할 때인가. 중요한 것이 사흘 안일 때만 참이다
+             * @example false
+             */
+            warning: boolean;
+        };
         /** @description 거래 사이의 간격 */
         IntervalsResponse: {
             /**
@@ -2710,6 +2864,64 @@ export interface operations {
                 };
             };
             /** @description AI 기능이 설정되지 않았거나, 답변이 검색되지 않은 거래를 인용했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    notices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 최근 공지. 최근 것부터 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NoticeListResponse"];
+                };
+            };
+            /** @description 거래소 공지 페이지에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 아직 오지 않은 이벤트. 가까운 순서다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EventCalendarResponse"];
+                };
+            };
+            /** @description 일정 스냅샷을 읽지 못했다 */
             503: {
                 headers: {
                     [name: string]: unknown;

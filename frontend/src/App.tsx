@@ -12,6 +12,7 @@ export function App() {
         <nav className="mt-4 flex gap-4 text-sm">
           {[
             { to: "/", label: "현황" },
+            { to: "/watch", label: "감시" },
             { to: "/plan", label: "계획" },
             { to: "/journal", label: "기록" },
             { to: "/backtest", label: "백테스트" },

@@ -97,7 +97,8 @@ public final class ArchitectureRules {
     }
 
     /**
-     * 규칙 4 — market / journal / ai / account 의 application 이 adapter 를 참조하지 않는다.
+     * 규칙 4 — market / journal / ai / account / watch 의 application 이 adapter 를 참조하지
+     * 않는다.
      *
      * <p>architecture.md: "4번과 5번이 없으면 헥사고날이 이름만 남고 계층형으로 무너진다."
      *
@@ -106,6 +107,11 @@ public final class ArchitectureRules {
      *
      * <p>{@code account} 는 그보다 더 날카롭다 — 규칙이 깨지면 <b>서명 키가 application 으로
      * 샌다.</b> 시크릿이 흐르는 코드 범위는 좁을수록 좋다.
+     *
+     * <p>{@code watch} 를 넣은 것은 그 모듈을 만들면서 실제로 어겼기 때문이다. "구현체가
+     * 하나뿐이니 포트를 두지 않는다" 는 판단으로 서비스가 스냅샷 어댑터를 직접 들게 했고,
+     * 규칙 2 와 6 이 먼저 그것을 잡았다. 규칙 4 에까지 넣는 이유는 <b>공지 어댑터가 붙으면서
+     * 같은 실수를 다시 할 자리가 생겼기</b> 때문이다.
      */
     public static ArchRule hexagonalApplicationDoesNotSeeAdapters(String root) {
         return noClasses()
@@ -113,13 +119,15 @@ public final class ArchitectureRules {
                         root + ".market.application..",
                         root + ".journal.application..",
                         root + ".ai.application..",
-                        root + ".account.application..")
+                        root + ".account.application..",
+                        root + ".watch.application..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         root + ".market.adapter..",
                         root + ".journal.adapter..",
                         root + ".ai.adapter..",
-                        root + ".account.adapter..")
-                .as("규칙 4: market / journal / ai / account 의 application 은 adapter 를 알지 못한다");
+                        root + ".account.adapter..",
+                        root + ".watch.adapter..")
+                .as("규칙 4: market / journal / ai / account / watch 의 application 은 adapter 를 알지 못한다");
     }
 
     /** 규칙 5 — backtest 는 market 의 포트만 소비하고 어댑터를 직접 참조하지 않는다. */
