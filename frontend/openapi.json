@@ -1027,6 +1027,120 @@
         }
       }
     },
+    "/api/markets/{symbol}/outliers": {
+      "get": {
+        "tags": [
+          "시장 데이터"
+        ],
+        "summary": "세 지표의 평소 대비 위치",
+        "description": "펀딩비·미결제약정·롱숏비율이 최근 표본에서 어디쯤인가.\n\n배수가 아니라 위치로 말한다 — 펀딩비는 부호가 바뀌어 배수가 무너진다.\n표본이 모자라면 `topPercent` 가 null 이다. 말할 수 없는 것을 수치로 적지\n않는다.",
+        "operationId": "outliers",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "지표별 위치",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricOutliersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "종목 표기가 올바르지 않다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "거래소에 닿지 못했다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/markets/{symbol}/orderbook": {
+      "get": {
+        "tags": [
+          "시장 데이터"
+        ],
+        "summary": "현재가와 호가",
+        "description": "지금 얼마이고 그 값에 얼마나 두껍게 쌓여 있는가. 거래소를 직접 때린다.\n\n불균형이 양수라는 것은 매수 잔량이 더 많다는 **사실**이고 방향을 뜻하지\n않는다 — 호가는 취소될 수 있고 큰 벽은 오히려 미끼인 경우가 많다.",
+        "operationId": "orderBook",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "현재가와 호가",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderBookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "종목 표기가 올바르지 않거나 호가 단수가 5 · 10 · 20 중 하나가 아니다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "거래소에 닿지 못했다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/markets/{symbol}/metrics": {
       "get": {
         "tags": [
@@ -2796,6 +2910,266 @@
           "trades",
           "winRate",
           "wins"
+        ]
+      },
+      "MetricOutlierResponse": {
+        "type": "object",
+        "description": "한 지표의 평소 대비 위치",
+        "properties": {
+          "metric": {
+            "type": "string",
+            "description": "지표 종류",
+            "enum": [
+              "FUNDING_RATE",
+              "OPEN_INTEREST",
+              "LONG_SHORT_RATIO"
+            ],
+            "example": "FUNDING_RATE"
+          },
+          "current": {
+            "type": "number",
+            "description": "지금 값. 펀딩비는 %, 미결제약정은 BTC, 롱숏비율은 무차원이다",
+            "example": 0.01
+          },
+          "topPercent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "최근 표본에서 위쪽으로부터의 비율 (%). 12 면 상위 12% 다. 표본이 모자라면 null",
+            "example": 12.0
+          },
+          "outlier": {
+            "type": "boolean",
+            "description": "양 끝 5% 안에 있는가. 위치를 모르면 거짓이다",
+            "example": false
+          },
+          "sampleCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "위치를 재는 데 쓴 표본 수",
+            "example": 90
+          }
+        },
+        "required": [
+          "current",
+          "metric",
+          "outlier",
+          "sampleCount",
+          "topPercent"
+        ]
+      },
+      "MetricOutliersResponse": {
+        "type": "object",
+        "description": "세 지표의 평소 대비 위치",
+        "example": {
+          "symbol": "BTCUSDT",
+          "at": "2026-08-23T09:00:00Z",
+          "hasOutlier": false,
+          "metrics": [
+            {
+              "metric": "FUNDING_RATE",
+              "current": 0.01,
+              "topPercent": 12.0,
+              "outlier": false,
+              "sampleCount": 90
+            },
+            {
+              "metric": "OPEN_INTEREST",
+              "current": 107134.492,
+              "topPercent": null,
+              "outlier": false,
+              "sampleCount": 3
+            }
+          ]
+        },
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "종목",
+            "example": "BTCUSDT"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "현재값을 관측한 시각",
+            "example": "2026-08-23T09:00:00Z"
+          },
+          "hasOutlier": {
+            "type": "boolean",
+            "description": "하나라도 양 끝 5% 안에 있는가",
+            "example": true
+          },
+          "metrics": {
+            "type": "array",
+            "description": "지표별 결과. 펀딩비 · 미결제약정 · 롱숏비율 순이다",
+            "items": {
+              "$ref": "#/components/schemas/MetricOutlierResponse"
+            }
+          }
+        },
+        "required": [
+          "at",
+          "hasOutlier",
+          "metrics",
+          "symbol"
+        ]
+      },
+      "OrderBookResponse": {
+        "type": "object",
+        "description": "현재가와 호가",
+        "example": {
+          "symbol": "BTCUSDT",
+          "at": "2026-08-23T09:00:00Z",
+          "last": 76567.5,
+          "change24hPercent": -1.009,
+          "high24h": 77590.6,
+          "low24h": 75588.0,
+          "volume24h": 113033.306,
+          "bestBid": 76567.4,
+          "bestAsk": 76567.5,
+          "spread": 0.1,
+          "spreadPercent": 1.0E-4,
+          "bidVolume": 22.1,
+          "askVolume": 18.4,
+          "imbalance": 0.091,
+          "bids": [
+            {
+              "price": 76567.4,
+              "quantity": 24.778
+            }
+          ],
+          "asks": [
+            {
+              "price": 76567.5,
+              "quantity": 12.029
+            }
+          ]
+        },
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "종목",
+            "example": "BTCUSDT"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "호가를 관측한 시각. 거래소가 준 값이다",
+            "example": "2026-08-23T09:00:00Z"
+          },
+          "last": {
+            "type": "number",
+            "description": "마지막 체결가",
+            "example": 76567.5
+          },
+          "change24hPercent": {
+            "type": "number",
+            "description": "24시간 변동률 (%). 음수면 하락이다",
+            "example": -1.009
+          },
+          "high24h": {
+            "type": "number",
+            "description": "24시간 최고가",
+            "example": 77590.6
+          },
+          "low24h": {
+            "type": "number",
+            "description": "24시간 최저가",
+            "example": 75588.0
+          },
+          "volume24h": {
+            "type": "number",
+            "description": "24시간 거래량 (BTC)",
+            "example": 113033.306
+          },
+          "bestBid": {
+            "type": "number",
+            "description": "최우선 매수가",
+            "example": 76567.4
+          },
+          "bestAsk": {
+            "type": "number",
+            "description": "최우선 매도가",
+            "example": 76567.5
+          },
+          "spread": {
+            "type": "number",
+            "description": "최우선 매수와 매도의 간격",
+            "example": 0.1
+          },
+          "spreadPercent": {
+            "type": "number",
+            "description": "스프레드가 최우선 매도가의 몇 %인가",
+            "example": 1.0E-4
+          },
+          "bidVolume": {
+            "type": "number",
+            "description": "매수 잔량 합 (BTC). 요청한 단수까지만 센다",
+            "example": 22.1
+          },
+          "askVolume": {
+            "type": "number",
+            "description": "매도 잔량 합 (BTC)",
+            "example": 18.4
+          },
+          "imbalance": {
+            "type": "number",
+            "description": "(매수 잔량 - 매도 잔량) / 합. 양수면 매수가 두껍다. 방향을 뜻하지 않는다 — 호가는 취소될 수 있다",
+            "example": 0.091
+          },
+          "bids": {
+            "type": "array",
+            "description": "매수 호가. 높은 값부터",
+            "items": {
+              "$ref": "#/components/schemas/PriceLevelResponse"
+            }
+          },
+          "asks": {
+            "type": "array",
+            "description": "매도 호가. 낮은 값부터",
+            "items": {
+              "$ref": "#/components/schemas/PriceLevelResponse"
+            }
+          }
+        },
+        "required": [
+          "askVolume",
+          "asks",
+          "at",
+          "bestAsk",
+          "bestBid",
+          "bidVolume",
+          "bids",
+          "change24hPercent",
+          "high24h",
+          "imbalance",
+          "last",
+          "low24h",
+          "spread",
+          "spreadPercent",
+          "symbol",
+          "volume24h"
+        ]
+      },
+      "PriceLevelResponse": {
+        "type": "object",
+        "description": "호가 한 단",
+        "properties": {
+          "price": {
+            "type": "number",
+            "description": "호가",
+            "example": 76567.4
+          },
+          "quantity": {
+            "type": "number",
+            "description": "그 가격에 걸린 수량 (BTC)",
+            "example": 24.778
+          }
+        },
+        "required": [
+          "price",
+          "quantity"
         ]
       },
       "MarketMetricsResponse": {
