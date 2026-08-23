@@ -39,7 +39,12 @@ export function EventCalendarPanel({ calendar }: { calendar: Calendar }) {
         <p className="mt-2 text-sm text-ink-2">예정된 이벤트가 없다</p>
       ) : (
         <ul className="mt-3 space-y-1.5">
-          {calendar.events.map((event) => (
+          {/*
+            서버는 가까운 순서로 준다. 화면에서 뒤집어 **먼 것부터** 놓는다 — 목록의 끝,
+            눈이 마지막으로 머무는 자리에 가장 임박한 것이 오게 하려는 배치다.
+            되돌리려면 이 `[...].reverse()` 를 빼면 된다.
+          */}
+          {[...calendar.events].reverse().map((event) => (
             <li key={`${event.kind}-${event.at}`}>
               <Row event={event} />
             </li>

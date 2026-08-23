@@ -27,15 +27,48 @@ const BOOK: components["schemas"]["OrderBookResponse"] = {
   asks: [{ price: 76567.5, quantity: 12.029 }],
 };
 
+/** 표본은 스파크라인이 그려지도록 두 개 이상 둔다. */
+const 표본 = (from: number, step: number) =>
+  Array.from({ length: 6 }, (_, index) => from + step * index);
+
+const 지표 = (
+  metric: components["schemas"]["MetricOutlierResponse"]["metric"],
+  current: number,
+  topPercent: number | null,
+  outlier: boolean,
+  change: number | null,
+  samples: number[],
+): components["schemas"]["MetricOutlierResponse"] => ({
+  metric,
+  current,
+  topPercent,
+  outlier,
+  sampleCount: samples.length,
+  change,
+  changeWindow: 6,
+  samples,
+});
+
 const OUTLIERS: components["schemas"]["MetricOutliersResponse"] = {
   symbol: "BTCUSDT",
   at: "2026-08-23T09:00:00Z",
   hasOutlier: true,
+  price: 지표("PRICE", 76567.5, null, false, 0.011, 표본(76000, 100)),
+  situations: ["미결제약정이 줄면서 가격이 올랐다 — 새로 들어온 돈이 아니라 포지션이 정리되며 만들어진 움직임이다"],
   metrics: [
-    { metric: "FUNDING_RATE", current: 0.01, topPercent: 7.22, outlier: false, sampleCount: 90 },
-    { metric: "OPEN_INTEREST", current: 106613.964, topPercent: 0, outlier: true, sampleCount: 30 },
-    // 표본이 모자라 위치를 말할 수 없는 경우. 이 화면에서 유일하게 null 이 오는 자리다.
-    { metric: "LONG_SHORT_RATIO", current: 1.0396, topPercent: null, outlier: false, sampleCount: 3 },
+    지표("FUNDING_RATE", 0.01, 7.22, false, 0.002, 표본(0.008, 0.0004)),
+    지표("OPEN_INTEREST", 106613.964, 0, true, -0.032, 표본(110000, -700)),
+    // 표본이 모자라 위치를 말할 수 없는 경우. 이 화면에서 null 이 오는 자리다.
+    지표("LONG_SHORT_RATIO", 1.0396, null, false, null, [1.03, 1.04]),
+    지표("TAKER_RATIO", 1.1866, 44.1, false, 0.05, 표본(1.1, 0.02)),
+    지표("TOP_POSITION_RATIO", 1.4, 12.5, false, -0.01, 표본(1.45, -0.01)),
+  ],
+};
+
+const MACRO: components["schemas"]["MacroQuoteListResponse"] = {
+  quotes: [
+    { symbol: "QQQUSDT", label: "나스닥 100", last: 612.34, change24hPercent: 0.84 },
+    { symbol: "XAUUSDT", label: "금", last: 2410.5, change24hPercent: -0.31 },
   ],
 };
 
@@ -68,6 +101,7 @@ const NOTICES: components["schemas"]["NoticeListResponse"] = {
 const 전부성공 = [
   http.get(origin + "/api/markets/BTCUSDT/orderbook", () => HttpResponse.json(BOOK)),
   http.get(origin + "/api/markets/BTCUSDT/outliers", () => HttpResponse.json(OUTLIERS)),
+  http.get(origin + "/api/markets/macro", () => HttpResponse.json(MACRO)),
   http.get(origin + "/api/watch/events", () => HttpResponse.json(CALENDAR)),
   http.get(origin + "/api/watch/notices", () => HttpResponse.json(NOTICES)),
 ];
@@ -88,6 +122,26 @@ describe("감시", () => {
     expect(await screen.findByText("평소와 다른가")).toBeVisible();
     expect(await screen.findByText(/국채 바이백 규모/)).toBeVisible();
     expect(await screen.findByText(/UNITREEUSDT/)).toBeVisible();
+    expect(await screen.findByText("나스닥 100")).toBeVisible();
+  });
+
+  /**
+   * <b>상황 문장은 비어 있는 것이 정상이다.</b> 조건이 맞을 때만 뜨고, 문장은 일어난 일까지만
+   * 적는다 — 무엇을 하라고 말하지 않는다.
+   */
+  it("조건이 맞으면 상황을 문장으로 말한다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    expect(await screen.findByText(/포지션이 정리되며 만들어진 움직임/)).toBeVisible();
+  });
+
+  it("거시 자산을 못 읽은 개수를 말한다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    // 다섯 중 둘만 왔다 — 원래 둘인 줄 알게 두지 않는다.
+    expect(await screen.findByText("3종목을 못 읽었다")).toBeVisible();
   });
 
   /**
@@ -100,8 +154,10 @@ describe("감시", () => {
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
-    expect(within(블록).getByText("표본 3개 — 아직 말할 수 없다")).toBeVisible();
+    expect(within(블록).getByText("표본 2개 — 위치를 아직 말할 수 없다")).toBeVisible();
     expect(within(블록).getByText("상위 7.2200%")).toBeVisible();
+    // 변화를 말할 수 없는 것과 0 은 다른 사실이다.
+    expect(within(블록).getByText("변화를 말할 수 없다")).toBeVisible();
   });
 
   /**

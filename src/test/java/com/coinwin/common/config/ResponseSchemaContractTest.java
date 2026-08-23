@@ -50,6 +50,9 @@ class ResponseSchemaContractTest {
      * <p>{@code liquidationPrice} 는 거래소가 청산 지점을 말할 수 없을 때 비어 있다. 0 으로
      * 채우면 화면이 "곧 청산된다" 로 읽는다 — {@code profitFactor} 와 같은 규칙이다.
      *
+     * <p>{@code change} 는 표본이 창보다 적거나 0 에서 출발했을 때 비어 있다 — 0 으로 나눈
+     * 비율을 큰 수로 적으면 화면이 그것을 급변으로 읽는다.
+     *
      * <p>{@code topPercent} 는 표본이 모자라 위치를 잴 수 없을 때 비어 있다. "표본 3개 중 상위
      * 33%" 는 수치의 모양만 갖춘 거짓말이다 — 같은 규칙의 세 번째 자리다.
      */
@@ -58,7 +61,7 @@ class ResponseSchemaContractTest {
             "TradeResponse", List.of("entry", "outcome"),
             "PositionMatchResponse", List.of("recorded", "actual"),
             "ExchangeSideResponse", List.of("liquidationPrice"),
-            "MetricOutlierResponse", List.of("topPercent"));
+            "MetricOutlierResponse", List.of("topPercent", "change"));
 
     @Autowired
     private WebApplicationContext context;

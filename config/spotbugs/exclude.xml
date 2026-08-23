@@ -103,4 +103,11 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!-- 같은 이유 — 거시 시세 어댑터. RestClient 는 불변이고 스레드 안전하다. -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.binance.BinanceMacroQuoteAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

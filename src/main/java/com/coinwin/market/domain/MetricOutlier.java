@@ -2,6 +2,7 @@ package com.coinwin.market.domain;
 
 import com.coinwin.common.domain.DomainValues;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -12,13 +13,18 @@ import java.util.Optional;
  * 아니다</b> — 모른다는 이유로 경고를 띄우면 그 경고는 곧 배경이 된다.
  */
 public record MetricOutlier(
-        MetricKind kind, BigDecimal current, Optional<Percentile> position, int sampleCount) {
+        MetricKind kind,
+        BigDecimal current,
+        Optional<Percentile> position,
+        Optional<BigDecimal> change,
+        List<BigDecimal> samples) {
 
     public MetricOutlier {
         DomainValues.required(kind, "지표");
         DomainValues.required(current, "현재값");
         DomainValues.required(position, "표본 내 위치");
-        DomainValues.atLeast(sampleCount, 0, "표본 수");
+        DomainValues.required(change, "변화");
+        samples = List.copyOf(DomainValues.required(samples, "표본"));
     }
 
     /** 표본에서 현재값의 위치를 재어 만든다. 표본이 모자라면 위치가 비어 있다. */
@@ -29,7 +35,12 @@ public record MetricOutlier(
                 kind,
                 current,
                 history.positionOf(current, kind.minimumSamples()),
-                history.sampleCount());
+                history.changeOver(kind.recentWindow(), kind.change()),
+                history.samples());
+    }
+
+    public int sampleCount() {
+        return samples.size();
     }
 
     public boolean isOutlier() {

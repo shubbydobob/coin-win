@@ -520,6 +520,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/markets/macro": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 거시 자산 시세
+         * @description 나스닥 · 금 · 원유 · 국채 · 변동성. 전부 바이낸스에 상장된 TradFi
+         *     무기한이라 BTC 와 **같은 시계 · 같은 형식**이다.
+         *
+         *     **상관관계를 계산하지 않는다.** "나스닥이 오르니 BTC 도 오른다" 는 예측이고
+         *     이 프로젝트가 답하지 않기로 한 질문이다. 나란히 놓는 데까지만 한다.
+         *
+         *     못 읽은 종목은 목록에서 빠진다 — 하나가 나머지를 막지 않는다.
+         */
+        get: operations["macro"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/account/positions": {
         parameters: {
             query?: never;
@@ -1842,7 +1868,7 @@ export interface components {
              * @example FUNDING_RATE
              * @enum {string}
              */
-            metric: "FUNDING_RATE" | "OPEN_INTEREST" | "LONG_SHORT_RATIO";
+            metric: "FUNDING_RATE" | "OPEN_INTEREST" | "LONG_SHORT_RATIO" | "TAKER_RATIO" | "TOP_POSITION_RATIO" | "PRICE";
             /**
              * @description 지금 값. 펀딩비는 %, 미결제약정은 BTC, 롱숏비율은 무차원이다
              * @example 0.01
@@ -1864,6 +1890,19 @@ export interface components {
              * @example 90
              */
             sampleCount: number;
+            /**
+             * @description 정해진 창에서의 변화. 대부분 비율(0.032 = 3.2% 증가)이고 펀딩비만 차이(%p)다 — 부호가 바뀌는 값에서 비율이 무너지기 때문이다. 표본이 창보다 적거나 0 에서 출발했으면 null
+             * @example -0.032
+             */
+            change: number | null;
+            /**
+             * Format: int32
+             * @description 변화를 잰 창의 길이(표본 개수). 지표마다 다르다
+             * @example 6
+             */
+            changeWindow: number;
+            /** @description 표본 시계열. 화면이 스파크라인을 그리는 데 쓴다. 위치와 변화율만으로는 서서히인가 급격한가가 사라진다 */
+            samples: number[];
         };
         /**
          * @description 세 지표의 평소 대비 위치
@@ -1906,8 +1945,12 @@ export interface components {
              * @example true
              */
             hasOutlier: boolean;
-            /** @description 지표별 결과. 펀딩비 · 미결제약정 · 롱숏비율 순이다 */
+            /** @description 지표별 결과. 펀딩비 · 미결제약정 · 롱숏비율 · 테이커 · 상위계정 순이다 */
             metrics: components["schemas"]["MetricOutlierResponse"][];
+            /** @description 같은 창의 가격. **지표가 아니라 기준선이다** — 미결제약정 −3.2% 는 가격 +1.1% 옆에서만 뜻이 된다 */
+            price: components["schemas"]["MetricOutlierResponse"];
+            /** @description 지금 기계적으로 성립하는 사실들. **비어 있는 것이 정상이다.** 무엇을 하라고 말하지 않고 방향도 말하지 않는다 */
+            situations: string[];
         };
         /**
          * @description 현재가와 호가
@@ -2147,6 +2190,34 @@ export interface components {
             count: number;
             /** @description 캔들 목록 */
             candles: components["schemas"]["CandleResponse"][];
+        };
+        /** @description 거시 자산 시세 목록 */
+        MacroQuoteListResponse: {
+            /** @description 위험자산 · 안전자산 · 원자재 · 금리 · 공포 순이다 */
+            quotes: components["schemas"]["MacroQuoteResponse"][];
+        };
+        /** @description 거시 자산 시세 */
+        MacroQuoteResponse: {
+            /**
+             * @description 바이낸스 심볼
+             * @example QQQUSDT
+             */
+            symbol: string;
+            /**
+             * @description 사람이 읽는 이름
+             * @example 나스닥 100
+             */
+            label: string;
+            /**
+             * @description 현재가 (USDT)
+             * @example 612.34
+             */
+            last: number;
+            /**
+             * @description 24시간 변동률 (%). 음수면 하락이다
+             * @example 0.84
+             */
+            change24hPercent: number;
         };
         /** @description 거래소가 말하는 지금 이 순간의 포지션 */
         ExchangeSideResponse: {
@@ -3191,6 +3262,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    macro: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 거시 자산 시세. 못 읽은 것은 빠진다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MacroQuoteListResponse"];
                 };
             };
         };

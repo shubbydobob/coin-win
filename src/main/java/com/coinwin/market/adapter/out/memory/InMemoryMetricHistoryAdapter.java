@@ -23,6 +23,9 @@ public class InMemoryMetricHistoryAdapter implements LoadMetricHistoryPort {
     private final Map<Symbol, MetricHistory> funding = new ConcurrentHashMap<>();
     private final Map<Symbol, MetricHistory> openInterest = new ConcurrentHashMap<>();
     private final Map<Symbol, MetricHistory> longShort = new ConcurrentHashMap<>();
+    private final Map<Symbol, MetricHistory> taker = new ConcurrentHashMap<>();
+    private final Map<Symbol, MetricHistory> topPosition = new ConcurrentHashMap<>();
+    private final Map<Symbol, MetricHistory> prices = new ConcurrentHashMap<>();
 
     public static InMemoryMetricHistoryAdapter withSample(Symbol symbol) {
         InMemoryMetricHistoryAdapter adapter = new InMemoryMetricHistoryAdapter();
@@ -30,6 +33,9 @@ public class InMemoryMetricHistoryAdapter implements LoadMetricHistoryPort {
         adapter.funding.put(symbol, series(90, index -> index % 2 == 0 ? "0.0001" : "0.000" + (index % 9 + 1)));
         adapter.openInterest.put(symbol, series(30, index -> String.valueOf(107000 + index)));
         adapter.longShort.put(symbol, series(30, index -> "0.9" + (index % 10)));
+        adapter.taker.put(symbol, series(30, index -> "1.0" + (index % 10)));
+        adapter.topPosition.put(symbol, series(30, index -> "1.1" + (index % 10)));
+        adapter.prices.put(symbol, series(30, index -> String.valueOf(76000 + index * 10)));
         return adapter;
     }
 
@@ -50,6 +56,25 @@ public class InMemoryMetricHistoryAdapter implements LoadMetricHistoryPort {
     @Override
     public MetricHistory longShortRatios(Symbol symbol, int limit) {
         return limited(longShort, symbol, limit, "롱숏비율 이력");
+    }
+
+    @Override
+    public MetricHistory takerRatios(Symbol symbol, int limit) {
+        return limited(taker, symbol, limit, "테이커 비율 이력");
+    }
+
+    @Override
+    public MetricHistory topPositionRatios(Symbol symbol, int limit) {
+        return limited(topPosition, symbol, limit, "상위 계정 롱숏비 이력");
+    }
+
+    @Override
+    public MetricHistory prices(Symbol symbol, int limit) {
+        return limited(prices, symbol, limit, "가격 이력");
+    }
+
+    public void putPrices(Symbol symbol, MetricHistory history) {
+        prices.put(symbol, history);
     }
 
     /** <b>뒤에서부터</b> 자른다. 이력에서 필요한 것은 언제나 최근이다. */

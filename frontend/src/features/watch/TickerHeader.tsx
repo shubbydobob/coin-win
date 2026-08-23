@@ -44,8 +44,20 @@ export function TickerHeader({
         </div>
       </div>
 
-      {/* 최고·최저를 숫자로만 두면 지금이 그 사이 어디인지가 안 보인다. */}
+      {/*
+        최고·최저를 숫자로만 두면 지금이 그 사이 어디인지가 안 보인다. 꼭대기에 붙어 있는
+        것과 바닥에 붙어 있는 것은 같은 숫자 셋으로 표현되지만 전혀 다른 상황이다.
+
+        **거래량을 이 축에서 뺐다.** 좌우가 최저·최고이므로 가운데에 놓인 수는 중간값처럼
+        읽힌다 — 거래량은 이 축과 아무 관계가 없는데 축 위에 앉아 있었다.
+      */}
       <div className="mt-3 space-y-1">
+        <div className="flex items-baseline justify-between text-xs text-ink-3">
+          <span>24시간 범위</span>
+          <span className="tabular-nums">
+            거래량 {quantity(book.volume24h)} BTC
+          </span>
+        </div>
         <RangeMeter
           low={book.low24h}
           high={book.high24h}
@@ -54,7 +66,6 @@ export function TickerHeader({
         />
         <div className="flex justify-between text-xs tabular-nums text-ink-3">
           <span>{price(book.low24h)}</span>
-          <span>24시간 거래량 {quantity(book.volume24h)} BTC</span>
           <span>{price(book.high24h)}</span>
         </div>
       </div>
