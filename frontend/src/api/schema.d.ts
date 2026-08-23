@@ -326,6 +326,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/watch/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 거래소 공지
+         * @description 바이낸스가 최근에 낸 공지. 제목과 시각과 링크뿐이고 분류하지 않는다.
+         *
+         *     **매크로 뉴스가 아니다** — 상장 · 상장폐지 · 점검 같은 거래소 자체 소식이다.
+         *     재무부 발표 같은 것은 여기 걸리지 않고 `/events` 가 담당한다.
+         */
+        get: operations["notices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/watch/events": {
         parameters: {
             query?: never;
@@ -1615,6 +1638,36 @@ export interface components {
             /** @description 색인된 문장. 모델이 본 것도 이것이다 */
             summary: string;
         };
+        /** @description 최근 거래소 공지 */
+        NoticeListResponse: {
+            /**
+             * Format: date-time
+             * @description 이 목록을 받은 시각
+             * @example 2026-08-23T12:00:00Z
+             */
+            at: string;
+            /** @description 공지. 최근 것부터 */
+            notices: components["schemas"]["NoticeResponse"][];
+        };
+        /** @description 거래소 공지 */
+        NoticeResponse: {
+            /**
+             * @description 공지 제목. 거래소가 쓴 그대로다
+             * @example Binance Futures Will Launch UNITREEUSDT USDⓈ-Margined Perpetual Contract
+             */
+            title: string;
+            /**
+             * Format: date-time
+             * @description 게시 시각 (UTC)
+             * @example 2026-08-23T08:10:09Z
+             */
+            at: string;
+            /**
+             * @description 원문 링크
+             * @example https://www.binance.com/support/announcement/abc123
+             */
+            url: string;
+        };
         /**
          * @description 예정 이벤트 목록
          * @example {
@@ -2811,6 +2864,35 @@ export interface operations {
                 };
             };
             /** @description AI 기능이 설정되지 않았거나, 답변이 검색되지 않은 거래를 인용했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    notices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 최근 공지. 최근 것부터 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NoticeListResponse"];
+                };
+            };
+            /** @description 거래소 공지 페이지에 닿지 못했다 */
             503: {
                 headers: {
                     [name: string]: unknown;

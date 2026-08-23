@@ -1,6 +1,7 @@
 package com.coinwin.watch.adapter.in.web;
 
 import com.coinwin.watch.application.port.in.LoadCalendarUseCase;
+import com.coinwin.watch.application.port.in.LoadNoticesUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -22,10 +23,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class WatchController {
 
     private final LoadCalendarUseCase loadCalendar;
+    private final LoadNoticesUseCase loadNotices;
     private final Clock clock;
 
-    public WatchController(LoadCalendarUseCase loadCalendar, Clock clock) {
+    public WatchController(
+            LoadCalendarUseCase loadCalendar, LoadNoticesUseCase loadNotices, Clock clock) {
         this.loadCalendar = loadCalendar;
+        this.loadNotices = loadNotices;
         this.clock = clock;
     }
 
@@ -45,5 +49,21 @@ public class WatchController {
     @GetMapping("/events")
     public EventCalendarResponse events() {
         return EventCalendarResponse.from(loadCalendar.calendar(), clock.instant());
+    }
+
+    @Operation(
+            summary = "거래소 공지",
+            description = """
+                    바이낸스가 최근에 낸 공지. 제목과 시각과 링크뿐이고 분류하지 않는다.
+
+                    **매크로 뉴스가 아니다** — 상장 · 상장폐지 · 점검 같은 거래소 자체 소식이다.
+                    재무부 발표 같은 것은 여기 걸리지 않고 `/events` 가 담당한다.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "최근 공지. 최근 것부터"),
+        @ApiResponse(responseCode = "503", description = "거래소 공지 페이지에 닿지 못했다")
+    })
+    @GetMapping("/notices")
+    public NoticeListResponse notices() {
+        return NoticeListResponse.from(loadNotices.recent(), clock.instant());
     }
 }

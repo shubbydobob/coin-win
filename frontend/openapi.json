@@ -868,6 +868,38 @@
         }
       }
     },
+    "/api/watch/notices": {
+      "get": {
+        "tags": [
+          "감시"
+        ],
+        "summary": "거래소 공지",
+        "description": "바이낸스가 최근에 낸 공지. 제목과 시각과 링크뿐이고 분류하지 않는다.\n\n**매크로 뉴스가 아니다** — 상장 · 상장폐지 · 점검 같은 거래소 자체 소식이다.\n재무부 발표 같은 것은 여기 걸리지 않고 `/events` 가 담당한다.",
+        "operationId": "notices",
+        "responses": {
+          "200": {
+            "description": "최근 공지. 최근 것부터",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoticeListResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "거래소 공지 페이지에 닿지 못했다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/watch/events": {
       "get": {
         "tags": [
@@ -2817,6 +2849,56 @@
           "score",
           "summary",
           "tradeId"
+        ]
+      },
+      "NoticeListResponse": {
+        "type": "object",
+        "description": "최근 거래소 공지",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "이 목록을 받은 시각",
+            "example": "2026-08-23T12:00:00Z"
+          },
+          "notices": {
+            "type": "array",
+            "description": "공지. 최근 것부터",
+            "items": {
+              "$ref": "#/components/schemas/NoticeResponse"
+            }
+          }
+        },
+        "required": [
+          "at",
+          "notices"
+        ]
+      },
+      "NoticeResponse": {
+        "type": "object",
+        "description": "거래소 공지",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "공지 제목. 거래소가 쓴 그대로다",
+            "example": "Binance Futures Will Launch UNITREEUSDT USDⓈ-Margined Perpetual Contract"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "게시 시각 (UTC)",
+            "example": "2026-08-23T08:10:09Z"
+          },
+          "url": {
+            "type": "string",
+            "description": "원문 링크",
+            "example": "https://www.binance.com/support/announcement/abc123"
+          }
+        },
+        "required": [
+          "at",
+          "title",
+          "url"
         ]
       },
       "EventCalendarResponse": {

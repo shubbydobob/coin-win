@@ -75,3 +75,9 @@ coinwin:
       max-candles-per-request: 1500
       connect-timeout: 3s
       read-timeout: 10s
+  watch:
+    binance:
+      # 공지는 시세와 호스트가 다르다. 그리고 이것은 문서화된 공개 API 가 아니라
+      # 바이낸스 웹사이트가 쓰는 것이라 예고 없이 바뀔 수 있다 — 그래서 이 블록의 실패가
+      # 다른 블록을 죽이지 않도록 엔드포인트를 따로 두었다.
+      base-url: ${COINWIN_BINANCE_CMS_URL:https://www.binance.com}

@@ -96,4 +96,11 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!-- 같은 이유 — 공지 어댑터. RestClient 는 불변이고 스레드 안전하다. -->
+  <Match>
+    <Class name="com.coinwin.watch.adapter.out.binance.BinanceNoticeAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>
