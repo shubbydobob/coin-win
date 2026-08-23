@@ -25,6 +25,18 @@ public record Quantity(BigDecimal value) {
     }
 
     /**
+     * 두 수량의 합.
+     *
+     * <p>호가 20단의 잔량을 더하는 자리에서 필요해졌다. {@code ExecutedEntries} 는 자기
+     * {@link BigDecimal} 합을 따로 갖는데, 그쪽은 그 값을 가중평균의 <b>분모로도</b> 쓰기
+     * 때문이다. 스케일 8 로 정규화한 뒤 나누면 평단이 어긋난다.
+     */
+    public Quantity plus(Quantity other) {
+        DomainValues.required(other, LABEL);
+        return Quantity.of(value.add(other.value));
+    }
+
+    /**
      * 총액 = 수량 × 단가.
      *
      * <p>명목가({@code 수량 × 평단})와 최대손실({@code 수량 × 1단위당 손실})이 같은 형태다.
