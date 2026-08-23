@@ -21,6 +21,10 @@
       "description": "계획을 남기고 체결·청산을 기록해 계획 준수 여부별로 집계한다"
     },
     {
+      "name": "감시",
+      "description": "예정 이벤트와 거래소 공고"
+    },
+    {
       "name": "복리 시뮬레이션",
       "description": "같은 규칙을 반복했을 때 자산이 지나가는 경로와 그 분포"
     },
@@ -853,6 +857,38 @@
           },
           "503": {
             "description": "AI 기능이 설정되지 않았거나, 답변이 검색되지 않은 거래를 인용했다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/watch/events": {
+      "get": {
+        "tags": [
+          "감시"
+        ],
+        "summary": "예정 이벤트",
+        "description": "FOMC · CPI · 재무부 자금조달계획까지 남은 시간.\n\n경고(`warning`)는 **규모**에 대한 것이다 — \"그날은 명목을 줄여라\" 이지\n\"오를 것이다\" 가 아니다. 방향은 이 프로젝트가 말하지 않는다.\n\n`stale` 이 참이면 커밋된 일정표가 낡은 것이므로 이 목록을 믿으면 안 된다.",
+        "operationId": "events",
+        "responses": {
+          "200": {
+            "description": "아직 오지 않은 이벤트. 가까운 순서다",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventCalendarResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일정 스냅샷을 읽지 못했다",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2781,6 +2817,112 @@
           "score",
           "summary",
           "tradeId"
+        ]
+      },
+      "EventCalendarResponse": {
+        "type": "object",
+        "description": "예정 이벤트 목록",
+        "example": {
+          "now": "2026-08-23T12:00:00Z",
+          "stale": false,
+          "events": [
+            {
+              "kind": "CPI",
+              "at": "2026-09-11T12:30:00Z",
+              "title": "미국 CPI (8월분)",
+              "importance": "HIGH",
+              "until": "PT456H30M",
+              "warning": false
+            },
+            {
+              "kind": "FOMC",
+              "at": "2026-09-16T18:00:00Z",
+              "title": "FOMC 금리 결정 + 경제전망(SEP)",
+              "importance": "HIGH",
+              "until": "PT582H",
+              "warning": false
+            }
+          ]
+        },
+        "properties": {
+          "now": {
+            "type": "string",
+            "format": "date-time",
+            "description": "이 목록을 계산한 시각",
+            "example": "2026-08-23T12:00:00Z"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "일정표가 낡았는가. 참이면 사람이 스냅샷을 갱신해야 한다",
+            "example": false
+          },
+          "events": {
+            "type": "array",
+            "description": "아직 오지 않은 이벤트. 가까운 순서다",
+            "items": {
+              "$ref": "#/components/schemas/ScheduledEventResponse"
+            }
+          }
+        },
+        "required": [
+          "events",
+          "now",
+          "stale"
+        ]
+      },
+      "ScheduledEventResponse": {
+        "type": "object",
+        "description": "예정된 이벤트",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "종류",
+            "enum": [
+              "FOMC",
+              "CPI",
+              "QRA",
+              "OTHER"
+            ],
+            "example": "FOMC"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "발표 시각 (UTC)",
+            "example": "2026-09-16T18:00:00Z"
+          },
+          "title": {
+            "type": "string",
+            "description": "무엇이 발표되는가",
+            "example": "FOMC 금리 결정 + 경제전망(SEP)"
+          },
+          "importance": {
+            "type": "string",
+            "description": "사전 경고 대상인가",
+            "enum": [
+              "HIGH",
+              "NORMAL"
+            ],
+            "example": "HIGH"
+          },
+          "until": {
+            "type": "string",
+            "description": "지금부터 남은 시간 (ISO-8601 기간)",
+            "example": "PT576H"
+          },
+          "warning": {
+            "type": "boolean",
+            "description": "지금 경고할 때인가. 중요한 것이 사흘 안일 때만 참이다",
+            "example": false
+          }
+        },
+        "required": [
+          "at",
+          "importance",
+          "kind",
+          "title",
+          "until",
+          "warning"
         ]
       },
       "IntervalsResponse": {
