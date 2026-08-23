@@ -15,6 +15,9 @@ import java.util.Optional;
  * <p>평단·청산가는 {@code JournalFixtures} 의 시나리오와 맞춘다 — 롱 평단 59500, 숏 평단
  * 60500. 대조 테스트가 보는 것은 방향과 수량이지만, 두 픽스처의 숫자가 어긋나 있으면 화면을
  * 손으로 확인할 때 무엇이 이상한지 판단할 기준이 없어진다.
+ *
+ * <p>표시가는 양쪽 다 60000 이다 — 롱은 이기고 있고 숏은 지고 있는 상태이며, 미실현 손익의
+ * 부호가 그것과 어긋나지 않는다.
  */
 public final class AccountFixtures {
 
@@ -26,15 +29,15 @@ public final class AccountFixtures {
     /** 롱 포지션. 평단 59500 — 기록 픽스처의 2분할 평단과 같다. */
     public static ExchangePosition longPosition(String quantity, Instant observedAt) {
         return new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
-                Quantity.of(quantity), Price.of("59500"), Optional.of(Price.of("53765.06")),
-                Money.of("12.40"), observedAt);
+                Quantity.of(quantity), Price.of("59500"), Price.of("60000"),
+                Optional.of(Price.of("53765.06")), Money.of("12.40"), observedAt);
     }
 
     /** 숏 포지션. 평단 60500 — 기록 픽스처의 숏 2분할 평단과 같다. */
     public static ExchangePosition shortPosition(String quantity, Instant observedAt) {
         return new ExchangePosition(Symbol.BTC_USDT, Direction.SHORT,
-                Quantity.of(quantity), Price.of("60500"), Optional.of(Price.of("66043.21")),
-                Money.of("-8.10"), observedAt);
+                Quantity.of(quantity), Price.of("60500"), Price.of("60000"),
+                Optional.of(Price.of("66043.21")), Money.of("-8.10"), observedAt);
     }
 
     public static ExchangePosition longPosition(String quantity) {

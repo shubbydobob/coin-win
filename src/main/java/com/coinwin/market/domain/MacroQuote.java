@@ -17,14 +17,21 @@ import java.math.BigDecimal;
  * 사람이다.
  *
  * @param label 사람이 읽는 이름. 심볼({@code QQQUSDT})만으로는 그것이 나스닥인지 알 수 없다
+ * @param group 어느 묶음인가. <b>열둘을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다</b>
  */
-public record MacroQuote(Symbol symbol, String label, Price last, BigDecimal change24hPercent) {
+public record MacroQuote(
+        Symbol symbol,
+        String label,
+        MacroWatchlist.Group group,
+        Price last,
+        BigDecimal change24hPercent) {
 
     private static final int PERCENT_SCALE = 6;
 
     public MacroQuote {
         DomainValues.required(symbol, "종목");
         DomainValues.required(label, "이름");
+        DomainValues.required(group, "묶음");
         DomainValues.required(last, "현재가");
         change24hPercent = DomainValues.scaled(change24hPercent, PERCENT_SCALE, "24시간 변동률");
     }

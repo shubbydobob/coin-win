@@ -49,6 +49,7 @@ class ResponseSchemaContractTest {
      *
      * <p>{@code liquidationPrice} 는 거래소가 청산 지점을 말할 수 없을 때 비어 있다. 0 으로
      * 채우면 화면이 "곧 청산된다" 로 읽는다 — {@code profitFactor} 와 같은 규칙이다.
+     * {@code liquidationDistancePercent} 는 그 값에서 파생되므로 <b>정확히 같은 때</b> 빈다.
      *
      * <p>{@code change} 는 표본이 창보다 적거나 0 에서 출발했을 때 비어 있다 — 0 으로 나눈
      * 비율을 큰 수로 적으면 화면이 그것을 급변으로 읽는다.
@@ -64,7 +65,7 @@ class ResponseSchemaContractTest {
             "SummaryResponse", List.of("profitFactor"),
             "TradeResponse", List.of("entry", "outcome"),
             "PositionMatchResponse", List.of("recorded", "actual"),
-            "ExchangeSideResponse", List.of("liquidationPrice"),
+            "ExchangeSideResponse", List.of("liquidationPrice", "liquidationDistancePercent"),
             "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"));
 
     @Autowired

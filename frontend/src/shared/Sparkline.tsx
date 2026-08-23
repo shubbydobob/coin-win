@@ -1,3 +1,5 @@
+import { TEXT_TONE, type Tone } from "./tone";
+
 /**
  * 표본 시계열을 작은 선으로.
  *
@@ -6,14 +8,19 @@
  *
  * **숫자를 만들지 않는다.** 좌표는 서버가 준 표본에서 나오고 사람이 읽는 수는 언제나 옆에
  * 있다 — 이 선만 보고 값을 읽어 내지 않는다(`docs/adr/020`).
+ *
+ * **색은 오르내림이 아니라 뜻을 담는다.** 처음에는 오르면 초록·내리면 빨강이었는데 그것은
+ * 아무것도 말하지 않았다 — 선의 모양이 이미 오른 것을 보여 주기 때문이다. 게다가 그 두 색은
+ * 매매에서 "좋다/나쁘다" 로 읽히는데 **미결제약정이 오르는 것이 좋은 일인지는 아무도 모른다.**
+ * 지금은 `tone` 이 진영을 담는다(`shared/tone`).
  */
 export function Sparkline({
   samples,
-  rising,
+  tone = "none",
   label,
 }: {
   samples: readonly number[];
-  rising: boolean | null;
+  tone?: Tone;
   label: string;
 }) {
   if (samples.length < 2) {
@@ -30,13 +37,11 @@ export function Sparkline({
     return `${x},${y}`;
   });
 
-  const 색 = rising === null ? "text-ink-4" : rising ? "text-up" : "text-down";
-
   return (
     <svg
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
-      className={`h-6 w-full ${색}`}
+      className={`h-6 w-full ${TEXT_TONE[tone]}`}
       role="img"
       aria-label={label}
     >

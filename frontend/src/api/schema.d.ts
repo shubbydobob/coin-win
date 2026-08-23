@@ -2222,8 +2222,15 @@ export interface components {
         };
         /** @description 거시 자산 시세 목록 */
         MacroQuoteListResponse: {
-            /** @description 위험자산 · 안전자산 · 원자재 · 금리 · 공포 순이다 */
+            /** @description 주가 · 금속 · 에너지 · 국채 · 공포 순이다 */
             quotes: components["schemas"]["MacroQuoteResponse"][];
+            /**
+             * Format: int32
+             * @description 물어본 종목 수. quotes 보다 크면 그 차이만큼 못 읽은 것이다 —
+             *     화면이 이 수를 스스로 알면 관심 목록이 늘어난 날 거짓말이 된다.
+             * @example 12
+             */
+            requested: number;
         };
         /** @description 거시 자산 시세 */
         MacroQuoteResponse: {
@@ -2233,10 +2240,23 @@ export interface components {
              */
             symbol: string;
             /**
-             * @description 사람이 읽는 이름
+             * @description 사람이 읽는 이름. **레버리지 상품은 배수를 이름에 적는다** —
+             *     배수를 숨기면 '미 장기국채 +0.4%' 가 국채가 0.4% 움직였다는 뜻으로 읽히는데
+             *     실제로는 그 3분의 1이다.
              * @example 나스닥 100
              */
             label: string;
+            /**
+             * @description 어느 묶음인가. 열두 종목을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다.
+             * @example EQUITY
+             * @enum {string}
+             */
+            group: "EQUITY" | "METAL" | "ENERGY" | "RATES" | "FEAR";
+            /**
+             * @description 묶음의 사람이 읽는 이름
+             * @example 주가
+             */
+            groupLabel: string;
             /**
              * @description 현재가 (USDT)
              * @example 612.34
@@ -2261,6 +2281,12 @@ export interface components {
              */
             entryPrice: number;
             /**
+             * @description 거래소의 표시가. 청산이 트리거되고 미실현 손익이 계산되는 값이다.
+             *     호가의 마지막 체결가와 다를 수 있고, 청산까지의 거리는 이것이 기준이다.
+             * @example 60120
+             */
+            markPrice: number;
+            /**
              * @description 보유 수량. 언제나 양수이고 방향은 따로 있다
              * @example 0.1
              */
@@ -2271,6 +2297,19 @@ export interface components {
              * @example 53765.06
              */
             liquidationPrice: number | null;
+            /**
+             * @description 표시가에서 청산가까지의 거리(%). 방향은 붙지 않는다 —
+             *     롱이면 아래, 숏이면 위이고 그 방향은 direction 이 이미 말한다.
+             *     거래소가 청산 지점을 말할 수 없으면 null 이다.
+             * @example 8.656
+             */
+            liquidationDistancePercent: number | null;
+            /**
+             * @description 명목(USDT). 표시가 × 수량이다. **수량이 아니라 이것이 위험의 크기다** —
+             *     0.13 BTC 라는 수는 얼마를 걸었는지를 말해 주지 않는다.
+             * @example 6012
+             */
+            notional: number;
             /**
              * @description 미실현 손익. 기록에는 없는 값이다 — 매 순간 달라지므로 기록의 대상이 아니다
              * @example 12.4

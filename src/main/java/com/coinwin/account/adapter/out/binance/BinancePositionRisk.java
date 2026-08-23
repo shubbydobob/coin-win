@@ -23,6 +23,10 @@ import java.util.Optional;
  * -parameters}) 하나로 매핑이 조용히 깨진다. 응답이 {@code null} 로 채워져도 예외가 나지
  * 않으므로 그 고장은 "포지션이 없다" 로 보인다.
  *
+ * <p><b>{@code markPrice} 를 쓰고 마지막 체결가를 쓰지 않는다.</b> 청산은 표시가로 트리거되고
+ * 미실현 손익도 그 값으로 계산된다 — 마지막 체결가로 "청산까지 몇 %" 를 재면 그럴듯하지만
+ * 틀린 수가 나온다. 같은 응답 안에 있으므로 <b>포지션과 정확히 같은 순간의 값</b>이기도 하다.
+ *
  * <p>모르는 필드는 무시한다. 거래소가 필드를 더하는 것은 우리 고장이 아니다.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -30,6 +34,7 @@ record BinancePositionRisk(
         @JsonProperty("symbol") String symbol,
         @JsonProperty("positionAmt") String positionAmt,
         @JsonProperty("entryPrice") String entryPrice,
+        @JsonProperty("markPrice") String markPrice,
         @JsonProperty("liquidationPrice") String liquidationPrice,
         @JsonProperty("unRealizedProfit") String unrealizedProfit) {
 
@@ -50,6 +55,7 @@ record BinancePositionRisk(
                 amount.signum() > 0 ? Direction.LONG : Direction.SHORT,
                 Quantity.of(amount.abs().toPlainString()),
                 Price.of(entryPrice),
+                Price.of(markPrice),
                 liquidationPriceOrNone(),
                 Money.of(unrealizedProfit),
                 observedAt);
