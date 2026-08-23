@@ -110,4 +110,16 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!--
+    같은 이유 — 환율 어댑터. 이쪽만 업비트인 것은 바이낸스에 원화 시장이 없기 때문이고,
+    RestClient 라는 점은 위와 같다.
+
+    함께 들고 있는 market(String) 은 이 경고의 대상이 아니다. 불변이라 복사할 것이 없다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.upbit.UpbitExchangeRateAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

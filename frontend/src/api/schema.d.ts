@@ -111,6 +111,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projections/compound-target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 월 목표 수익률을 지키려면 거래 한 건이 무엇을 해야 하는가
+         * @description 목표를 정해 놓고 거꾸로 푼다. 월 목표를 월 거래 수로 쪼개고,
+         *     거기에 레버리지가 키운 수수료·슬리피지를 더해 필요한 가격 변동을 낸다.
+         *
+         *     지는 거래를 세지 않는다. 모든 거래가 목표대로 끝난다는 가정 위의
+         *     산수이므로, 나온 수는 최선의 경우에 필요한 최소치다.
+         */
+        post: operations["compoundTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/position-plans/analysis": {
         parameters: {
             query?: never;
@@ -1118,6 +1142,217 @@ export interface components {
              * @example 2.0002
              */
             maxDrawdown: number;
+        };
+        /**
+         * @description 목표 복리 계산 조건
+         * @example {
+         *       "startingCapital": 800,
+         *       "monthlyTarget": 5,
+         *       "months": 12,
+         *       "leverage": 10,
+         *       "marginUsage": 20,
+         *       "feeRate": 0.05,
+         *       "slippage": 0.02,
+         *       "tradesPerMonth": 20
+         *     }
+         */
+        CompoundTargetRequest: {
+            /**
+             * @description 시작 자산 (USDT)
+             * @example 800
+             */
+            startingCapital?: number;
+            /**
+             * @description 월 목표 수익률. 명목이 아니라 자산(증거금) 기준이다 — 5 는 800 이 840 이 된다는 뜻이지 명목의 5% 가 아니다. 비용을 낸 뒤에 남는 수익이며, 레버리지를 올려도 이 값은 달라지지 않는다
+             * @example 5
+             */
+            monthlyTarget?: number;
+            /**
+             * Format: int32
+             * @description 기간 (개월)
+             * @example 12
+             */
+            months?: number;
+            /**
+             * @description 레버리지 배수. 거래당 투입 비율과 곱해져 명목을 정한다
+             * @example 10
+             */
+            leverage?: number;
+            /**
+             * @description 거래당 투입 비율 (%). 자산의 몇 %를 증거금으로 넣는가. 명목 = 자산 × 이 값 × 레버리지 — 100 이면 매 거래에 전액을 넣는다는 뜻이고, 그것이 실제 매매와 가장 크게 갈리는 전제다
+             * @example 20
+             */
+            marginUsage?: number;
+            /**
+             * @description 거래 한 쪽의 수수료율 (%). 바이낸스 USDⓈ-M 무기한의 일반 사용자는 테이커 0.05 · 메이커 0.02 다
+             * @example 0.05
+             */
+            feeRate?: number;
+            /**
+             * @description 거래 한 쪽의 슬리피지 (%). 호가를 밀고 들어간 만큼
+             * @example 0.02
+             */
+            slippage?: number;
+            /**
+             * Format: int32
+             * @description 월 거래 수. <b>진입과 청산 한 쌍이 1건</b>이다 — 20 이면 주문은 40번이고 수수료도 40번 낸다. 목표를 이 횟수로 쪼갠다
+             * @example 20
+             */
+            tradesPerMonth?: number;
+        };
+        /**
+         * @description 목표 복리 계산 결과
+         * @example {
+         *       "equity": [
+         *         800,
+         *         840,
+         *         882,
+         *         926.1,
+         *         972.41,
+         *         1021.03,
+         *         1072.08,
+         *         1125.68,
+         *         1181.96,
+         *         1241.06,
+         *         1303.12,
+         *         1368.27,
+         *         1436.69
+         *       ],
+         *       "finalEquity": 1436.69,
+         *       "grossProfit": 1366.57,
+         *       "totalProfit": 636.69,
+         *       "months": 12,
+         *       "totalReturn": 79.5856,
+         *       "totalCost": 729.88,
+         *       "notional": 1600,
+         *       "effectiveLeverage": 2,
+         *       "totalTrades": 240,
+         *       "netPerTrade": 0.2442,
+         *       "costPerTrade": 0.28,
+         *       "grossPerTrade": 0.5242,
+         *       "priceMovePerTrade": 0.2621,
+         *       "costShare": 53.4147,
+         *       "won": {
+         *         "wonPerUsdt": 1370,
+         *         "observedAt": "2026-08-23T15:04:04Z",
+         *         "finalEquity": 1968265,
+         *         "totalProfit": 872265,
+         *         "totalCost": 999936,
+         *         "notional": 2192000
+         *       }
+         *     }
+         */
+        CompoundTargetResponse: {
+            /** @description 월말마다의 자산. 첫 값은 거래 이전의 시작 자산이다 */
+            equity: number[];
+            /**
+             * @description 기간이 끝났을 때의 자산 (USDT)
+             * @example 1436.69
+             */
+            finalEquity: number;
+            /**
+             * @description 비용을 내기 전에 번 금액 (USDT). 순이익 + 총 비용
+             * @example 1366.57
+             */
+            grossProfit: number;
+            /**
+             * @description 기간 동안 늘어난 금액 (USDT). 번 돈에서 비용을 내고 남는 것
+             * @example 636.69
+             */
+            totalProfit: number;
+            /**
+             * Format: int32
+             * @description 기간 (개월). 요청에 실린 값을 그대로 되돌려준다 — 화면이 점의 수를 세어 기간을 짐작하지 않게 한다
+             * @example 12
+             */
+            months: number;
+            /**
+             * @description 기간 전체 수익률 (%). 월 목표 × 개월 이 아니라 복리다
+             * @example 79.5856
+             */
+            totalReturn: number;
+            /**
+             * @description 기간 동안 수수료와 슬리피지로 나가는 총액 (USDT). 시작 자산을 넘는 것은 흔한 일이다
+             * @example 729.88
+             */
+            totalCost: number;
+            /**
+             * @description 시작 시점에 시장에 나가는 크기 (USDT). 수수료는 이쪽에 붙는다
+             * @example 1600
+             */
+            notional: number;
+            /**
+             * @description 명목이 자산의 몇 배인가. 투입 비율 × 레버리지. 비용과 필요 가격 변동은 전부 이 하나로 결정된다
+             * @example 2
+             */
+            effectiveLeverage: number;
+            /**
+             * Format: int32
+             * @description 기간 전체의 거래 수
+             * @example 240
+             */
+            totalTrades: number;
+            /**
+             * @description 거래당 필요 순수익 (%). 자산 기준이며 비용을 낸 뒤에 남아야 하는 몫
+             * @example 0.2442
+             */
+            netPerTrade: number;
+            /**
+             * @description 거래당 비용 (%). 자산 기준. 레버리지 × (수수료 + 슬리피지) × 왕복
+             * @example 0.28
+             */
+            costPerTrade: number;
+            /**
+             * @description 거래당 필요 총수익 (%). 순수익 + 비용
+             * @example 0.5242
+             */
+            grossPerTrade: number;
+            /**
+             * @description 거래당 필요 가격 변동 (%). 차트에서 재는 폭은 이 수다
+             * @example 0.2621
+             */
+            priceMovePerTrade: number;
+            /**
+             * @description 필요 총수익 중 비용이 가져가는 몫 (%). 레버리지를 올리면 필요한 가격 변동은 작아지지만 이 몫은 커진다
+             * @example 53.4147
+             */
+            costShare: number;
+            /** @description 같은 금액들을 원화로 옮긴 것. 환율을 얻지 못하면 null 이다 — 옛 환율이나 0 원으로 채우지 않는다 */
+            won: components["schemas"]["WonAmountsResponse"] | null;
+        };
+        /** @description 업비트 원화 시세로 환산한 금액 */
+        WonAmountsResponse: {
+            /**
+             * @description USDT 하나가 몇 원인가
+             * @example 1370
+             */
+            wonPerUsdt: number;
+            /**
+             * Format: date-time
+             * @description 환율을 잰 시각
+             * @example 2026-08-23T15:04:04Z
+             */
+            observedAt: string;
+            /**
+             * @description 기간이 끝났을 때의 자산 (원)
+             * @example 1968265
+             */
+            finalEquity: number;
+            /**
+             * @description 기간 동안 늘어난 금액 (원)
+             * @example 872265
+             */
+            totalProfit: number;
+            /**
+             * @description 기간 동안 수수료와 슬리피지로 나가는 총액 (원)
+             * @example 999936
+             */
+            totalCost: number;
+            /**
+             * @description 시작 시점에 시장에 나가는 크기 (원)
+             * @example 2192000
+             */
+            notional: number;
         };
         /**
          * @description 분할 진입 계획과 계좌 상태
@@ -2663,6 +2898,48 @@ export interface operations {
                 };
             };
             /** @description 값은 유효하나 조건으로 성립하지 않는다. 총 거래 수 상한 초과 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    compoundTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompoundTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description 월말마다의 자산과, 거래 한 건에 요구되는 수익·비용·가격 변동 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CompoundTargetResponse"];
+                };
+            };
+            /** @description 값 자체가 부적절하다. 0 이하의 목표·자산·레버리지, 누락된 필드 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 값은 유효하나 조건으로 성립하지 않는다. 총 거래 수 상한 초과, 반올림해서 0 이 된 거래당 필요 수익 */
             422: {
                 headers: {
                     [name: string]: unknown;

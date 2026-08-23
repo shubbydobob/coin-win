@@ -37,3 +37,11 @@ coinwin:
       max-candles-per-request: 1500
       connect-timeout: 1s
       read-timeout: 2s
+    upbit:
+      # 같은 이유로 닿지 않는 주소를 준다. 환율을 못 얻는 것은 오류가 아니라 값이므로
+      # (LoadExchangeRatePort) 이 주소를 그대로 두면 테스트에서 원화가 비어 있게 된다.
+      # 원화가 붙은 응답을 보는 테스트는 어댑터를 고정된 것으로 갈아 끼운다.
+      base-url: http://localhost:1
+      market: KRW-USDT
+      connect-timeout: 1s
+      read-timeout: 2s

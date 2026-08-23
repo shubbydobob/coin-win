@@ -57,6 +57,10 @@ class ResponseSchemaContractTest {
      * <p>{@code topPercent} 는 표본이 모자라 위치를 잴 수 없을 때 비어 있다. "표본 3개 중 상위
      * 33%" 는 수치의 모양만 갖춘 거짓말이다 — 같은 규칙의 세 번째 자리다.
      *
+     * <p>{@code won} 은 업비트에서 환율을 얻지 못했을 때 통째로 빈다. 옛 환율이나 0 원으로
+     * 채우면 화면이 그것을 지금 값으로 읽는다 — 여섯 값이 <b>함께</b> 사라져야 하므로 필드를
+     * 흩뿌리지 않고 묶음 하나로 두었다.
+     *
      * <p>{@code neutralPercent} 는 <b>두 가지 이유로</b> 빈다 — 축이 없는 지표(미결제약정·가격)
      * 이거나, 축은 있는데 눈금을 그릴 표본이 모자라거나. 진영({@code side})은 그때도 있다.
      * 어느 쪽인가는 중립점과 견주기만 하면 되고 눈금은 필요 없기 때문이다.
@@ -66,7 +70,8 @@ class ResponseSchemaContractTest {
             "TradeResponse", List.of("entry", "outcome"),
             "PositionMatchResponse", List.of("recorded", "actual"),
             "ExchangeSideResponse", List.of("liquidationPrice", "liquidationDistancePercent"),
-            "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"));
+            "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"),
+            "CompoundTargetResponse", List.of("won"));
 
     @Autowired
     private WebApplicationContext context;
