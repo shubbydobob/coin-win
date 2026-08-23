@@ -12,7 +12,11 @@ import com.coinwin.market.MarketFixtures;
 import com.coinwin.market.adapter.out.memory.InMemoryCandleAdapter;
 import com.coinwin.market.application.port.out.LoadCandlesPort;
 import com.coinwin.market.application.port.out.LoadMarketMetricsPort;
+import com.coinwin.market.adapter.out.memory.InMemoryMetricHistoryAdapter;
+import com.coinwin.market.adapter.out.memory.InMemoryOrderBookAdapter;
 import com.coinwin.market.application.service.MarketDataService;
+import com.coinwin.market.application.service.OrderBookService;
+import com.coinwin.market.application.service.OutlierService;
 import com.coinwin.market.application.service.MarketMetricsService;
 import com.coinwin.market.domain.CandleQuery;
 import com.coinwin.market.domain.CandleSeries;
@@ -67,6 +71,9 @@ class MarketControllerTest {
     private InMemoryCandleAdapter store;
     private StubExchange exchange;
     private StubMetrics metrics;
+    private static final java.time.Instant OBSERVED_AT =
+            java.time.Instant.parse("2026-08-23T09:00:00Z");
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -75,9 +82,17 @@ class MarketControllerTest {
         exchange = new StubExchange();
         metrics = new StubMetrics();
         MarketDataService marketData = new MarketDataService(store, exchange, store);
+        InMemoryOrderBookAdapter books =
+                InMemoryOrderBookAdapter.withSample(MarketFixtures.SYMBOL, OBSERVED_AT);
+        InMemoryMetricHistoryAdapter history =
+                InMemoryMetricHistoryAdapter.withSample(MarketFixtures.SYMBOL);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new MarketController(
-                        marketData, marketData, new MarketMetricsService(metrics)))
+                .standaloneSetup(new MarketController(new MarketUseCases(
+                        marketData,
+                        marketData,
+                        new MarketMetricsService(metrics),
+                        new OrderBookService(books),
+                        new OutlierService(metrics, history))))
                 .setControllerAdvice(new DomainExceptionHandler())
                 .build();
     }

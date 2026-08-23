@@ -100,6 +100,20 @@ class ArchitectureRulesViolationTest {
                 "LeakyReconciliationService");
     }
 
+    /**
+     * <b>이 픽스처는 상상해서 만든 것이 아니다.</b> {@code watch} 모듈을 만들면서 실제로
+     * 그렇게 짰다 — "구현체가 하나뿐이니 포트를 두지 않는다" 는 판단으로 서비스가 스냅샷
+     * 어댑터를 직접 들게 했고, 규칙 2 와 6 이 그것을 거부했다.
+     */
+    @Test
+    @DisplayName("규칙 4 는 watch.application → watch.adapter 참조도 잡는다")
+    void 규칙4는_watch에서도_application이_adapter를_참조하는_것을_잡는다() {
+        assertRuleRejects(
+                ArchitectureRules.hexagonalApplicationDoesNotSeeAdapters("archfixture.r4w"),
+                "archfixture.r4w",
+                "LeakyCalendarService");
+    }
+
     @Test
     @DisplayName("규칙 5 는 backtest → market.adapter 참조를 잡는다")
     void 규칙5는_backtest가_adapter를_참조하는_것을_잡는다() {

@@ -70,4 +70,37 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!--
+    같은 이유 — 감시 화면의 호가·지표 이력 어댑터. RestClient 는 불변이고 스레드 안전하다.
+
+    Clock 은 이 파일이 "경고가 나면 그때는 진짜로 한 번 생각해 볼 자리" 라고 적어 둔 것이라
+    그 질문에 먼저 답한다. 그때 우려한 것은 서명 타임스탬프였는데, 여기 Clock 은 서명에
+    쓰이지 않는다 — 거래소가 depth 응답에 시각을 주지 않는 드문 경우에만 관측 시각을 채운다.
+    서명 시각은 여전히 BinanceServerClock 이 거래소에 직접 물어서 잰다.
+
+    복사본을 저장하라는 처방도 성립하지 않는다. Clock 은 복사 수단이 없고, 있다 해도 테스트가
+    시각을 고정하려면 주입한 그 인스턴스여야 한다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.binance.BinanceOrderBookAdapter"/>
+    <Or>
+      <Field name="client"/>
+      <Field name="clock"/>
+    </Or>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.binance.BinanceMetricHistoryAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
+  <!-- 같은 이유 — 공지 어댑터. RestClient 는 불변이고 스레드 안전하다. -->
+  <Match>
+    <Class name="com.coinwin.watch.adapter.out.binance.BinanceNoticeAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

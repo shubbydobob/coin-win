@@ -8,6 +8,49 @@ package com.coinwin.market.adapter.in.web;
  */
 final class MarketApiExamples {
 
+    static final String ORDER_BOOK_RESPONSE = """
+            {
+              "symbol": "BTCUSDT",
+              "at": "2026-08-23T09:00:00Z",
+              "last": 76567.50,
+              "change24hPercent": -1.009000,
+              "high24h": 77590.60,
+              "low24h": 75588.00,
+              "volume24h": 113033.30600000,
+              "bestBid": 76567.40,
+              "bestAsk": 76567.50,
+              "spread": 0.10,
+              "spreadPercent": 0.0001,
+              "bidVolume": 22.10000000,
+              "askVolume": 18.40000000,
+              "imbalance": 0.0910,
+              "bids": [ { "price": 76567.40, "quantity": 24.77800000 } ],
+              "asks": [ { "price": 76567.50, "quantity": 12.02900000 } ]
+            }""";
+
+    static final String OUTLIERS_RESPONSE = """
+            {
+              "symbol": "BTCUSDT",
+              "at": "2026-08-23T09:00:00Z",
+              "hasOutlier": false,
+              "metrics": [
+                {
+                  "metric": "FUNDING_RATE",
+                  "current": 0.010000,
+                  "topPercent": 12.0000,
+                  "outlier": false,
+                  "sampleCount": 90
+                },
+                {
+                  "metric": "OPEN_INTEREST",
+                  "current": 107134.49200000,
+                  "topPercent": null,
+                  "outlier": false,
+                  "sampleCount": 3
+                }
+              ]
+            }""";
+
     static final String METRICS_RESPONSE = """
             {
               "symbol": "BTCUSDT",
