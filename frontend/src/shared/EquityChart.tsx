@@ -14,8 +14,20 @@ import { money } from "../format";
  *
  * 축 눈금도 `format/` 을 지난다. 차트 라이브러리에 자릿수를 맡기면 그 순간 표와 차트가 다른
  * 수를 말한다.
+ *
+ * **점의 뜻은 부르는 쪽이 말한다(`point`).** 목표 복리 화면은 점이 거래가 아니라 달이다 —
+ * 기본값을 그대로 쓰면 툴팁이 `3번째 거래` 라고 적고, 그것은 자릿수를 줄이는 것과 같은
+ * 종류의 거짓말이다.
  */
-export function EquityChart({ equity, label }: { equity: readonly number[]; label: string }) {
+export function EquityChart({
+  equity,
+  label,
+  point = "번째 거래",
+}: {
+  equity: readonly number[];
+  label: string;
+  point?: string;
+}) {
   const points = equity.map((value, at) => ({ at, value }));
 
   return (
@@ -29,9 +41,14 @@ export function EquityChart({ equity, label }: { equity: readonly number[]; labe
             <YAxis tickFormatter={money} width={80} tick={{ fontSize: 11 }} />
             <Tooltip
               formatter={(value) => (typeof value === "number" ? money(value) : String(value))}
-              labelFormatter={(at) => `${at}번째 거래`}
+              labelFormatter={(at) => `${at}${point}`}
             />
-            <Line type="monotone" dataKey="value" dot={false} stroke="#0f172a" />
+            {/*
+              색을 상수로 박지 않는다. `#0f172a` 였던 자리이고, 다크 테마가 들어온 뒤로
+              **배경과 같은 어둠이라 선이 보이지 않았다** — 차트가 격자만 그린 채 통과하고
+              있었다. 토큰을 쓰면 테마가 바뀔 때 같은 일이 다시 생기지 않는다.
+            */}
+            <Line type="monotone" dataKey="value" dot={false} stroke="var(--color-ink)" />
           </LineChart>
         </ResponsiveContainer>
       </div>
