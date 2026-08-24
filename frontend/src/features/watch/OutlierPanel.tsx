@@ -30,16 +30,37 @@ type Outlier = components["schemas"]["MetricOutlierResponse"];
  * **무엇을 하라고 말하지 않는다.** 상황 문장도 일어난 일까지만 적는다.
  */
 export function OutlierPanel({ outliers }: { outliers: Outliers }) {
+  const 유별난것 = outliers.metrics
+    .filter((metric) => metric.outlier)
+    .map((metric) => LABEL[metric.metric] ?? metric.metric);
+  /*
+    **이상치를 위로 올린다.** 순서를 고정하면 드문 것이 흔한 것 사이에 묻히고, 그러면
+    화면이 "무엇이 특이한가" 가 아니라 "다섯 개가 있다" 를 말한다. 이상치가 없으면 원래
+    순서 그대로다 — `sort` 가 안정 정렬이라 그 경우 아무것도 움직이지 않는다.
+  */
+  const 정렬된것 = [...outliers.metrics].sort((a, b) => {
+    if (a.outlier === b.outlier) {
+      return 0;
+    }
+    return a.outlier ? -1 : 1;
+  });
+
   return (
     <section aria-label="이상치" className="rounded-lg border border-line bg-surface p-3">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-medium text-ink">평소와 다른가</h2>
-        {outliers.hasOutlier && <span className="text-xs text-warn">평소와 다른 지표가 있다</span>}
+        {/*
+          **이름을 댄다.** "평소와 다른 지표가 있다" 는 그 다음에 다섯 줄을 눈으로 훑으라는
+          뜻이고, 그 훑기가 이 패널을 읽는 데 드는 시간의 대부분이었다. 어느 것인지를 여기서
+          말하면 아래는 확인이지 탐색이 아니다.
+        */}
+        {유별난것.length > 0 && (
+          <span className="text-xs font-medium text-warn">{유별난것.join(" · ")}</span>
+        )}
       </div>
       <p className="mt-0.5 text-xs leading-snug text-ink-3">
         최근 표본에서 지금 값이 어디인가(<b>양 끝 5%</b> 면 표시), 어느 쪽으로 갔나, 그리고
-        <b> 어느 쪽이 붐비나</b>. 붐비는 쪽이지 유리한 쪽이 아니다 — 어느 쪽이 유리한가는 이
-        도구가 답하지 않는다.
+        <b> 어느 쪽이 붐비나</b>. 붐비는 쪽이지 유리한 쪽이 아니다.
       </p>
 
       {/*
@@ -48,9 +69,23 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
 
         고친 것은 범례가 아니라 **색 자체**다. 지금은 색 하나가 뜻 하나를 갖고
         (`shared/tone`), 범례는 그 넷을 점으로 보인다 — 읽는 것이 아니라 맞대어 보는 것이다.
+
+        **접어 둔다.** 색과 눈금의 뜻은 한 번 익히면 끝나는 것인데, 그것이 늘 펼쳐져 있어
+        패널에서 가장 먼저 눈에 닿는 자리를 차지하고 있었다. 매일 보는 사람에게 그 블록은
+        정보가 아니라 **지금 값에 도달하기까지 지나쳐야 하는 거리**다.
+
+        **`Term` 의 판단을 뒤집는 것이 아니다.** 그쪽이 반대한 것은 *툴팁* 이다 — 마우스를
+        올려야 나오고, 올리지 않으면 없는 것과 같다. 여기 것은 눌러서 펼치면 화면에 그대로
+        남고 접은 상태가 곧 "이미 안다" 는 뜻이다. 지표마다 붙는 설명은 그래서 손대지 않았다.
       */}
-      <div className="mt-2 rounded bg-surface-2 px-2 py-1.5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+      <details className="group mt-2 rounded bg-surface-2 px-2 py-1.5">
+        <summary className="cursor-pointer list-none text-[11px] text-ink-4 marker:content-none">
+          색과 눈금 읽는 법
+          {/* 화살표는 접힘 상태를 눈으로 보이는 것뿐이다. 읽는 것은 `details` 가 이미 말한다. */}
+          <span aria-hidden="true" className="group-open:hidden">{" ▸"}</span>
+          <span aria-hidden="true" className="hidden group-open:inline">{" ▾"}</span>
+        </summary>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
           <span className="text-ink-4">색</span>
           <Swatch tone="long" label="롱 쪽" />
           <Swatch tone="short" label="숏 쪽" />
@@ -70,7 +105,7 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
             칠해진 길이가 <b>중립에서 얼마나 치우쳤나</b>. 양 끝 옅은 띠는 평소와 다른 구간(각 5%).
           </p>
         </div>
-      </div>
+      </details>
 
       {/*
         붐비는 쪽 셈. **두 수를 하나로 합치지 않는다** — 합치려면 지표에 가중치를 줘야 하고
@@ -105,7 +140,7 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
       </div>
 
       <dl className="mt-2 divide-y divide-line-soft">
-        {outliers.metrics.map((metric) => (
+        {정렬된것.map((metric) => (
           <div key={metric.metric} className="py-2">
             <Row metric={metric} />
           </div>
