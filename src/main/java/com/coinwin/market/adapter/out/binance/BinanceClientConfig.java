@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClient;
  * 때문이다. {@code application} 은 이 클래스의 존재를 모른다(ArchUnit 규칙 4).
  */
 @Configuration
-@EnableConfigurationProperties(BinanceProperties.class)
+@EnableConfigurationProperties({BinanceProperties.class, BinanceStreamProperties.class})
 public class BinanceClientConfig {
 
     @Bean

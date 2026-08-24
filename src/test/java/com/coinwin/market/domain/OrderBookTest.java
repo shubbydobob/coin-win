@@ -99,6 +99,37 @@ class OrderBookTest {
         assertThat(book.bids()).hasSize(1);
     }
 
+    /** 스트림은 20단을 밀어 주는데 화면은 5단을 물을 수 있다. 자르는 규칙은 도메인이 갖는다. */
+    @Test
+    void 위에서_요청한_단수만큼만_남긴다() {
+        OrderBook book = 스무단짜리();
+
+        OrderBook 잘린것 = book.truncatedTo(OrderBookDepth.of(5));
+
+        assertThat(잘린것.bids()).hasSize(5);
+        assertThat(잘린것.asks()).hasSize(5);
+        assertThat(잘린것.bestBid()).isEqualTo(book.bestBid());
+        assertThat(잘린것.bestAsk()).isEqualTo(book.bestAsk());
+    }
+
+    /** 20단을 물었는데 12단뿐인 것은 거래소가 그만큼만 가진 것이지 오류가 아니다. */
+    @Test
+    void 모자라면_있는_만큼만_남긴다() {
+        OrderBook book = 호가(List.of(단("100.00", "1")), List.of(단("101.00", "1")));
+
+        assertThat(book.truncatedTo(OrderBookDepth.of(20)).bids()).hasSize(1);
+    }
+
+    private static OrderBook 스무단짜리() {
+        List<PriceLevel> bids = new java.util.ArrayList<>();
+        List<PriceLevel> asks = new java.util.ArrayList<>();
+        for (int step = 0; step < 20; step++) {
+            bids.add(단(String.valueOf(100 - step) + ".00", "1"));
+            asks.add(단(String.valueOf(101 + step) + ".00", "1"));
+        }
+        return 호가(bids, asks);
+    }
+
     private static OrderBook 호가(List<PriceLevel> bids, List<PriceLevel> asks) {
         return new OrderBook(Symbol.of("BTCUSDT"), bids, asks, AT);
     }

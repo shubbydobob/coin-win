@@ -6,14 +6,12 @@ import com.coinwin.common.domain.Quantity;
 import com.coinwin.market.application.port.out.LoadOrderBookPort;
 import com.coinwin.market.domain.OrderBook;
 import com.coinwin.market.domain.OrderBookDepth;
-import com.coinwin.market.domain.PriceLevel;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.Ticker;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -30,6 +28,15 @@ import org.springframework.web.util.UriBuilder;
  * <p>{@code depth} 응답의 시각 필드가 비어 있을 때만 로컬 시계로 물러선다. 관측 시각 없이
  * 호가를 만들 수는 없기 때문이다. 그 시계를 주입받는 이유는 테스트가 시각을 고정할 수 있어야
  * 하기 때문이다.
+ *
+ * <p><b>호가는 먼저 스트림에서 찾는다.</b> 웹소켓이 100밀리초마다 밀어 준 것이 아직 신선하면
+ * 그것을 내고, 아니면 여기서 REST 로 묻는다. 물러섬을 조건 없이 남겨 두는 이유는 스트림이
+ * 꺼져 있을 수도, 끊겨 있을 수도, 다른 종목·더 깊은 단수를 요청받을 수도 있기 때문이다 —
+ * <b>스트림은 빠르게 하는 장치이지 이 어댑터가 성립하는 조건이 아니다.</b>
+ *
+ * <p>시세는 스트림에 없다. 선물 {@code @ticker} 스트림이 <b>구독을 받아 주면서 한 건도 보내지
+ * 않는 것을 확인했고</b>(2026-08-25), 같은 연결의 호가 스트림은 정상이었다. 24시간 통계는
+ * 그대로 REST 로 읽는다.
  */
 @Component
 public class BinanceOrderBookAdapter implements LoadOrderBookPort {
@@ -42,13 +49,20 @@ public class BinanceOrderBookAdapter implements LoadOrderBookPort {
 
     private final Clock clock;
 
-    public BinanceOrderBookAdapter(RestClient binanceRestClient, Clock clock) {
+    private final StreamedOrderBook streamed;
+
+    BinanceOrderBookAdapter(RestClient binanceRestClient, Clock clock, StreamedOrderBook streamed) {
         this.client = binanceRestClient;
         this.clock = clock;
+        this.streamed = streamed;
     }
 
     @Override
     public OrderBook orderBookFor(Symbol symbol, OrderBookDepth depth) {
+        return streamed.fresh(symbol, depth).orElseGet(() -> fetchOrderBook(symbol, depth));
+    }
+
+    private OrderBook fetchOrderBook(Symbol symbol, OrderBookDepth depth) {
         BinanceDepth response = fetch(
                 uri -> uri.path(DEPTH)
                         .queryParam("symbol", symbol.value())
@@ -57,10 +71,10 @@ public class BinanceOrderBookAdapter implements LoadOrderBookPort {
                 BinanceDepth.class,
                 DEPTH,
                 symbol);
-        if (response == null || response.bids() == null || response.asks() == null) {
+        if (response == null) {
             throw new BinanceResponseException("호가가 비어 있다: " + symbol.value());
         }
-        return new OrderBook(symbol, levels(response.bids()), levels(response.asks()), at(response));
+        return response.toOrderBook(symbol, clock.instant());
     }
 
     @Override
@@ -81,20 +95,6 @@ public class BinanceOrderBookAdapter implements LoadOrderBookPort {
                 Price.of(response.lowPrice()),
                 Quantity.of(response.volume()),
                 Instant.ofEpochMilli(response.closeTime()));
-    }
-
-    private static List<PriceLevel> levels(List<List<String>> raw) {
-        return raw.stream()
-                .map(level -> new PriceLevel(
-                        Price.of(BinanceDepth.priceOf(level)),
-                        Quantity.of(BinanceDepth.quantityOf(level))))
-                .toList();
-    }
-
-    private Instant at(BinanceDepth response) {
-        return response.eventTime() == null
-                ? clock.instant()
-                : Instant.ofEpochMilli(response.eventTime());
     }
 
     private <T> T fetch(

@@ -40,6 +40,19 @@ coinwin:
       max-candles-per-request: 1500
       connect-timeout: 1s
       read-timeout: 2s
+      # 테스트는 웹소켓을 물지 않는다. 컨텍스트를 띄우는 테스트가 하나라도 거래소에 붙으면
+      # `check` 가 네트워크 없이 도는 전제가 무너지고, 그 접속은 테스트가 끝나도 남는다.
+      #
+      # enabled 만 꺼도 되지만 나머지 키를 함께 둔다 — 이 블록이 운영 설정을 통째로 가리므로
+      # 여기 없는 키는 null 이 되고, 그러면 컨텍스트가 아예 뜨지 않는다.
+      stream:
+        enabled: false
+        url: wss://localhost:1/ws
+        symbol: BTCUSDT
+        depth: 20
+        connect-timeout: 1s
+        freshness: 3s
+        reconnect-delay: 10s
     upbit:
       # 같은 이유로 닿지 않는 주소를 준다. 환율을 못 얻는 것은 오류가 아니라 값이므로
       # (LoadExchangeRatePort) 이 주소를 그대로 두면 테스트에서 원화가 비어 있게 된다.

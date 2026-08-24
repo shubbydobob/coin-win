@@ -78,6 +78,24 @@ public record OrderBook(Symbol symbol, List<PriceLevel> bids, List<PriceLevel> a
         return ratio(bid.subtract(ask), bid.add(ask));
     }
 
+    /**
+     * 위에서 {@code depth} 단만 남긴 호가.
+     *
+     * <p>부분 호가 스트림이 20단을 밀어 주는데 화면은 5단을 물을 수 있어서 생겼다. 자르는
+     * 규칙을 어댑터마다 두면 인메모리와 스트림이 <b>같은 요청에 다르게 답할 수 있다</b> —
+     * {@code OrderBookDepth} 를 서비스에서 도메인으로 내린 것과 같은 이유다.
+     *
+     * <p><b>모자라면 있는 만큼만 준다.</b> 20단을 물었는데 12단뿐인 것은 거래소가 그만큼만
+     * 가진 것이지 오류가 아니다. "이 호가가 그 깊이를 담당하는가" 는 부르는 쪽이 판단한다.
+     */
+    public OrderBook truncatedTo(OrderBookDepth depth) {
+        return new OrderBook(symbol, top(bids, depth), top(asks, depth), at);
+    }
+
+    private static List<PriceLevel> top(List<PriceLevel> levels, OrderBookDepth depth) {
+        return levels.subList(0, Math.min(depth.levels(), levels.size()));
+    }
+
     private static Quantity volume(List<PriceLevel> levels) {
         return levels.stream()
                 .map(PriceLevel::quantity)
