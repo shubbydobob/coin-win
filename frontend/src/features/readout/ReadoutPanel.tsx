@@ -5,6 +5,8 @@ import type { components } from "../../api/schema";
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
 type Zone = components["schemas"]["ZoneResponse"];
 type Fibonacci = components["schemas"]["FibonacciResponse"];
+type Volume = components["schemas"]["VolumeProfileResponse"];
+type Shelf = components["schemas"]["VolumeShelfResponse"];
 type Position = Readout["ichimoku"];
 
 /**
@@ -32,6 +34,7 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
               <th className="pb-1 font-normal">볼린저</th>
               <th className="pb-1 text-right font-normal">가까운 지지</th>
               <th className="pb-1 text-right font-normal">가까운 저항</th>
+              <th className="pb-1 text-right font-normal">매물대</th>
               <th className="pb-1 text-right font-normal">골든 포켓</th>
             </tr>
           </thead>
@@ -51,6 +54,16 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
         <b>골든 포켓에서 되돌아온다는 것은 이 도구가 재 본 적 없는 주장이다</b> — 여기 적는
         것은 지금 그 안인가까지다.
       </p>
+
+      <p className="mt-1.5 text-[11px] leading-snug text-ink-4">
+        <b>매물대는 다른 것을 잰다</b> — 대가 「몇 번 되돌아섰나」라면 매물대는 「거기서 얼마나
+        거래됐나」다. 뒤의 %는 그 구간에서 오간 거래량이 전체의 몇 %인가이고, 봉 300개의 고가~저가를
+        24칸으로 나눠 평균의 1.5배가 넘는 칸을 이어 붙인 것이다. 두 칸이 비슷한 값을 가리키면
+        그 자리에 대한 증거가 둘인 셈이다.
+        <b>다만 이 수치는 백테스트를 통과한 적이 없다</b> — 일목·볼린저·대와 같은 무게로 읽으면
+        안 된다. 봉 안에서 거래량이 어느 가격에 몰렸는지는 캔들만으로 알 수 없어 고가~저가에
+        고르게 나눈 <b>근사</b>이기도 하다.
+      </p>
     </section>
   );
 }
@@ -62,6 +75,9 @@ function Row({ readout }: { readout: Readout }) {
         {LABEL[readout.interval] ?? readout.interval}
         <span className="mt-0.5 block text-[10px] font-normal text-ink-4">
           ATR {price(readout.atr)}
+        </span>
+        <span className="block text-[10px] font-normal text-ink-4">
+          POC {price(readout.volume.pointOfControl)}
         </span>
       </th>
 
@@ -85,6 +101,7 @@ function Row({ readout }: { readout: Readout }) {
 
       <ZoneCell zone={readout.support} 아래 />
       <ZoneCell zone={readout.resistance} />
+      <VolumeCell volume={readout.volume} />
       <PocketCell fibonacci={readout.fibonacci} />
     </tr>
   );
@@ -114,6 +131,63 @@ function ZoneCell({ zone, 아래 = false }: { zone: Zone | null; 아래?: boolea
         {percent(zone.distancePercent)} · 터치 {zone.touches}
       </span>
     </td>
+  );
+}
+
+/**
+ * 매물대 한 칸.
+ *
+ * **대와 다른 것을 잰다.** 왼쪽 두 칸(지지·저항)은 가격이 **몇 번 되돌아섰나**를 세고 이 칸은
+ * 거기서 **얼마나 거래됐나**를 센다. 두 칸이 비슷한 값을 가리키면 그 자리에 대한 증거가 둘인
+ * 것이고, 그것이 이 칸을 옆에 놓은 이유다.
+ *
+ * **위아래를 함께 적는다.** 매물대의 쓸모는 "이쪽으로 가려면 무엇을 지나야 하나" 이므로 한쪽만
+ * 적으면 반쪽이 된다. 두 줄이 되지만 각 줄은 값 하나와 거리·두께뿐이다.
+ *
+ * **품고 있는 경우는 다르게 적는다.** 위아래가 둘 다 비어 보이는 것은 "매물대가 없다" 로
+ * 읽히는데, 실제로는 정반대 — **지금 물린 물량 한가운데에 있고 어느 쪽으로 움직이든 그것을
+ * 지나야 한다**는 뜻이다.
+ *
+ * **이 수는 백테스트를 통과한 적이 없다.** 왼쪽 두 칸은 7년 15,110봉으로 검증됐고 이 칸은
+ * 아니다. 아래 설명 줄에 그렇게 적어 둔다.
+ */
+function VolumeCell({ volume }: { volume: Volume }) {
+  if (volume.here) {
+    return (
+      <td className="py-2 text-right tabular-nums">
+        <span className="font-medium text-warn">지금 이 안</span>
+        <span className="mt-0.5 block text-[10px] text-warn">
+          {price(volume.here.far)} ~ {price(volume.here.near)} · {percent(volume.here.sharePercent)}
+        </span>
+      </td>
+    );
+  }
+  if (!volume.below && !volume.above) {
+    return (
+      <td className="py-2 text-right text-ink-4">
+        —<span className="mt-0.5 block text-[10px]">고르게 퍼짐</span>
+      </td>
+    );
+  }
+  return (
+    <td className="py-2 text-right tabular-nums">
+      <ShelfLine shelf={volume.above} 위 />
+      <ShelfLine shelf={volume.below} />
+    </td>
+  );
+}
+
+/** 한 줄. 부호는 화면이 붙인다 — 서버는 거리를 언제나 0 이상으로 낸다(`ZoneCell` 과 같다). */
+function ShelfLine({ shelf, 위 = false }: { shelf: Shelf | null; 위?: boolean }) {
+  if (!shelf) {
+    return <span className="block text-[10px] text-ink-4">{위 ? "↑" : "↓"} 없다</span>;
+  }
+  return (
+    <span className="block text-[10px] text-ink-3">
+      {위 ? "↑" : "↓"} <span className="text-ink">{price(shelf.near)}</span>{" "}
+      {위 ? "+" : "−"}
+      {percent(shelf.distancePercent)} · {percent(shelf.sharePercent)}
+    </span>
   );
 }
 

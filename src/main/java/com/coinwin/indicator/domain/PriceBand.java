@@ -45,6 +45,17 @@ public record PriceBand(Price upper, Price lower) {
         return BandPosition.INSIDE;
     }
 
+    /**
+     * 상단과 하단의 한가운데.
+     *
+     * <p>구간을 한 값으로 줄여야 할 때 쓴다. <b>줄이는 것이 기본이 되면 안 된다</b> — 밴드에
+     * 폭이 있다는 것이 이 타입의 요점이고, 가운데만 보면 뚫렸는지를 말할 수 없다.
+     */
+    public Price middle() {
+        return Price.of(upper.value().add(lower.value())
+                .divide(java.math.BigDecimal.TWO, java.math.MathContext.DECIMAL64));
+    }
+
     /** 상단과 하단의 간격. 1단위당 금액이므로 {@link Money} 다. */
     public Money width() {
         return upper.absoluteDifference(lower);

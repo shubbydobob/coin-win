@@ -11,6 +11,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 한 순간의 호가. 매수는 높은 값부터, 매도는 낮은 값부터다.
@@ -28,6 +29,15 @@ public record OrderBook(Symbol symbol, List<PriceLevel> bids, List<PriceLevel> a
 
     /** 불균형의 자릿수. 손익비·롱숏비율과 같은 무차원 비(比)다. */
     private static final int RATIO_SCALE = 4;
+
+    /**
+     * 한 단 평균의 몇 배부터 벽으로 볼 것인가.
+     *
+     * <p>3배는 <b>근거 있는 수가 아니라 자리표시자다</b> — 슬리피지 기본값이나 매물대 배수와
+     * 같은 자리이며, 실제 호가에서 얼마가 드문지는 재 본 적이 없다. 그래도 상수로 박아 두는
+     * 이유는 이 판단이 화면과 도메인 두 곳에 생기는 것을 막기 위해서다.
+     */
+    private static final BigDecimal WALL_MULTIPLE = new BigDecimal("3");
 
     public OrderBook {
         DomainValues.required(symbol, "종목");
@@ -76,6 +86,41 @@ public record OrderBook(Symbol symbol, List<PriceLevel> bids, List<PriceLevel> a
         BigDecimal bid = bidVolume().value();
         BigDecimal ask = askVolume().value();
         return ratio(bid.subtract(ask), bid.add(ask));
+    }
+
+    /**
+     * 매수 쪽에서 가장 두꺼운 한 단. <b>평소보다 두꺼울 때만</b> 낸다.
+     *
+     * <p>기준을 넘지 않으면 비어 있다 — 언제나 "가장 두꺼운 단" 을 내면 그것은 그냥 최댓값이고,
+     * 화면에 늘 떠 있는 것은 아무것도 알려 주지 않는다. 상황 문장이 조건을 못 넘으면 아예
+     * 안 뜨게 한 것과 같은 규칙이다.
+     */
+    public Optional<OrderWall> biggestBid() {
+        return wallIn(bids);
+    }
+
+    /** 매도 쪽에서 가장 두꺼운 한 단. */
+    public Optional<OrderWall> biggestAsk() {
+        return wallIn(asks);
+    }
+
+    private static Optional<OrderWall> wallIn(List<PriceLevel> levels) {
+        BigDecimal average = averageOf(levels);
+        if (average.signum() == 0) {
+            return Optional.empty();
+        }
+        PriceLevel thickest = levels.stream()
+                .max(Comparator.comparing(level -> level.quantity().value()))
+                .orElseThrow();
+        BigDecimal multiple = ratio(thickest.quantity().value(), average);
+        return multiple.compareTo(WALL_MULTIPLE) < 0
+                ? Optional.empty()
+                : Optional.of(new OrderWall(thickest, multiple));
+    }
+
+    private static BigDecimal averageOf(List<PriceLevel> levels) {
+        return volume(levels).value()
+                .divide(BigDecimal.valueOf(levels.size()), RATIO_SCALE, RoundingMode.HALF_UP);
     }
 
     /**

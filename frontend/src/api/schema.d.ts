@@ -2256,6 +2256,62 @@ export interface components {
              *     안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다.
              */
             fibonacci: components["schemas"]["FibonacciResponse"] | null;
+            /**
+             * @description 매물대 — 거래량이 어느 가격에 몰려 있나. **대와 다른 것을 잰다**: 대는 가격이
+             *     몇 번 되돌아섰나를 세고 매물대는 거기서 얼마나 거래됐나를 센다. 둘이 같은 자리를
+             *     가리키면 그것이 두 개의 증거다.
+             *
+             *     **이 수치는 백테스트를 통과한 적이 없다** — 일목·볼린저·대와 같은 무게로 읽으면
+             *     안 된다.
+             */
+            volume: components["schemas"]["VolumeProfileResponse"];
+        };
+        /** @description 거래량이 어느 가격에 몰려 있나 */
+        VolumeProfileResponse: {
+            /**
+             * @description 가장 두껍게 거래된 가격(POC). **언제나 있다** — 거래가 한 건이라도 있으면
+             *     가장 두꺼운 칸은 정해진다.
+             * @example 79200
+             */
+            pointOfControl: number;
+            /**
+             * @description 아래에서 가장 가까운 매물대. **없을 수 있다** — 평균보다 두꺼운 구간이 아래에
+             *     하나도 없으면 null 이다.
+             */
+            below: components["schemas"]["VolumeShelfResponse"] | null;
+            /** @description 위에서 가장 가까운 매물대. **없을 수 있다** */
+            above: components["schemas"]["VolumeShelfResponse"] | null;
+            /**
+             * @description 지금 가격을 품고 있는 매물대. **없을 수 있다.** 이것이 비어 있지 않으면
+             *     위·아래가 둘 다 비어 있는 것이 정상이다 — 지금 물린 물량 한가운데에 있다는
+             *     뜻이고, 어느 쪽으로 움직이든 그것을 지나야 한다.
+             */
+            here: components["schemas"]["VolumeShelfResponse"] | null;
+        };
+        /** @description 거래량이 몰린 가격 구간 */
+        VolumeShelfResponse: {
+            /**
+             * @description 지금 가격에 먼저 닿는 모서리
+             * @example 77650
+             */
+            near: number;
+            /**
+             * @description 반대쪽 모서리. **이 구간을 지나려면 여기까지 가야 한다** —
+             *     매물대는 점이 아니라 물린 물량이 쌓인 폭이다.
+             * @example 77200
+             */
+            far: number;
+            /**
+             * @description 전체 거래량의 몇 %가 이 구간에서 오갔나. **두께를 기간과 무관하게 견주는 수다** —
+             *     BTC 수량은 보는 기간이 길수록 커져서 그 자체로는 두꺼운지 알 수 없다.
+             * @example 9.24
+             */
+            sharePercent: number;
+            /**
+             * @description 지금 가격에서 가까운 모서리까지 몇 %. 언제나 0 이상이다
+             * @example 1.12
+             */
+            distancePercent: number;
         };
         /** @description 가장 가까운 지지 또는 저항 구간 */
         ZoneResponse: {
@@ -2512,6 +2568,33 @@ export interface components {
             bids: components["schemas"]["PriceLevelResponse"][];
             /** @description 매도 호가. 낮은 값부터 */
             asks: components["schemas"]["PriceLevelResponse"][];
+            /**
+             * @description 매수 쪽에서 가장 두꺼운 단. **평소보다 두꺼울 때만 있다** — 언제나 최댓값을
+             *     내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.
+             *     조건을 못 넘으면 null 이다.
+             */
+            bidWall: components["schemas"]["OrderWallResponse"] | null;
+            /** @description 매도 쪽에서 가장 두꺼운 단. **없을 수 있다** */
+            askWall: components["schemas"]["OrderWallResponse"] | null;
+        };
+        /** @description 평균보다 두꺼운 호가 한 단 */
+        OrderWallResponse: {
+            /**
+             * @description 그 단의 가격
+             * @example 78700
+             */
+            price: number;
+            /**
+             * @description 그 단에 걸린 잔량 (BTC)
+             * @example 12.4
+             */
+            quantity: number;
+            /**
+             * @description 같은 쪽 호가 한 단 평균의 몇 배인가. **배수로 말하는 이유는** 12 BTC 가 두꺼운지
+             *     얇은지를 그 자체로는 알 수 없기 때문이다 — 이상치 지표가 분위로 말하는 것과 같다.
+             * @example 8.14
+             */
+            multipleOfAverage: number;
         };
         /** @description 호가 한 단 */
         PriceLevelResponse: {

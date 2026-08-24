@@ -3717,6 +3717,10 @@
               }
             ],
             "description": "최근 스윙의 피보나치 되돌림. **없을 수 있다** — 스윙 고점과 저점 중 한쪽이라도\n안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다."
+          },
+          "volume": {
+            "$ref": "#/components/schemas/VolumeProfileResponse",
+            "description": "매물대 — 거래량이 어느 가격에 몰려 있나. **대와 다른 것을 잰다**: 대는 가격이\n몇 번 되돌아섰나를 세고 매물대는 거기서 얼마나 거래됐나를 센다. 둘이 같은 자리를\n가리키면 그것이 두 개의 증거다.\n\n**이 수치는 백테스트를 통과한 적이 없다** — 일목·볼린저·대와 같은 무게로 읽으면\n안 된다."
           }
         },
         "required": [
@@ -3736,7 +3740,90 @@
           "ichimoku",
           "interval",
           "resistance",
-          "support"
+          "support",
+          "volume"
+        ]
+      },
+      "VolumeProfileResponse": {
+        "type": "object",
+        "description": "거래량이 어느 가격에 몰려 있나",
+        "properties": {
+          "pointOfControl": {
+            "type": "number",
+            "description": "가장 두껍게 거래된 가격(POC). **언제나 있다** — 거래가 한 건이라도 있으면\n가장 두꺼운 칸은 정해진다.",
+            "example": 79200.0
+          },
+          "below": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VolumeShelfResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "아래에서 가장 가까운 매물대. **없을 수 있다** — 평균보다 두꺼운 구간이 아래에\n하나도 없으면 null 이다."
+          },
+          "above": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VolumeShelfResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "위에서 가장 가까운 매물대. **없을 수 있다**"
+          },
+          "here": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VolumeShelfResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "지금 가격을 품고 있는 매물대. **없을 수 있다.** 이것이 비어 있지 않으면\n위·아래가 둘 다 비어 있는 것이 정상이다 — 지금 물린 물량 한가운데에 있다는\n뜻이고, 어느 쪽으로 움직이든 그것을 지나야 한다."
+          }
+        },
+        "required": [
+          "above",
+          "below",
+          "here",
+          "pointOfControl"
+        ]
+      },
+      "VolumeShelfResponse": {
+        "type": "object",
+        "description": "거래량이 몰린 가격 구간",
+        "properties": {
+          "near": {
+            "type": "number",
+            "description": "지금 가격에 먼저 닿는 모서리",
+            "example": 77650.0
+          },
+          "far": {
+            "type": "number",
+            "description": "반대쪽 모서리. **이 구간을 지나려면 여기까지 가야 한다** —\n매물대는 점이 아니라 물린 물량이 쌓인 폭이다.",
+            "example": 77200.0
+          },
+          "sharePercent": {
+            "type": "number",
+            "description": "전체 거래량의 몇 %가 이 구간에서 오갔나. **두께를 기간과 무관하게 견주는 수다** —\nBTC 수량은 보는 기간이 길수록 커져서 그 자체로는 두꺼운지 알 수 없다.",
+            "example": 9.24
+          },
+          "distancePercent": {
+            "type": "number",
+            "description": "지금 가격에서 가까운 모서리까지 몇 %. 언제나 0 이상이다",
+            "example": 1.12
+          }
+        },
+        "required": [
+          "distancePercent",
+          "far",
+          "near",
+          "sharePercent"
         ]
       },
       "ZoneResponse": {
@@ -4072,15 +4159,39 @@
             "items": {
               "$ref": "#/components/schemas/PriceLevelResponse"
             }
+          },
+          "bidWall": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderWallResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "매수 쪽에서 가장 두꺼운 단. **평소보다 두꺼울 때만 있다** — 언제나 최댓값을\n내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.\n조건을 못 넘으면 null 이다."
+          },
+          "askWall": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderWallResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "매도 쪽에서 가장 두꺼운 단. **없을 수 있다**"
           }
         },
         "required": [
           "askVolume",
+          "askWall",
           "asks",
           "at",
           "bestAsk",
           "bestBid",
           "bidVolume",
+          "bidWall",
           "bids",
           "change24hPercent",
           "high24h",
@@ -4091,6 +4202,32 @@
           "spreadPercent",
           "symbol",
           "volume24h"
+        ]
+      },
+      "OrderWallResponse": {
+        "type": "object",
+        "description": "평균보다 두꺼운 호가 한 단",
+        "properties": {
+          "price": {
+            "type": "number",
+            "description": "그 단의 가격",
+            "example": 78700.0
+          },
+          "quantity": {
+            "type": "number",
+            "description": "그 단에 걸린 잔량 (BTC)",
+            "example": 12.4
+          },
+          "multipleOfAverage": {
+            "type": "number",
+            "description": "같은 쪽 호가 한 단 평균의 몇 배인가. **배수로 말하는 이유는** 12 BTC 가 두꺼운지\n얇은지를 그 자체로는 알 수 없기 때문이다 — 이상치 지표가 분위로 말하는 것과 같다.",
+            "example": 8.14
+          }
+        },
+        "required": [
+          "multipleOfAverage",
+          "price",
+          "quantity"
         ]
       },
       "PriceLevelResponse": {

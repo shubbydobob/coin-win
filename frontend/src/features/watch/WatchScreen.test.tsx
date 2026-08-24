@@ -26,6 +26,8 @@ const BOOK: components["schemas"]["OrderBookResponse"] = {
   imbalance: 0.091,
   bids: [{ price: 76567.4, quantity: 24.778 }],
   asks: [{ price: 76567.5, quantity: 12.029 }],
+  bidWall: null,
+  askWall: null,
 };
 
 /** 표본은 스파크라인이 그려지도록 두 개 이상 둔다. */
@@ -313,6 +315,38 @@ describe("감시", () => {
     expect(within(screen.getByRole("region", { name: "현재가" })).getByText("76,567.50"))
         .toBeVisible();
     expect(await screen.findByText(/국채 바이백 규모/)).toBeVisible();
+  });
+
+  /**
+   * <b>호가 벽은 접힌 목록 밖에 있어야 한다.</b> 단 40줄을 펼쳐야만 보이면 그 사실은 사실상
+   * 없는 것과 같다. 여기서 목록을 펼치지 않고 찾는 것이 그 규칙을 지킨다.
+   */
+  it("두꺼운 단은 목록을 펼치지 않아도 보인다", async () => {
+    server.use(
+      http.get(origin + "/api/markets/BTCUSDT/orderbook", () =>
+        HttpResponse.json({
+          ...BOOK,
+          askWall: { price: 76600, quantity: 98.5, multipleOfAverage: 8.14 },
+        })),
+      ...전부성공,
+    );
+    renderScreen(<WatchScreen />);
+
+    const 호가블록 = await screen.findByRole("region", { name: "호가" });
+    await waitFor(() => expect(within(호가블록).getByText(/76,600\.00/)).toBeVisible());
+    expect(within(호가블록).getByText(/평균의 8\.14배/)).toBeVisible();
+  });
+
+  /**
+   * <b>없으면 없다고 적는다.</b> 빈 자리로 두면 기능이 없는 것인지 지금 벽이 없는 것인지
+   * 알 수 없고, 그렇다고 늘 최댓값을 띄우면 그 표시는 아무것도 경고하지 않는다.
+   */
+  it("두꺼운 단이 없으면 없다고 적는다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    const 호가블록 = await screen.findByRole("region", { name: "호가" });
+    await waitFor(() => expect(within(호가블록).getByText("지금 없다")).toBeVisible());
   });
 
   it("호가가 죽어도 캘린더는 그대로다", async () => {

@@ -65,6 +65,13 @@ class ResponseSchemaContractTest {
      * 이거나, 축은 있는데 눈금을 그릴 표본이 모자라거나. 진영({@code side})은 그때도 있다.
      * 어느 쪽인가는 중립점과 견주기만 하면 되고 눈금은 필요 없기 때문이다.
      *
+     * <p>{@code below} · {@code above} · {@code here} 는 <b>평균보다 두꺼운 매물대가 그쪽에
+     * 없을 때</b> 빈다. 셋이 함께 있는 이유가 그것이다 — 위·아래만 두면 "매물대가 없다" 와
+     * "지금 매물대 한가운데에 있다" 가 화면에서 같은 모양이 된다.
+     *
+     * <p>{@code bidWall} · {@code askWall} 은 <b>그 쪽 호가가 고를 때</b> 빈다. 언제나 최댓값을
+     * 내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.
+     *
      * <p>{@code support} · {@code resistance} 는 <b>그 방향에 대가 없을 때</b> 빈다. 최소 터치
      * 수를 채운 구간이 지금 가격 아래(또는 위)에 하나도 없는 것은 정상이며, 그때 0 이나 화면
      * 끝 값으로 채우면 <b>"지지가 0 원" 이라는 문장이 화면에 뜬다.</b> 대가 없다는 것과 대가
@@ -77,7 +84,9 @@ class ResponseSchemaContractTest {
             "ExchangeSideResponse", List.of("liquidationPrice", "liquidationDistancePercent"),
             "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"),
             "CompoundTargetResponse", List.of("won"),
-            "TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci"));
+            "TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci"),
+            "VolumeProfileResponse", List.of("below", "above", "here"),
+            "OrderBookResponse", List.of("bidWall", "askWall"));
 
     @Autowired
     private WebApplicationContext context;

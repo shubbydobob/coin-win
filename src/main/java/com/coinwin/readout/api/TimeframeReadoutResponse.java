@@ -87,7 +87,16 @@ public record TimeframeReadoutResponse(
                 최근 스윙의 피보나치 되돌림. **없을 수 있다** — 스윙 고점과 저점 중 한쪽이라도
                 안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다.""",
                 nullable = true)
-        FibonacciResponse fibonacci) {
+        FibonacciResponse fibonacci,
+
+        @Schema(description = """
+                매물대 — 거래량이 어느 가격에 몰려 있나. **대와 다른 것을 잰다**: 대는 가격이
+                몇 번 되돌아섰나를 세고 매물대는 거기서 얼마나 거래됐나를 센다. 둘이 같은 자리를
+                가리키면 그것이 두 개의 증거다.
+
+                **이 수치는 백테스트를 통과한 적이 없다** — 일목·볼린저·대와 같은 무게로 읽으면
+                안 된다.""")
+        VolumeProfileResponse volume) {
 
     static TimeframeReadoutResponse from(TimeframeReadout readout) {
         IndicatorReadout indicators = readout.indicators();
@@ -99,7 +108,8 @@ public record TimeframeReadoutResponse(
                 indicators.cloudBottom().value(), indicators.bollinger().name(),
                 indicators.bollingerUpper().value(), indicators.bollingerMiddle().value(),
                 indicators.bollingerLower().value(), indicators.bandWidthPercent().value(),
-                zone(readout.support()), zone(readout.resistance()), fibonacci(readout));
+                zone(readout.support()), zone(readout.resistance()), fibonacci(readout),
+                VolumeProfileResponse.from(readout.volume()));
     }
 
     /** 없는 대는 {@code null} 이다. 0 으로 채우면 화면에 없는 지지가 생긴다. */

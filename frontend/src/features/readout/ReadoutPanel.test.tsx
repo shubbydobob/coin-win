@@ -38,6 +38,12 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
       inGoldenPocket: false,
     },
     resistance: null,
+    volume: {
+      pointOfControl: 79200,
+      below: { near: 77650, far: 77200, sharePercent: 9.24, distancePercent: 1.4632 },
+      above: { near: 79900, far: 80350, sharePercent: 7.11, distancePercent: 1.3919 },
+      here: null,
+    },
     ...덮어쓸것,
   };
 }
@@ -90,6 +96,55 @@ describe("지표 판독", () => {
     const 행 = screen.getByRole("row", { name: /15분/ });
     expect(within(행).getByText(/−1\.2691%/)).toBeVisible();
     expect(within(행).getByText(/\+2\.1521%/)).toBeVisible();
+  });
+
+  /**
+   * <b>매물대는 대와 다른 것을 잰다.</b> 위아래를 함께 적는 이유는 이 값의 쓸모가 "이쪽으로
+   * 가려면 무엇을 지나야 하나" 이기 때문이다 — 한쪽만 적으면 반쪽이 된다.
+   */
+  it("매물대를 위아래로 함께 적는다", () => {
+    render(<ReadoutPanel readouts={[판독()]} />);
+
+    const 행 = screen.getByRole("row", { name: /15분/ });
+    expect(within(행).getByText(/79,900\.00/)).toBeVisible();
+    expect(within(행).getByText(/77,650\.00/)).toBeVisible();
+    expect(within(행).getByText(/9\.2400%/)).toBeVisible();
+  });
+
+  /** 가장 두껍게 거래된 가격은 주기마다 하나뿐이라 행 머리에 둔다. */
+  it("POC 를 주기 옆에 적는다", () => {
+    render(<ReadoutPanel readouts={[판독()]} />);
+
+    expect(screen.getByRole("rowheader", { name: /POC 79,200\.00/ })).toBeVisible();
+  });
+
+  /**
+   * <b>매물대가 없는 것과 매물대 한가운데에 있는 것은 정반대다.</b> 위아래만 보면 둘이 같은
+   * 화면이 되는데, 뒤쪽은 어느 쪽으로 움직이든 물린 물량을 지나야 한다는 뜻이다.
+   */
+  it("매물대 안에 있으면 위아래가 빈 것과 다르게 적는다", () => {
+    render(<ReadoutPanel readouts={[판독({
+      volume: {
+        pointOfControl: 79200,
+        below: null,
+        above: null,
+        here: { near: 78600, far: 79100, sharePercent: 12.4, distancePercent: 0.2 },
+      },
+    })]} />);
+
+    const 행 = screen.getByRole("row", { name: /15분/ });
+    expect(within(행).getByText("지금 이 안")).toBeVisible();
+    expect(within(행).queryByText("고르게 퍼짐")).not.toBeInTheDocument();
+  });
+
+  /** 두꺼운 칸이 하나도 없으면 매물대가 없는 것이고, 그것도 사실이다. */
+  it("두꺼운 구간이 없으면 고르게 퍼졌다고 적는다", () => {
+    render(<ReadoutPanel readouts={[판독({
+      volume: { pointOfControl: 79200, below: null, above: null, here: null },
+    })]} />);
+
+    const 행 = screen.getByRole("row", { name: /15분/ });
+    expect(within(행).getByText("고르게 퍼짐")).toBeVisible();
   });
 
   /**

@@ -120,6 +120,31 @@ class OrderBookTest {
         assertThat(book.truncatedTo(OrderBookDepth.of(20)).bids()).hasSize(1);
     }
 
+    /** 늘 떠 있는 표시는 아무것도 알려 주지 않는다. 기준을 못 넘으면 벽이 아니다. */
+    @Test
+    void 고른_호가에는_벽이_없다() {
+        OrderBook book = 스무단짜리();
+
+        assertThat(book.biggestBid()).isEmpty();
+        assertThat(book.biggestAsk()).isEmpty();
+    }
+
+    /** 매수 다섯 단이 1·1·1·1·10 이면 합 14, 한 단 평균 2.8, 가장 두꺼운 단은 그 3.5714배다. */
+    @Test
+    void 한_단이_평균의_세_배를_넘으면_벽이다() {
+        OrderBook book = 호가(
+                List.of(단("100.00", "1"), 단("99.00", "1"), 단("98.00", "1"),
+                        단("97.00", "1"), 단("96.00", "10")),
+                List.of(단("101.00", "1"), 단("102.00", "1")));
+
+        assertThat(book.biggestBid()).isPresent();
+        assertThat(book.biggestBid().orElseThrow().level().price().value())
+                .isEqualByComparingTo("96.00");
+        assertThat(book.biggestBid().orElseThrow().multipleOfAverage())
+                .isEqualByComparingTo("3.5714");
+        assertThat(book.biggestAsk()).isEmpty();
+    }
+
     private static OrderBook 스무단짜리() {
         List<PriceLevel> bids = new java.util.ArrayList<>();
         List<PriceLevel> asks = new java.util.ArrayList<>();

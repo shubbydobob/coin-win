@@ -1,6 +1,7 @@
 package com.coinwin.readout.application;
 
 import com.coinwin.backtest.domain.ZoneSettings;
+import com.coinwin.indicator.domain.VolumeProfileSettings;
 import com.coinwin.market.application.port.in.LoadMarketDataUseCase;
 import com.coinwin.market.application.port.in.SyncMarketDataUseCase;
 import com.coinwin.market.domain.CandleInterval;
@@ -24,6 +25,10 @@ import org.springframework.stereotype.Service;
  * <p><b>캔들은 인바운드 포트로 얻는다.</b> "저장된 것으로 충분한가, 거래소에서 채울 것인가" 는
  * {@code market} 의 정책이고, 저장소를 직접 읽으면 그 정책이 이쪽으로 샌다.
  * {@code position.application → market.application.port.in} 과 같은 모양이다.
+ *
+ * <p><b>매물대 설정은 여기 기본값을 쓴다.</b> 대와 달리 백테스트에 대응하는 설정이 없다 —
+ * 어떤 전략도 아직 매물대로 거래를 내 본 적이 없기 때문이다. 그 사실이 이 화면에서 매물대를
+ * 검증된 지표와 같은 무게로 읽으면 안 되는 이유다.
  *
  * <p><b>대 설정은 백테스트가 쓰는 그것이다.</b> 화면이 보여 주는 지지·저항은 7년으로 검증한
  * 규칙에서 나와야 한다. 여기 별도 기본값을 두면 그 순간 둘이 갈라지고, 그러면 검증이 화면에
@@ -92,6 +97,7 @@ public class ReadoutService {
         CandleQuery query = new CandleQuery(symbol, interval, range);
         syncMarketData.sync(query);
         CandleSeries series = marketData.candles(query);
-        return TimeframeReadout.over(interval, series, ZoneSettings.standard());
+        return TimeframeReadout.over(
+                interval, series, ZoneSettings.standard(), VolumeProfileSettings.standard());
     }
 }

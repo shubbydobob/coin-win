@@ -13,6 +13,8 @@ import com.coinwin.indicator.domain.BollingerValue;
 import com.coinwin.indicator.domain.IchimokuCloud;
 import com.coinwin.indicator.domain.IchimokuValue;
 import com.coinwin.indicator.domain.IndicatorPoint;
+import com.coinwin.indicator.domain.VolumeProfile;
+import com.coinwin.indicator.domain.VolumeProfileSettings;
 import com.coinwin.market.domain.CandleInterval;
 import com.coinwin.market.domain.CandleSeries;
 import java.time.Instant;
@@ -47,6 +49,8 @@ import java.util.Optional;
  * @param support 아래에서 가장 가까운 대. 없을 수 있다
  * @param resistance 위에서 가장 가까운 대. 없을 수 있다
  * @param fibonacci 마지막 스윙에 걸친 되돌림. 스윙 한쪽이 없으면 비어 있다
+ * @param volume 매물대. <b>대와 다른 것을 잰다</b> — 대는 몇 번 되돌아섰나를 세고 매물대는
+ *     거기서 얼마나 오갔나를 센다. 둘이 같은 자리를 가리키면 그것이 두 개의 증거다
  */
 public record TimeframeReadout(
         CandleInterval interval,
@@ -56,7 +60,8 @@ public record TimeframeReadout(
         IndicatorReadout indicators,
         Optional<ZoneReadout> support,
         Optional<ZoneReadout> resistance,
-        Optional<FibonacciRetracement> fibonacci) {
+        Optional<FibonacciRetracement> fibonacci,
+        VolumeProfileReadout volume) {
 
     public TimeframeReadout {
         DomainValues.required(interval, "주기");
@@ -67,6 +72,7 @@ public record TimeframeReadout(
         DomainValues.required(support, "지지대");
         DomainValues.required(resistance, "저항대");
         DomainValues.required(fibonacci, "피보나치");
+        DomainValues.required(volume, "매물대");
     }
 
     /**
@@ -77,23 +83,26 @@ public record TimeframeReadout(
      * 실시간 화면에서는 그것이 맞다. 사람은 봉이 닫히기를 기다렸다 진입하지 않는다.
      */
     public static TimeframeReadout over(
-            CandleInterval interval, CandleSeries series, ZoneSettings zoneSettings) {
+            CandleInterval interval,
+            CandleSeries series,
+            ZoneSettings zoneSettings,
+            VolumeProfileSettings volumeSettings) {
         DomainValues.required(interval, "주기");
         DomainValues.required(series, "캔들");
         DomainValues.required(zoneSettings, "대 설정");
+        DomainValues.required(volumeSettings, "매물대 설정");
         Price close = lastCandleClose(series);
         Money atr = last(new AverageTrueRange(zoneSettings.atrPeriod()).over(series));
         List<Pivot> pivots = new PivotDetector(zoneSettings.pivotLookback()).over(series);
-        ZoneMap zones = ZoneMap.from(pivots, zoneSettings.toleranceFor(atr), zoneSettings.minTouches());
+        ZoneMap zones = ZoneMap.from(
+                pivots, zoneSettings.toleranceFor(atr), zoneSettings.minTouches());
         return new TimeframeReadout(
-                interval,
-                lastCandleTime(series),
-                close,
-                atr,
+                interval, lastCandleTime(series), close, atr,
                 indicatorsOf(series, close),
                 zones.nearestSupport(close).map(zone -> ZoneReadout.of(zone, close)),
                 zones.nearestResistance(close).map(zone -> ZoneReadout.of(zone, close)),
-                FibonacciRetracement.over(pivots));
+                FibonacciRetracement.over(pivots),
+                VolumeProfileReadout.of(VolumeProfile.over(series, volumeSettings), close));
     }
 
     private static IndicatorReadout indicatorsOf(CandleSeries series, Price close) {

@@ -4,8 +4,6 @@ import com.coinwin.backtest.domain.PriceZone;
 import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
-import java.math.BigDecimal;
-import java.math.MathContext;
 
 /**
  * 지금 가격에서 가장 가까운 대 하나.
@@ -16,7 +14,8 @@ import java.math.MathContext;
  * 그러면 그 검증은 아무것도 말해 주지 않는다.</b>
  *
  * <p><b>거리는 도메인이 낸다.</b> 화면에서 (대 − 현재가) ÷ 현재가 를 하면 그 산술이
- * {@code docs/adr/020} 이 금지한 "프론트가 만든 수" 가 된다.
+ * {@code docs/adr/020} 이 금지한 "프론트가 만든 수" 가 된다. 그 계산과 어느 모서리가 가까운지를
+ * 고르는 규칙은 {@link BandReadout} 이 갖는다 — 매물대가 같은 것을 묻기 때문이다.
  *
  * @param near 지금 가격에 가까운 쪽 모서리. 먼저 닿는 값이라 이쪽이 판단의 기준이다
  * @param far 반대쪽 모서리. 대에는 폭이 있고, 뚫렸는지는 이쪽까지 가 봐야 안다
@@ -24,10 +23,6 @@ import java.math.MathContext;
  * @param distancePercent 지금 가격에서 가까운 모서리까지의 거리(%). 언제나 0 이상이다
  */
 public record ZoneReadout(Price near, Price far, int touches, Percentage distancePercent) {
-
-    private static final int PERCENT_SCALE = 4;
-
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     public ZoneReadout {
         DomainValues.required(near, "가까운 모서리");
@@ -45,20 +40,8 @@ public record ZoneReadout(Price near, Price far, int touches, Percentage distanc
      */
     public static ZoneReadout of(PriceZone zone, Price close) {
         DomainValues.required(zone, "대");
-        DomainValues.required(close, "현재가");
-        Price low = zone.band().lower();
-        Price high = zone.band().upper();
-        boolean below = high.value().compareTo(close.value()) <= 0;
-        Price near = below ? high : low;
-        Price far = below ? low : high;
-        return new ZoneReadout(near, far, zone.touches(), distance(near, close));
-    }
-
-    /** 가까운 모서리까지 몇 %. 부호를 싣지 않는다 — 위인지 아래인지는 지지/저항이 이미 말한다. */
-    private static Percentage distance(Price near, Price close) {
-        BigDecimal gap = near.value().subtract(close.value()).abs();
-        return new Percentage(gap.divide(close.value(), MathContext.DECIMAL64)
-                .multiply(HUNDRED)
-                .setScale(PERCENT_SCALE, java.math.RoundingMode.HALF_UP));
+        BandReadout band = BandReadout.of(zone.band(), close);
+        return new ZoneReadout(
+                band.near(), band.far(), zone.touches(), band.distancePercent());
     }
 }

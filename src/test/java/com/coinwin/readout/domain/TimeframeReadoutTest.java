@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.coinwin.backtest.domain.ZoneSettings;
+import com.coinwin.indicator.domain.VolumeProfileSettings;
 import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.indicator.domain.BandPosition;
@@ -36,7 +37,7 @@ class TimeframeReadoutTest {
         CandleSeries 짧은것 = 톱니(30);
 
         assertThatThrownBy(() -> TimeframeReadout.over(
-                CandleInterval.ONE_HOUR, 짧은것, ZoneSettings.standard()))
+                CandleInterval.ONE_HOUR, 짧은것, ZoneSettings.standard(), VolumeProfileSettings.standard()))
                 .isInstanceOf(InsufficientCandlesException.class);
     }
 
@@ -48,7 +49,7 @@ class TimeframeReadoutTest {
     @Test
     void 오르는_장에서는_구름_위에_선다() {
         TimeframeReadout 판독 = TimeframeReadout.over(
-                CandleInterval.ONE_HOUR, 단조증가(200), ZoneSettings.standard());
+                CandleInterval.ONE_HOUR, 단조증가(200), ZoneSettings.standard(), VolumeProfileSettings.standard());
 
         assertThat(판독.indicators().ichimoku()).isEqualTo(BandPosition.ABOVE);
         assertThat(판독.close().value()).isGreaterThan(판독.indicators().cloudTop().value());
@@ -58,7 +59,7 @@ class TimeframeReadoutTest {
     @Test
     void 구름_상단은_언제나_하단보다_높거나_같다() {
         TimeframeReadout 판독 = TimeframeReadout.over(
-                CandleInterval.FOUR_HOURS, 톱니(200), ZoneSettings.standard());
+                CandleInterval.FOUR_HOURS, 톱니(200), ZoneSettings.standard(), VolumeProfileSettings.standard());
 
         assertThat(판독.indicators().cloudTop().value())
                 .isGreaterThanOrEqualTo(판독.indicators().cloudBottom().value());
@@ -73,7 +74,7 @@ class TimeframeReadoutTest {
     @Test
     void 대는_없을_수_있고_있으면_지금_가격의_반대편에_있다() {
         TimeframeReadout 판독 = TimeframeReadout.over(
-                CandleInterval.FIFTEEN_MINUTES, 톱니(200), ZoneSettings.standard());
+                CandleInterval.FIFTEEN_MINUTES, 톱니(200), ZoneSettings.standard(), VolumeProfileSettings.standard());
 
         판독.support().ifPresent(대 ->
                 assertThat(대.near().value()).isLessThanOrEqualTo(판독.close().value()));
@@ -88,7 +89,7 @@ class TimeframeReadoutTest {
         Candle 마지막 = 시리즈.candles().getLast();
 
         TimeframeReadout 판독 = TimeframeReadout.over(
-                CandleInterval.ONE_HOUR, 시리즈, ZoneSettings.standard());
+                CandleInterval.ONE_HOUR, 시리즈, ZoneSettings.standard(), VolumeProfileSettings.standard());
 
         assertThat(판독.at()).isEqualTo(마지막.openTime());
         assertThat(판독.close()).isEqualTo(마지막.close());
