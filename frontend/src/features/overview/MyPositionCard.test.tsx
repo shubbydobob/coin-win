@@ -165,7 +165,17 @@ describe("내 자리", () => {
 
     render(<MyPositionCard reconciliation={기록만} outliers={시장("LONG")} />);
 
-    expect(screen.getByText(/기록에는 1건이 열려 있다/)).toBeVisible();
+    /*
+      **한 줄짜리 경고가 제 몫의 카드가 됐다.** 아래 「기록과 거래소」가 지워지면서 이 사실을
+      아는 자리가 여기 하나만 남았고, 그러면 "1건" 이라는 셈만 말하는 것으로는 부족하다 —
+      무엇이 얼마나 열려 있다고 적혀 있는지가 이 화면 밖에는 없다.
+    */
+    expect(screen.getByText("거래소에 없다")).toBeVisible();
+    expect(screen.getByText(/청산을 기록했는가/)).toBeVisible();
+    // 기록에 적힌 값. 거래소가 모르므로 청산가도 미실현도 없다.
+    expect(screen.getByText("60,050.00")).toBeVisible();
+    expect(screen.getByText("0.00500000")).toBeVisible();
+    expect(screen.queryByText("미실현")).not.toBeInTheDocument();
   });
 
   /** 시장을 못 읽어도 포지션은 보여야 한다. 두 사실은 서로 다른 엔드포인트에서 온다. */
