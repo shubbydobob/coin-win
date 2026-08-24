@@ -64,6 +64,11 @@ class ResponseSchemaContractTest {
      * <p>{@code neutralPercent} 는 <b>두 가지 이유로</b> 빈다 — 축이 없는 지표(미결제약정·가격)
      * 이거나, 축은 있는데 눈금을 그릴 표본이 모자라거나. 진영({@code side})은 그때도 있다.
      * 어느 쪽인가는 중립점과 견주기만 하면 되고 눈금은 필요 없기 때문이다.
+     *
+     * <p>{@code support} · {@code resistance} 는 <b>그 방향에 대가 없을 때</b> 빈다. 최소 터치
+     * 수를 채운 구간이 지금 가격 아래(또는 위)에 하나도 없는 것은 정상이며, 그때 0 이나 화면
+     * 끝 값으로 채우면 <b>"지지가 0 원" 이라는 문장이 화면에 뜬다.</b> 대가 없다는 것과 대가
+     * 바닥에 있다는 것은 진입 판단에서 정반대로 읽힌다.
      */
     private static final Map<String, List<String>> NULLABLE_FIELDS = Map.of(
             "SummaryResponse", List.of("profitFactor"),
@@ -71,7 +76,8 @@ class ResponseSchemaContractTest {
             "PositionMatchResponse", List.of("recorded", "actual"),
             "ExchangeSideResponse", List.of("liquidationPrice", "liquidationDistancePercent"),
             "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"),
-            "CompoundTargetResponse", List.of("won"));
+            "CompoundTargetResponse", List.of("won"),
+            "TimeframeReadoutResponse", List.of("support", "resistance"));
 
     @Autowired
     private WebApplicationContext context;

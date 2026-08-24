@@ -4,6 +4,7 @@ import { get } from "../api/client";
 import { ApiFailure } from "../api/problem";
 import { SmallButton } from "../shared/SmallButton";
 import { MyPositionCard } from "../features/overview/MyPositionCard";
+import { ReadoutPanel } from "../features/readout/ReadoutPanel";
 import { WatchScreen } from "../features/watch/WatchScreen";
 import { Section } from "./Section";
 
@@ -20,6 +21,18 @@ const SYMBOL = "BTCUSDT";
  * 한 번이 왕복 하나다.
  */
 const ACCOUNT_POLL_MS = 3_000;
+
+/**
+ * 지표를 다시 묻는 주기.
+ *
+ * **호가보다 느린 이유는 값이 그만큼 자주 달라지지 않기 때문이다.** 가장 짧은 15분봉도 한
+ * 봉이 열려 있는 동안 구름과 밴드는 거의 움직이지 않는다 — 3초로 두면 같은 판독을 백 번
+ * 받으면서 캔들을 세 주기 분량으로 매번 다시 채우게 된다.
+ *
+ * 15초는 15분봉 하나의 1% 다. 이 주기에서 판독이 바뀌는 것을 놓치려면 가격이 한 봉 안에서
+ * 구름을 넘나들어야 하는데, 그때는 어차피 호가와 현재가가 먼저 말한다.
+ */
+const READOUT_POLL_MS = 15_000;
 
 /**
  * 지금. **내 포지션과 시장이 한 화면에 있다.**
@@ -65,6 +78,16 @@ export function NowScreen() {
     retry: false,
     refetchInterval: (query) => (query.state.error ? false : ACCOUNT_POLL_MS),
   });
+  /*
+    **지표 판독.** 실패해도 다른 블록을 죽이지 않는다 — 이 질의만 거래소에서 캔들을 채우므로
+    셋 중 가장 느리고, 가장 먼저 실패할 자리이기도 하다.
+  */
+  const readout = useQuery({
+    queryKey: ["readout", SYMBOL],
+    queryFn: () => get("/api/readout/{symbol}", { path: { symbol: SYMBOL } }),
+    retry: false,
+    refetchInterval: (query) => (query.state.error ? false : READOUT_POLL_MS),
+  });
   const outliers = useQuery({
     queryKey: ["markets", SYMBOL, "outliers"],
     queryFn: () => get("/api/markets/{symbol}/outliers", { path: { symbol: SYMBOL } }),
@@ -108,6 +131,36 @@ export function NowScreen() {
           )}
         </section>
       )}
+
+      {/*
+        **지표를 시장보다 위에 놓는다.** 이 화면에서 진입 판단에 가장 가까운 것이 이 표다 —
+        아래 「시장」은 지금 무슨 일이 벌어지는가이고, 이쪽은 그 일이 차트의 어디에서
+        벌어지는가다. 순서를 뒤집으면 사람이 매번 스크롤로 되짚는다.
+      */}
+      <Section
+        title="지표"
+        hint="15분 · 1시간 · 4시간에서 지금 가격이 어디에 서 있나. 무엇을 하라고는 말하지 않는다."
+      >
+        {readout.data ? (
+          <ReadoutPanel readouts={readout.data} />
+        ) : (
+          <section
+            aria-label="지표 판독"
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3 text-sm"
+          >
+            <span className="text-ink-2">
+              {readout.isPending
+                ? "캔들을 받아 지표를 계산하는 중"
+                : readout.error instanceof ApiFailure
+                  ? readout.error.problem.detail
+                  : "지표를 계산하지 못했다"}
+            </span>
+            {readout.error && (
+              <SmallButton onClick={() => readout.refetch()}>다시 시도</SmallButton>
+            )}
+          </section>
+        )}
+      </Section>
 
       <Section
         title="시장"

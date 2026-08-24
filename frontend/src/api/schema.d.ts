@@ -455,6 +455,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readout/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 다중 주기 판독
+         * @description 15분 · 1시간 · 4시간에서 지금 가격이 일목 구름과 볼린저 밴드의 어디에 있고
+         *     가장 가까운 지지·저항이 어디인가.
+         *
+         *     **셋을 한 응답으로 낸다.** 따로 부르면 세 응답이 서로 다른 순간의 사실이
+         *     되는데 화면은 그것을 나란히 놓는다 — 주기가 다른 것과 시점이 다른 것은
+         *     전혀 다른 문제다.
+         *
+         *     **무엇을 하라고 말하지 않는다.** 여기 있는 것은 전부 관측이다.
+         */
+        get: operations["read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{symbol}/outliers": {
         parameters: {
             query?: never;
@@ -2096,6 +2123,120 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 한 주기의 지표·지지저항 판독 */
+        TimeframeReadoutResponse: {
+            /**
+             * @description 캔들 주기
+             * @example 15m
+             * @enum {string}
+             */
+            interval: "15m" | "1h" | "4h";
+            /**
+             * Format: date-time
+             * @description 판독 기준이 된 봉의 시각(UTC). **아직 닫히지 않은 봉일 수 있다**
+             * @example 2026-08-25T01:15:00Z
+             */
+            at: string;
+            /**
+             * @description 그 봉의 종가. 아래 모든 위치 판정이 이 값 기준이다
+             * @example 79256.9
+             */
+            close: number;
+            /**
+             * @description 이 시점의 변동성(ATR). **대의 폭과 손절 버퍼가 이 단위로 정해진다** —
+             *     같은 1% 손절도 ATR 이 크면 잡음 안이고 작으면 진짜 이탈이다.
+             * @example 412.3
+             */
+            atr: number;
+            /**
+             * @description 구름 대비 위치
+             * @example ABOVE
+             * @enum {string}
+             */
+            ichimoku: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
+             * @example 78900
+             */
+            cloudTop: number;
+            /**
+             * @description 구름 아래 모서리
+             * @example 77300
+             */
+            cloudBottom: number;
+            /**
+             * @description 밴드 대비 위치
+             * @example INSIDE
+             * @enum {string}
+             */
+            bollinger: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 밴드 상단
+             * @example 80120
+             */
+            bollingerUpper: number;
+            /**
+             * @description 밴드 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            bollingerMiddle: number;
+            /**
+             * @description 밴드 하단
+             * @example 77680
+             */
+            bollingerLower: number;
+            /**
+             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
+             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
+             * @example 3.09
+             */
+            bandWidthPercent: number;
+            /**
+             * @description 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
+             *     채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.
+             */
+            support: components["schemas"]["ZoneResponse"] | null;
+            /** @description 위에서 가장 가까운 대. **없을 수 있다** */
+            resistance: components["schemas"]["ZoneResponse"] | null;
+        };
+        /** @description 가장 가까운 지지 또는 저항 구간 */
+        ZoneResponse: {
+            /**
+             * @description 지금 가격에 가까운 쪽 모서리. **먼저 닿는 값이라 이쪽이 판단의 기준이다** —
+             *     지지대는 위쪽 모서리, 저항대는 아래쪽 모서리가 여기 온다.
+             * @example 76500
+             */
+            near: number;
+            /**
+             * @description 반대쪽 모서리. 대를 뚫었는지는 여기까지 가 봐야 안다 —
+             *     가까운 모서리를 스친 것과 대를 통과한 것은 다른 사실이다.
+             * @example 76120
+             */
+            far: number;
+            /**
+             * Format: int32
+             * @description 이 구간에 몇 번 닿았나. **많을수록 사람이 실제로 반응한 자리다.**
+             *     최소 2회부터 대로 친다 — 한 번 닿은 것은 대가 아니라 그냥 지나간 가격이다.
+             * @example 3
+             */
+            touches: number;
+            /**
+             * @description 지금 가격에서 가까운 모서리까지 몇 %. **언제나 0 이상이다** —
+             *     위인지 아래인지는 이 값이 지지에 붙었는지 저항에 붙었는지가 이미 말한다.
+             * @example 0.421
+             */
+            distancePercent: number;
+        };
         /** @description 한 지표의 평소 대비 위치 */
         MetricOutlierResponse: {
             /**
@@ -3441,6 +3582,55 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["TradeResponse"][];
+                };
+            };
+        };
+    };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 15분 · 1시간 · 4시간 순서의 판독 셋 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TimeframeReadoutResponse"][];
+                };
+            };
+            /** @description 종목 표기가 올바르지 않다 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 지표를 낼 만큼 봉이 모이지 않았다 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

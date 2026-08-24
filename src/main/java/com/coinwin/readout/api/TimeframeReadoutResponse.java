@@ -1,0 +1,104 @@
+package com.coinwin.readout.api;
+
+import com.coinwin.readout.domain.IndicatorReadout;
+import com.coinwin.readout.domain.TimeframeReadout;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
+import java.time.Instant;
+
+/**
+ * 한 주기가 지금 말하는 것.
+ *
+ * <p><b>위치와 값을 함께 낸다.</b> "구름 위" 만으로는 아슬아슬하게 위인지 한참 위인지 알 수
+ * 없고, 그 차이가 분할 진입에서 첫 칸을 어디 둘지를 가른다.
+ *
+ * <p><b>방향을 말하지 않는다.</b> 여기 있는 것은 전부 관측이다. "구름 위이고 지지대에서 0.4%
+ * 위" 는 사실이고 "그러니 롱" 은 예측이며, 이 저장소는 그 종류의 전제를 7년 15,110봉에서
+ * 반증했다({@code docs/adr/021}).
+ */
+@Schema(description = "한 주기의 지표·지지저항 판독")
+public record TimeframeReadoutResponse(
+
+        @Schema(description = "캔들 주기", example = "15m",
+                allowableValues = {"15m", "1h", "4h"})
+        String interval,
+
+        @Schema(description = "판독 기준이 된 봉의 시각(UTC). **아직 닫히지 않은 봉일 수 있다**",
+                example = "2026-08-25T01:15:00Z")
+        Instant at,
+
+        @Schema(description = "그 봉의 종가. 아래 모든 위치 판정이 이 값 기준이다",
+                example = "79256.90")
+        BigDecimal close,
+
+        @Schema(description = """
+                이 시점의 변동성(ATR). **대의 폭과 손절 버퍼가 이 단위로 정해진다** —
+                같은 1% 손절도 ATR 이 크면 잡음 안이고 작으면 진짜 이탈이다.""",
+                example = "412.30")
+        BigDecimal atr,
+
+        @Schema(description = "구름 대비 위치", example = "ABOVE",
+                allowableValues = {"ABOVE", "INSIDE", "BELOW"})
+        String ichimoku,
+
+        @Schema(description = "전환선 (9)", example = "79100.00")
+        BigDecimal conversionLine,
+
+        @Schema(description = "기준선 (26)", example = "78420.00")
+        BigDecimal baseLine,
+
+        @Schema(description = "구름 위 모서리. 두 선행스팬 중 큰 쪽이다", example = "78900.00")
+        BigDecimal cloudTop,
+
+        @Schema(description = "구름 아래 모서리", example = "77300.00")
+        BigDecimal cloudBottom,
+
+        @Schema(description = "밴드 대비 위치", example = "INSIDE",
+                allowableValues = {"ABOVE", "INSIDE", "BELOW"})
+        String bollinger,
+
+        @Schema(description = "밴드 상단", example = "80120.00")
+        BigDecimal bollingerUpper,
+
+        @Schema(description = "밴드 중심. 20봉 단순이동평균이다", example = "78900.00")
+        BigDecimal bollingerMiddle,
+
+        @Schema(description = "밴드 하단", example = "77680.00")
+        BigDecimal bollingerLower,
+
+        @Schema(description = """
+                밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
+                않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.""",
+                example = "3.0900")
+        BigDecimal bandWidthPercent,
+
+        @Schema(description = """
+                아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
+                채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.""",
+                nullable = true)
+        ZoneResponse support,
+
+        @Schema(description = "위에서 가장 가까운 대. **없을 수 있다**", nullable = true)
+        ZoneResponse resistance) {
+
+    static TimeframeReadoutResponse from(TimeframeReadout readout) {
+        IndicatorReadout indicators = readout.indicators();
+        return new TimeframeReadoutResponse(
+                readout.interval().code(),
+                readout.at(),
+                readout.close().value(),
+                readout.atr().value(),
+                indicators.ichimoku().name(),
+                indicators.conversionLine().value(),
+                indicators.baseLine().value(),
+                indicators.cloudTop().value(),
+                indicators.cloudBottom().value(),
+                indicators.bollinger().name(),
+                indicators.bollingerUpper().value(),
+                indicators.bollingerMiddle().value(),
+                indicators.bollingerLower().value(),
+                indicators.bandWidthPercent().value(),
+                readout.support().map(ZoneResponse::from).orElse(null),
+                readout.resistance().map(ZoneResponse::from).orElse(null));
+    }
+}
