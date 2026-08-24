@@ -3997,6 +3997,7 @@
             "type": "string",
             "description": "어느 묶음인가. 열두 종목을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다.",
             "enum": [
+              "CRYPTO",
               "EQUITY",
               "METAL",
               "ENERGY",

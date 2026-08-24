@@ -27,7 +27,7 @@ public record MacroQuoteResponse(
         @Schema(description = """
                 어느 묶음인가. 열두 종목을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다.""",
                 example = "EQUITY",
-                allowableValues = {"EQUITY", "METAL", "ENERGY", "RATES", "FEAR"})
+                allowableValues = {"CRYPTO", "EQUITY", "METAL", "ENERGY", "RATES", "FEAR"})
         String group,
 
         @Schema(description = "묶음의 사람이 읽는 이름", example = "주가")

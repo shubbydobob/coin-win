@@ -24,6 +24,11 @@ import org.springframework.web.client.RestClientException;
  *
  * <p>다섯 번 부르는 것이 이 어댑터의 사정이다. 종목 없이 부르면 744종이 한꺼번에 오고
  * 가중치가 40 이라, 다섯 번(가중치 5)이 오히려 싸다.
+ *
+ * <p><b>비트코인 현물만 다른 곳에서 읽는다.</b> 무기한과 호스트도 경로도 다르다
+ * ({@code fapi}/{@code fapi/v1} 대 {@code api}/{@code api/v3}). 어느 쪽인지는 관심 목록이
+ * 알고({@code MacroWatchlist.Venue}) 어댑터는 그것을 보고 클라이언트를 고른다 — 심볼로
+ * 판단하면 "BTCUSDT 는 현물" 이라는 규칙이 여기에도 생기고, 그 심볼은 무기한에도 있다.
  */
 @Component
 public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
@@ -32,10 +37,16 @@ public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
 
     private static final String TICKER = "/fapi/v1/ticker/24hr";
 
+    /** 현물은 경로도 다르다. {@code v1} 이 아니라 {@code v3} 다. */
+    private static final String SPOT_TICKER = "/api/v3/ticker/24hr";
+
     private final RestClient client;
 
-    public BinanceMacroQuoteAdapter(RestClient binanceRestClient) {
+    private final RestClient spotClient;
+
+    public BinanceMacroQuoteAdapter(RestClient binanceRestClient, RestClient binanceSpotRestClient) {
         this.client = binanceRestClient;
+        this.spotClient = binanceSpotRestClient;
     }
 
     @Override
@@ -44,9 +55,12 @@ public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
     }
 
     private Optional<MacroQuote> quoteOf(Symbol symbol) {
+        boolean spot = MacroWatchlist.venueOf(symbol) == MacroWatchlist.Venue.SPOT;
         try {
-            BinanceTicker ticker = client.get()
-                    .uri(uri -> uri.path(TICKER).queryParam("symbol", symbol.value()).build())
+            BinanceTicker ticker = (spot ? spotClient : client).get()
+                    .uri(uri -> uri.path(spot ? SPOT_TICKER : TICKER)
+                            .queryParam("symbol", symbol.value())
+                            .build())
                     .retrieve()
                     .body(BinanceTicker.class);
             if (ticker == null || ticker.lastPrice() == null) {

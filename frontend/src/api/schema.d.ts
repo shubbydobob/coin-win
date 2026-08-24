@@ -2486,7 +2486,7 @@ export interface components {
              * @example EQUITY
              * @enum {string}
              */
-            group: "EQUITY" | "METAL" | "ENERGY" | "RATES" | "FEAR";
+            group: "CRYPTO" | "EQUITY" | "METAL" | "ENERGY" | "RATES" | "FEAR";
             /**
              * @description 묶음의 사람이 읽는 이름
              * @example 주가

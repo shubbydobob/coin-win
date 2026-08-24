@@ -103,10 +103,19 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
-  <!-- 같은 이유 — 거시 시세 어댑터. RestClient 는 불변이고 스레드 안전하다. -->
+  <!--
+    같은 이유 — 거시 시세 어댑터. RestClient 는 불변이고 스레드 안전하다.
+
+    필드가 둘인 것은 비트코인 현물 때문이다. 현물은 무기한과 호스트가 달라 클라이언트가
+    따로 필요하다. 억제를 필드 이름으로 열거하는 이 파일의 방식대로 둘 다 적는다 —
+    클래스 전체로 넓히면 나중에 진짜 가변 객체를 들고 있게 돼도 경고가 나지 않는다.
+  -->
   <Match>
     <Class name="com.coinwin.market.adapter.out.binance.BinanceMacroQuoteAdapter"/>
-    <Field name="client"/>
+    <Or>
+      <Field name="client"/>
+      <Field name="spotClient"/>
+    </Or>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 

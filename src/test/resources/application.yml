@@ -34,6 +34,9 @@ coinwin:
       # 테스트가 실수로 진짜 바이낸스를 때리면 곧바로 드러나야 한다.
       # 계약 테스트는 페이크 서버 주소로 이 값을 덮어쓴다.
       base-url: http://localhost:1
+      # 현물도 같은 이유로 닿지 않는 주소를 준다. 이 블록이 운영 설정을 통째로 가리므로
+      # 여기 없는 키는 null 이 되고, 그러면 컨텍스트가 아예 뜨지 않는다.
+      spot-base-url: http://localhost:1
       max-candles-per-request: 1500
       connect-timeout: 1s
       read-timeout: 2s

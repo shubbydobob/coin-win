@@ -71,6 +71,9 @@ coinwin:
     binance:
       # 공개 엔드포인트만 쓴다. API 키가 필요 없다. 근거: .claude/docs/scope.md
       base-url: ${COINWIN_BINANCE_URL:https://fapi.binance.com}
+      # 현물은 호스트가 다르다. 비트코인 현물가 하나 때문에 생겼고, 그 값이 무기한가와
+      # 갈라지는 것이 관측값이므로 같은 주소에서 읽을 수는 없다.
+      spot-base-url: ${COINWIN_BINANCE_SPOT_URL:https://api.binance.com}
       # 바이낸스 klines 는 1회 최대 1500개를 준다. 이보다 크게 요청하면 조용히 잘린다.
       max-candles-per-request: 1500
       connect-timeout: 3s

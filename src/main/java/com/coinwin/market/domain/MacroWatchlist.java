@@ -28,12 +28,34 @@ import java.util.List;
  * {@code UVXY} 는 1.5배다. 배수를 숨기면 "미 장기국채 +0.4%" 가 국채가 0.4% 움직였다는 뜻으로
  * 읽히는데 실제로는 그 3분의 1이다.
  *
+ * <h2>비트코인 현물이 여기 있는 이유</h2>
+ *
+ * <p>나머지 열둘과 달리 이것은 "비트코인 밖" 이 아니다. 그럼에도 이 목록에 있는 이유는
+ * <b>같은 자산의 두 가격이 갈라지는 것 자체가 관측값</b>이기 때문이다 — 화면 왼쪽 위의 큰
+ * 수는 무기한 선물가이고, 그것이 현물보다 비싸면 롱이 프리미엄을 내고 있다는 뜻이다.
+ * 펀딩비와 같은 종류의 사실이고, 같은 이유로 <b>어느 쪽이 유리한가는 말하지 않는다.</b>
+ *
+ * <p>이것 하나 때문에 {@link Venue} 가 생겼다. 나머지는 전부 무기한이라 어댑터가 경로를
+ * 하나만 알면 됐는데, 현물은 호스트와 경로가 둘 다 다르다.
+ *
  * <p>근거: {@code docs/spec/market-watch.md} § 6.5.4
  */
 public final class MacroWatchlist {
 
+    /**
+     * 어느 시장에서 거래되는가. <b>같은 심볼이 두 시장에 다 있어서</b> 이름만으로는 갈리지
+     * 않는다 — {@code BTCUSDT} 는 현물에도 무기한에도 있고 값이 다르다.
+     */
+    public enum Venue {
+        /** 무기한 선물. 열둘이 전부 여기다. */
+        PERPETUAL,
+        /** 현물. */
+        SPOT
+    }
+
     /** 무엇으로 묶는가. 순서가 화면 순서다. */
     public enum Group {
+        CRYPTO("비트코인"),
         EQUITY("주가"),
         METAL("금속"),
         ENERGY("에너지"),
@@ -51,27 +73,29 @@ public final class MacroWatchlist {
         }
     }
 
-    /** 자산 하나. 화면에 뜨는 이름과 어느 묶음인지를 함께 갖는다. */
-    public record Asset(String symbol, String label, Group group) {
+    /** 자산 하나. 화면에 뜨는 이름과 어느 묶음인지, 그리고 어느 시장인지를 함께 갖는다. */
+    public record Asset(String symbol, String label, Group group, Venue venue) {
     }
 
     private static final List<Asset> ASSETS = List.of(
-            new Asset("QQQUSDT", "나스닥 100", Group.EQUITY),
-            new Asset("SPYUSDT", "S&P 500", Group.EQUITY),
-            new Asset("IWMUSDT", "러셀 2000", Group.EQUITY),
+            new Asset("BTCUSDT", "비트코인 현물", Group.CRYPTO, Venue.SPOT),
 
-            new Asset("XAUUSDT", "금", Group.METAL),
-            new Asset("XAGUSDT", "은", Group.METAL),
-            new Asset("COPPERUSDT", "구리", Group.METAL),
+            new Asset("QQQUSDT", "나스닥 100", Group.EQUITY, Venue.PERPETUAL),
+            new Asset("SPYUSDT", "S&P 500", Group.EQUITY, Venue.PERPETUAL),
+            new Asset("IWMUSDT", "러셀 2000", Group.EQUITY, Venue.PERPETUAL),
 
-            new Asset("CLUSDT", "WTI 원유", Group.ENERGY),
-            new Asset("BZUSDT", "브렌트 원유", Group.ENERGY),
-            new Asset("NATGASUSDT", "천연가스", Group.ENERGY),
+            new Asset("XAUUSDT", "금", Group.METAL, Venue.PERPETUAL),
+            new Asset("XAGUSDT", "은", Group.METAL, Venue.PERPETUAL),
+            new Asset("COPPERUSDT", "구리", Group.METAL, Venue.PERPETUAL),
 
-            new Asset("TMFUSDT", "미 장기국채 3배", Group.RATES),
-            new Asset("TBTUSDT", "미 장기국채 인버스 2배", Group.RATES),
+            new Asset("CLUSDT", "WTI 원유", Group.ENERGY, Venue.PERPETUAL),
+            new Asset("BZUSDT", "브렌트 원유", Group.ENERGY, Venue.PERPETUAL),
+            new Asset("NATGASUSDT", "천연가스", Group.ENERGY, Venue.PERPETUAL),
 
-            new Asset("UVXYUSDT", "변동성 1.5배", Group.FEAR));
+            new Asset("TMFUSDT", "미 장기국채 3배", Group.RATES, Venue.PERPETUAL),
+            new Asset("TBTUSDT", "미 장기국채 인버스 2배", Group.RATES, Venue.PERPETUAL),
+
+            new Asset("UVXYUSDT", "변동성 1.5배", Group.FEAR, Venue.PERPETUAL));
 
     private MacroWatchlist() {
     }
@@ -96,6 +120,11 @@ public final class MacroWatchlist {
 
     public static Group groupOf(Symbol symbol) {
         return find(symbol).map(Asset::group).orElse(Group.EQUITY);
+    }
+
+    /** 어느 시장에서 읽어야 하는가. 목록에 없으면 무기한이다 — 열둘 중 열둘이 그렇다. */
+    public static Venue venueOf(Symbol symbol) {
+        return find(symbol).map(Asset::venue).orElse(Venue.PERPETUAL);
     }
 
     private static java.util.Optional<Asset> find(Symbol symbol) {

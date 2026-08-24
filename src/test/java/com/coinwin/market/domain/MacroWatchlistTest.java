@@ -80,6 +80,31 @@ class MacroWatchlistTest {
         }
     }
 
+    /**
+     * <b>비트코인 현물만 다른 시장에서 읽는다.</b> 심볼로 판단하면 갈리지 않는다 —
+     * {@code BTCUSDT} 는 현물에도 무기한에도 있고 값이 다르다. 어느 쪽인지는 이 목록만 안다.
+     */
+    @Test
+    void 비트코인_현물만_현물_시장이다() {
+        assertThat(MacroWatchlist.venueOf(Symbol.of("BTCUSDT")))
+                .isEqualTo(MacroWatchlist.Venue.SPOT);
+
+        assertThat(MacroWatchlist.assets().stream()
+                .filter(asset -> asset.venue() == MacroWatchlist.Venue.SPOT)
+                .map(MacroWatchlist.Asset::symbol))
+                .containsExactly("BTCUSDT");
+    }
+
+    /**
+     * 목록에 없는 종목은 무기한으로 본다. <b>열둘 중 열둘이 그렇기 때문</b>이고, 여기서 현물을
+     * 기본값으로 두면 새 종목을 더할 때 조용히 다른 호스트를 때리게 된다.
+     */
+    @Test
+    void 목록에_없는_종목은_무기한이다() {
+        assertThat(MacroWatchlist.venueOf(Symbol.of("ETHUSDT")))
+                .isEqualTo(MacroWatchlist.Venue.PERPETUAL);
+    }
+
     private static String labelOfSymbol(String symbol) {
         return MacroWatchlist.labelOf(Symbol.of(symbol));
     }
