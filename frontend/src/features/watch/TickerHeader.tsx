@@ -14,10 +14,17 @@ type Book = components["schemas"]["OrderBookResponse"];
 export function TickerHeader({
   book,
   refreshing,
+  failed = false,
   onRefresh,
 }: {
   book: Book;
   refreshing: boolean;
+  /**
+   * **마지막 갱신이 실패했다.** 값은 여전히 있다 — 마지막으로 성공한 것이다. 그 상태를 말하지
+   * 않으면 3초마다 새로 오는 줄 알고 보는 수가 사실은 몇 분 전 값이 되고, 그것이 이 화면이
+   * 스스로 금지한 것이다.
+   */
+  failed?: boolean;
   onRefresh: () => void;
 }) {
   const 하락 = book.change24hPercent < 0;
@@ -34,6 +41,9 @@ export function TickerHeader({
             {하락 ? "▼" : "▲"} {percent(book.change24hPercent)}
           </span>
           <span className="text-xs text-ink-3">24시간</span>
+          {failed && (
+            <span className="text-xs font-medium text-warn">갱신 실패 — 멈춘 값이다</span>
+          )}
         </div>
         <div className="flex items-baseline gap-2 text-xs text-ink-2">
           <span>

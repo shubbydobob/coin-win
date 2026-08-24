@@ -1,6 +1,7 @@
-import { money, percent, price, quantity } from "../../format";
+import { instant, money, percent, price, quantity } from "../../format";
 import { RangeMeter } from "../../shared/Meter";
 import { DIRECTION } from "../../shared/labels";
+import { SmallButton } from "../../shared/SmallButton";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -27,27 +28,52 @@ type Direction = "LONG" | "SHORT";
 export function MyPositionCard({
   reconciliation,
   outliers,
+  onRefresh,
+  refreshing = false,
+  failed = false,
 }: {
   reconciliation: Reconciliation;
   outliers?: Outliers;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  /** 마지막 갱신이 실패했다. 아래 수는 그때 값이고, 계좌 폴링은 멈춰 있다. */
+  failed?: boolean;
 }) {
   const 열린것 = reconciliation.matches.filter((match) => match.actual);
+  const 기록에만 = reconciliation.matches.filter((match) => !match.actual && match.recorded);
 
   return (
     <section aria-label="내 자리" className="rounded-lg border border-line bg-surface p-4">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="text-sm font-medium text-ink">내 자리</h2>
-        <span className="text-xs text-ink-3">
-          거래소가 지금 말하는 내 포지션을 시장 옆에 놓는다
-        </span>
+        {/*
+          **언제 물어본 값인지를 이 카드가 말한다.** 예전에는 아래 「기록과 거래소」가 그 시각을
+          갖고 있었는데, 정작 수를 보여 주는 것은 이 카드였다 — 값과 그 값의 시각이 스크롤
+          하나만큼 떨어져 있으면 사람은 언제나 지금 값으로 읽는다.
+        */}
+        <div className="flex items-baseline gap-2 text-xs text-ink-2">
+          <span>
+            거래소에 물어본 시각 {instant(reconciliation.observedAt)}
+            {/*
+              갱신 중임을 버튼이 아니라 이 자리에 적는다. 버튼의 글자를 바꾸면 15초마다
+              라벨이 흔들리고, 그러면 사람이 누르려던 순간에 대상이 달라진다.
+            */}
+            {refreshing && <span className="ml-1 text-ink-3">· 갱신 중</span>}
+          </span>
+          {failed && <span className="font-medium text-warn">갱신 실패 — 멈춘 값이다</span>}
+          {onRefresh && <SmallButton onClick={onRefresh}>새로고침</SmallButton>}
+        </div>
       </div>
 
-      {열린것.length === 0 ? (
-        <Empty reconciliation={reconciliation} />
+      {열린것.length === 0 && 기록에만.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-2">거래소에도 기록에도 열려 있는 포지션이 없다.</p>
       ) : (
         <div className="mt-3 space-y-3">
           {열린것.map((match) => (
             <Open key={match.direction} match={match} outliers={outliers} />
+          ))}
+          {기록에만.map((match) => (
+            <RecordedOnly key={match.direction} match={match} />
           ))}
         </div>
       )}
@@ -56,20 +82,45 @@ export function MyPositionCard({
 }
 
 /**
- * 거래소에 열린 것이 없을 때. **"없다" 와 "기록에만 있다" 는 다른 사실이다** — 뒤쪽은
- * 청산을 적지 않았다는 뜻일 수 있고, 그것이 이 기능이 막으려는 상태 그 자체다.
+ * 기록에만 열려 있는 포지션. **"없다" 와 "기록에만 있다" 는 다른 사실이다** — 뒤쪽은 청산을
+ * 적지 않았다는 뜻일 수 있고, 그것이 이 기능이 막으려는 상태 그 자체다.
+ *
+ * **이 자리가 사라질 뻔했다.** 원래는 아래 「기록과 거래소」가 이것을 말했는데 그 블록이
+ * 거래소 값을 되풀이하느라 통째로 지워졌다. 되풀이가 아닌 것은 이것 하나였다 — 거래소에
+ * 없는 포지션은 위 목록에 뜰 수 없으므로, 여기 없으면 **화면 어디에도 없다.**
+ *
+ * 거래소가 아는 것이 없으므로 청산가도 미실현도 없다. 적을 수 있는 것은 내가 적어 둔 것뿐이다.
  */
-function Empty({ reconciliation }: { reconciliation: Reconciliation }) {
-  const 기록에만 = reconciliation.matches.filter((match) => match.recorded);
+function RecordedOnly({ match }: { match: Match }) {
+  const 기록 = match.recorded;
+  if (!기록) {
+    return null;
+  }
+  const 방향 = match.direction as Direction;
 
   return (
-    <div className="mt-2 text-sm text-ink-2">
-      <p>거래소에 열려 있는 포지션이 없다.</p>
-      {기록에만.length > 0 && (
-        <p className="mt-1 text-warn">
-          그런데 기록에는 {기록에만.length}건이 열려 있다 — 청산을 적었는가?
-        </p>
-      )}
+    <div className="rounded-lg border border-warn/50 bg-warn/5 p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-base font-medium">
+          <span className={방향 === "LONG" ? "text-up" : "text-down"}>{DIRECTION[방향]}</span>{" "}
+          <span className="tabular-nums">{quantity(기록.quantity)}</span>{" "}
+          <span className="text-xs text-ink-3">BTC</span>
+        </span>
+        <span className="text-xs text-warn">거래소에 없다</span>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm tabular-nums">
+        <Cell
+          label="평단 (기록)"
+          hint="적어 둔 체결 내역으로 다시 계산한 평균 진입가."
+          value={price(기록.averageEntryPrice)}
+        />
+        <Cell label="진입 (기록)" hint="첫 체결 시각." value={instant(기록.openedAt)} />
+      </dl>
+
+      <p className="mt-3 border-t border-line-soft pt-2 text-xs text-warn">
+        거래소에 이 포지션이 없다 — 청산을 기록했는가? 손절이 체결됐을 수 있다.
+      </p>
     </div>
   );
 }

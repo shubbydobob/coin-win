@@ -241,15 +241,38 @@ describe("감시", () => {
    */
   it("색이 무엇을 뜻하는지를 화면이 스스로 말한다", async () => {
     server.use(...전부성공);
+    const user = userEvent.setup();
     renderScreen(<WatchScreen />);
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
+
+    /*
+      **접혀 있지만 화면 안에 있다.** 이 테스트가 지키는 것은 "늘 펼쳐져 있다" 가 아니라
+      "이 화면 밖으로 나가지 않는다" 다 — 뜻을 툴팁이나 다른 문서로 옮기면 올리지 않는
+      사람에게는 없는 것과 같아진다(`shared/Term`). 펼치면 그대로 남는다.
+    */
+    await user.click(within(블록).getByText(/색과 눈금 읽는 법/));
+
     ["롱 쪽", "숏 쪽", "평소와 다름", "방향 없음"].forEach((뜻) => {
       expect(within(블록).getAllByText(뜻).length).toBeGreaterThan(0);
     });
     // 눈금을 어떻게 읽는지도 그림 옆에 붙는다.
     expect(within(블록).getByRole("img", { name: "눈금 읽는 법 예시" })).toBeVisible();
+  });
+
+  /**
+   * <b>접힌 것이 기본이다.</b> 색과 눈금의 뜻은 한 번 익히면 끝나는 것인데 그것이 패널에서
+   * 가장 먼저 눈에 닿는 자리를 늘 차지하고 있었다. 지금 값에 닿기까지 지나쳐야 하는 거리가
+   * 그만큼 길어진다.
+   */
+  it("범례는 기본으로 접혀 있다", async () => {
+    server.use(...전부성공);
+    renderScreen(<WatchScreen />);
+
+    await screen.findByText("평소와 다른가");
+    const 블록 = screen.getByRole("region", { name: "이상치" });
+    expect(within(블록).getByRole("img", { name: "눈금 읽는 법 예시" })).not.toBeVisible();
   });
 
   /**

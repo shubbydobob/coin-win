@@ -28,6 +28,38 @@ const OUTLIER_POLL_MS = 300_000;
 const NOTICE_POLL_MS = 60_000;
 
 /**
+ * 실패한 뒤에 다시 묻는 간격.
+ *
+ * **처음에는 실패하면 영영 멈췄다**(`error ? false`). 계좌에는 그것이 맞다 — 키가 없어서 나는
+ * 503 은 기다린다고 달라지지 않는다. 그런데 **이 화면의 넷은 키가 필요 없는 공개
+ * 엔드포인트**이고, 거기서 나는 실패는 대개 잠깐이다(네트워크 끊김, 거래소 순간 오류,
+ * 개발 중 백엔드 재기동).
+ *
+ * 그렇게 한 번 끊기면 **화면은 마지막에 성공한 값을 계속 띄운 채 조용히 멈춰 있었다.**
+ * 3초마다 갱신되는 줄 알고 보는 가격이 사실은 십 분 전 값일 수 있다는 뜻이고, 그것이
+ * 이 화면이 스스로 금지한 것이다 — *"멈춘 수를 띄워 두면 사람이 그것을 현재로 읽는다."*
+ *
+ * 30초는 로그를 실패로 덮지 않으면서 저절로 되살아나기에 충분한 간격이다. 사람이 누르는
+ * "새로고침" 은 그대로 남는다 — 30초를 기다리지 않는 길이다.
+ */
+const RETRY_POLL_MS = 30_000;
+
+/**
+ * 폴링 주기. **실패해도 멈추지 않고 느려질 뿐이다.**
+ *
+ * 이 함수를 따로 뽑은 이유는 같은 판단이 네 곳에 있기 때문이다 — 한 곳만 고치면 나머지 셋은
+ * 조용히 옛 규칙으로 남는다.
+ */
+function 주기(정상: number) {
+  /*
+    오류 타입을 `unknown` 으로 적으면 그것이 질의 전체의 오류 타입으로 번져 `Failed` 가 받는
+    `UseQueryResult<unknown, Error>` 와 어긋난다 — `tsc` 가 그것을 잡았다.
+  */
+  return (query: { state: { error: Error | null } }) =>
+    query.state.error ? RETRY_POLL_MS : 정상;
+}
+
+/**
  * 감시. **지금 무슨 일이 벌어지고 있고 무엇이 예정돼 있나.**
  *
  * **이 화면은 손실을 막지 않는다.** 막는 것은 계획 화면의 사이징이다 — 명목이 제대로면 최악이
@@ -45,25 +77,26 @@ const NOTICE_POLL_MS = 60_000;
  * 금지한 실시간 알림으로 미끄러지는 첫 계단이다.
  */
 export function WatchScreen() {
-  // 오류에서 멈추고 탭이 숨으면 멈춘다. 계좌 폴링(`OverviewScreen`)과 같은 규칙이다.
+  // 탭이 숨으면 멈춘다(`refetchIntervalInBackground` 를 켜지 않은 것이 그 뜻이다).
+  // 실패하면 멈추지 않고 느려진다 — 위 `주기` 를 본다.
   const book = useQuery({
     queryKey: ["markets", SYMBOL, "orderbook"],
     queryFn: () => get("/api/markets/{symbol}/orderbook", { path: { symbol: SYMBOL } }),
     retry: false,
-    refetchInterval: (query) => (query.state.error ? false : BOOK_POLL_MS),
+    refetchInterval: 주기(BOOK_POLL_MS),
   });
   const outliers = useQuery({
     queryKey: ["markets", SYMBOL, "outliers"],
     queryFn: () => get("/api/markets/{symbol}/outliers", { path: { symbol: SYMBOL } }),
     retry: false,
-    refetchInterval: (query) => (query.state.error ? false : OUTLIER_POLL_MS),
+    refetchInterval: 주기(OUTLIER_POLL_MS),
   });
   // 거시 시세는 24시간 변동률이라 자주 물을 이유가 없다. 5분이면 충분히 최신이다.
   const macro = useQuery({
     queryKey: ["markets", "macro"],
     queryFn: () => get("/api/markets/macro"),
     retry: false,
-    refetchInterval: (query) => (query.state.error ? false : OUTLIER_POLL_MS),
+    refetchInterval: 주기(OUTLIER_POLL_MS),
   });
   const calendar = useQuery({
     queryKey: ["watch", "events"],
@@ -74,7 +107,7 @@ export function WatchScreen() {
     queryKey: ["watch", "notices"],
     queryFn: () => get("/api/watch/notices"),
     retry: false,
-    refetchInterval: (query) => (query.state.error ? false : NOTICE_POLL_MS),
+    refetchInterval: 주기(NOTICE_POLL_MS),
   });
 
   return (
@@ -97,6 +130,7 @@ export function WatchScreen() {
             <TickerHeader
               book={book.data}
               refreshing={book.isFetching}
+              failed={Boolean(book.error)}
               onRefresh={() => book.refetch()}
             />
             <OrderBookPanel book={book.data} />
