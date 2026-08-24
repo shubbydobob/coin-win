@@ -4,6 +4,7 @@ import type { components } from "../../api/schema";
 
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
 type Zone = components["schemas"]["ZoneResponse"];
+type Fibonacci = components["schemas"]["FibonacciResponse"];
 type Position = Readout["ichimoku"];
 
 /**
@@ -31,6 +32,7 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
               <th className="pb-1 font-normal">볼린저</th>
               <th className="pb-1 text-right font-normal">가까운 지지</th>
               <th className="pb-1 text-right font-normal">가까운 저항</th>
+              <th className="pb-1 text-right font-normal">골든 포켓</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line-soft">
@@ -42,9 +44,12 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
       </div>
 
       <p className="mt-2 text-[11px] leading-snug text-ink-4">
-        대는 백테스트가 7년으로 검증한 것과 <b>같은 규칙</b>으로 잡는다 — 피벗을 세고 ATR 안의
-        것을 한 대로 묶는다. <b>저항이 비어 있는 것은 정상이다</b>: 위쪽에 사람이 반응한 적
-        있는 자리가 아직 없다는 뜻이고, 그것을 0 이나 화면 끝으로 채우면 없는 대가 생긴다.
+        대와 되돌림은 <b>같은 피벗 위에 그려진다</b> — 대는 백테스트가 7년으로 검증한 규칙
+        그대로이고, 골든 포켓은 그 마지막 스윙의 0.618~0.65 다. <b>비어 있는 칸은 정상이다</b>:
+        위쪽에 사람이 반응한 적 있는 자리가 아직 없거나 스윙 한쪽이 안 잡혔다는 뜻이고, 그것을
+        0 이나 화면 끝으로 채우면 없는 선이 생긴다.
+        <b>골든 포켓에서 되돌아온다는 것은 이 도구가 재 본 적 없는 주장이다</b> — 여기 적는
+        것은 지금 그 안인가까지다.
       </p>
     </section>
   );
@@ -80,6 +85,7 @@ function Row({ readout }: { readout: Readout }) {
 
       <ZoneCell zone={readout.support} 아래 />
       <ZoneCell zone={readout.resistance} />
+      <PocketCell fibonacci={readout.fibonacci} />
     </tr>
   );
 }
@@ -110,6 +116,42 @@ function ZoneCell({ zone, 아래 = false }: { zone: Zone | null; 아래?: boolea
     </td>
   );
 }
+
+/**
+ * 골든 포켓 한 칸.
+ *
+ * **여섯 레벨을 다 적지 않는다.** 표에 여섯 줄을 더하면 이 화면이 답해야 하는 질문("세 주기가
+ * 같은 말을 하는가")이 숫자 열여덟 개에 묻힌다. 여기 적는 것은 되돌림에서 사람들이 실제로
+ * 보는 한 곳 — 0.618~0.65 띠 — 과 지금 가격이 그 안인가까지다.
+ *
+ * **안에 있다는 것만 말하고 그 다음은 말하지 않는다.** 그 자리에서 되돌아온다는 것은 이
+ * 도구가 근거를 갖지 못한 주장이다.
+ */
+function PocketCell({ fibonacci }: { fibonacci: Fibonacci | null }) {
+  if (!fibonacci) {
+    return (
+      <td className="py-2 text-right text-ink-4">
+        —<span className="mt-0.5 block text-[10px]">스윙 없음</span>
+      </td>
+    );
+  }
+  const 포켓 = fibonacci.levels.filter((level) => POCKET.includes(level.ratio));
+  const 안 = fibonacci.inGoldenPocket;
+
+  return (
+    <td className="py-2 text-right tabular-nums">
+      <span className={안 ? "font-medium text-warn" : "text-ink"}>
+        {포켓.map((level) => price(level.price)).join(" ~ ")}
+      </span>
+      <span className={`mt-0.5 block text-[10px] ${안 ? "text-warn" : "text-ink-3"}`}>
+        {안 ? "지금 이 안" : fibonacci.upward ? "오른 스윙" : "내린 스윙"}
+      </span>
+    </td>
+  );
+}
+
+/** 골든 포켓의 두 끝. 서버가 내는 비율 그대로이며 화면이 계산하지 않는다. */
+const POCKET = [0.618, 0.65];
 
 /**
  * 위치를 색으로.

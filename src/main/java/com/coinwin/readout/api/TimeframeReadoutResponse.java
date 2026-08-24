@@ -1,10 +1,12 @@
 package com.coinwin.readout.api;
 
 import com.coinwin.readout.domain.IndicatorReadout;
+import com.coinwin.readout.domain.ZoneReadout;
 import com.coinwin.readout.domain.TimeframeReadout;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * 한 주기가 지금 말하는 것.
@@ -79,26 +81,36 @@ public record TimeframeReadoutResponse(
         ZoneResponse support,
 
         @Schema(description = "위에서 가장 가까운 대. **없을 수 있다**", nullable = true)
-        ZoneResponse resistance) {
+        ZoneResponse resistance,
+
+        @Schema(description = """
+                최근 스윙의 피보나치 되돌림. **없을 수 있다** — 스윙 고점과 저점 중 한쪽이라도
+                안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다.""",
+                nullable = true)
+        FibonacciResponse fibonacci) {
 
     static TimeframeReadoutResponse from(TimeframeReadout readout) {
         IndicatorReadout indicators = readout.indicators();
         return new TimeframeReadoutResponse(
-                readout.interval().code(),
-                readout.at(),
-                readout.close().value(),
-                readout.atr().value(),
-                indicators.ichimoku().name(),
-                indicators.conversionLine().value(),
-                indicators.baseLine().value(),
-                indicators.cloudTop().value(),
-                indicators.cloudBottom().value(),
-                indicators.bollinger().name(),
-                indicators.bollingerUpper().value(),
-                indicators.bollingerMiddle().value(),
-                indicators.bollingerLower().value(),
-                indicators.bandWidthPercent().value(),
-                readout.support().map(ZoneResponse::from).orElse(null),
-                readout.resistance().map(ZoneResponse::from).orElse(null));
+                readout.interval().code(), readout.at(),
+                readout.close().value(), readout.atr().value(),
+                indicators.ichimoku().name(), indicators.conversionLine().value(),
+                indicators.baseLine().value(), indicators.cloudTop().value(),
+                indicators.cloudBottom().value(), indicators.bollinger().name(),
+                indicators.bollingerUpper().value(), indicators.bollingerMiddle().value(),
+                indicators.bollingerLower().value(), indicators.bandWidthPercent().value(),
+                zone(readout.support()), zone(readout.resistance()), fibonacci(readout));
+    }
+
+    /** 없는 대는 {@code null} 이다. 0 으로 채우면 화면에 없는 지지가 생긴다. */
+    private static ZoneResponse zone(Optional<ZoneReadout> readout) {
+        return readout.map(ZoneResponse::from).orElse(null);
+    }
+
+    /** 되돌림은 지금 가격을 함께 받는다 — 골든 포켓 안인가는 둘을 맞대야 나온다. */
+    private static FibonacciResponse fibonacci(TimeframeReadout readout) {
+        return readout.fibonacci()
+                .map(fib -> FibonacciResponse.from(fib, readout.close().value()))
+                .orElse(null);
     }
 }

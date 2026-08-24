@@ -23,6 +23,20 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
     bollingerLower: 78320.44,
     bandWidthPercent: 2.0833,
     support: { near: 77803, far: 77650, touches: 26, distancePercent: 1.2691 },
+    fibonacci: {
+      low: 64000,
+      high: 79900,
+      upward: true,
+      levels: [
+        { ratio: 0.236, price: 76147.6 },
+        { ratio: 0.382, price: 73826.2 },
+        { ratio: 0.5, price: 71950 },
+        { ratio: 0.618, price: 70073.8 },
+        { ratio: 0.65, price: 69565 },
+        { ratio: 0.786, price: 67400.6 },
+      ],
+      inGoldenPocket: false,
+    },
     resistance: null,
     ...덮어쓸것,
   };

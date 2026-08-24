@@ -1,5 +1,6 @@
 package com.coinwin.readout.domain;
 
+import com.coinwin.backtest.domain.Pivot;
 import com.coinwin.backtest.domain.PivotDetector;
 import com.coinwin.backtest.domain.ZoneMap;
 import com.coinwin.backtest.domain.ZoneSettings;
@@ -26,6 +27,10 @@ import java.util.Optional;
  * 7년 15,110봉으로 검증했다. 그런데 그 둘은 <b>백테스트 안에서만</b> 돌았다 — 매일 화면을
  * 보며 판단하는 사람에게는 없는 것과 같았다.
  *
+ * <p><b>피벗을 한 번만 잡아 둘이 나눠 쓴다.</b> 대와 피보나치가 각자 피벗을 잡으면 같은
+ * 화면의 두 지표가 서로 다른 스윙을 가리킬 수 있다 — 계산은 같아도 그렇게 되는 순간
+ * 사람이 둘을 맞대어 볼 수 없다.
+ *
  * <p><b>계산기를 새로 만들지 않는다.</b> {@code indicator} 와 {@code backtest.domain} 의 것을
  * 그대로 부른다. 여기서 같은 식을 다시 쓰면 화면이 보여 주는 값과 백테스트가 검증한 값이
  * 갈라지고, 그 순간 검증은 아무것도 말해 주지 않는다.
@@ -41,6 +46,7 @@ import java.util.Optional;
  * @param indicators 일목과 볼린저
  * @param support 아래에서 가장 가까운 대. 없을 수 있다
  * @param resistance 위에서 가장 가까운 대. 없을 수 있다
+ * @param fibonacci 마지막 스윙에 걸친 되돌림. 스윙 한쪽이 없으면 비어 있다
  */
 public record TimeframeReadout(
         CandleInterval interval,
@@ -49,7 +55,8 @@ public record TimeframeReadout(
         Money atr,
         IndicatorReadout indicators,
         Optional<ZoneReadout> support,
-        Optional<ZoneReadout> resistance) {
+        Optional<ZoneReadout> resistance,
+        Optional<FibonacciRetracement> fibonacci) {
 
     public TimeframeReadout {
         DomainValues.required(interval, "주기");
@@ -59,6 +66,7 @@ public record TimeframeReadout(
         DomainValues.required(indicators, "지표");
         DomainValues.required(support, "지지대");
         DomainValues.required(resistance, "저항대");
+        DomainValues.required(fibonacci, "피보나치");
     }
 
     /**
@@ -75,7 +83,8 @@ public record TimeframeReadout(
         DomainValues.required(zoneSettings, "대 설정");
         Price close = lastCandleClose(series);
         Money atr = last(new AverageTrueRange(zoneSettings.atrPeriod()).over(series));
-        ZoneMap zones = zonesOf(series, zoneSettings, atr);
+        List<Pivot> pivots = new PivotDetector(zoneSettings.pivotLookback()).over(series);
+        ZoneMap zones = ZoneMap.from(pivots, zoneSettings.toleranceFor(atr), zoneSettings.minTouches());
         return new TimeframeReadout(
                 interval,
                 lastCandleTime(series),
@@ -83,26 +92,14 @@ public record TimeframeReadout(
                 atr,
                 indicatorsOf(series, close),
                 zones.nearestSupport(close).map(zone -> ZoneReadout.of(zone, close)),
-                zones.nearestResistance(close).map(zone -> ZoneReadout.of(zone, close)));
+                zones.nearestResistance(close).map(zone -> ZoneReadout.of(zone, close)),
+                FibonacciRetracement.over(pivots));
     }
 
     private static IndicatorReadout indicatorsOf(CandleSeries series, Price close) {
         IchimokuValue ichimoku = last(IchimokuCloud.standard().over(series));
         BollingerValue bollinger = last(BollingerBands.standard().over(series));
         return IndicatorReadout.of(ichimoku, bollinger, close);
-    }
-
-    /**
-     * 대는 백테스트와 같은 방식으로 만든다.
-     *
-     * <p>피벗을 잡고, 이 시점의 ATR 로 정해지는 허용치 안의 것을 한 대로 묶는다. 그 두 상수는
-     * {@link ZoneSettings} 가 갖고 있고 <b>화면과 백테스트가 같은 것을 쓴다.</b>
-     */
-    private static ZoneMap zonesOf(CandleSeries series, ZoneSettings settings, Money atr) {
-        return ZoneMap.from(
-                new PivotDetector(settings.pivotLookback()).over(series),
-                settings.toleranceFor(atr),
-                settings.minTouches());
     }
 
     private static Price lastCandleClose(CandleSeries series) {

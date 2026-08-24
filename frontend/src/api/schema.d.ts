@@ -2123,6 +2123,49 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 되돌림 레벨 하나 */
+        FibonacciLevelResponse: {
+            /**
+             * @description 되돌림 비율
+             * @example 0.618
+             */
+            ratio: number;
+            /**
+             * @description 그 비율의 가격
+             * @example 70074.2
+             */
+            price: number;
+        };
+        /** @description 최근 스윙의 피보나치 되돌림 레벨 */
+        FibonacciResponse: {
+            /**
+             * @description 스윙 저점
+             * @example 64000
+             */
+            low: number;
+            /**
+             * @description 스윙 고점
+             * @example 79900
+             */
+            high: number;
+            /**
+             * @description 저점에서 고점으로 간 스윙인가. **되돌림을 어느 쪽에서 재는지가 이 값으로
+             *     정해진다** — 오른 스윙은 고점에서 아래로, 내린 스윙은 저점에서 위로 잰다.
+             * @example true
+             */
+            upward: boolean;
+            /**
+             * @description 비율과 그 자리의 가격. 0.236 · 0.382 · 0.5 · 0.618 · 0.65 · 0.786 순이다.
+             *     **0.618 과 0.65 가 골든 포켓의 두 끝**이고, 그 사이는 점이 아니라 띠다.
+             */
+            levels: components["schemas"]["FibonacciLevelResponse"][];
+            /**
+             * @description 지금 가격이 골든 포켓(0.618~0.65) 안인가. **사실 하나이며 그 다음은 이 응답이
+             *     말하지 않는다.**
+             * @example false
+             */
+            inGoldenPocket: boolean;
+        };
         /** @description 한 주기의 지표·지지저항 판독 */
         TimeframeReadoutResponse: {
             /**
@@ -2208,6 +2251,11 @@ export interface components {
             support: components["schemas"]["ZoneResponse"] | null;
             /** @description 위에서 가장 가까운 대. **없을 수 있다** */
             resistance: components["schemas"]["ZoneResponse"] | null;
+            /**
+             * @description 최근 스윙의 피보나치 되돌림. **없을 수 있다** — 스윙 고점과 저점 중 한쪽이라도
+             *     안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다.
+             */
+            fibonacci: components["schemas"]["FibonacciResponse"] | null;
         };
         /** @description 가장 가까운 지지 또는 저항 구간 */
         ZoneResponse: {

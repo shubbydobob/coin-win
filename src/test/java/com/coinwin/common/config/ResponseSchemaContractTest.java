@@ -77,7 +77,7 @@ class ResponseSchemaContractTest {
             "ExchangeSideResponse", List.of("liquidationPrice", "liquidationDistancePercent"),
             "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"),
             "CompoundTargetResponse", List.of("won"),
-            "TimeframeReadoutResponse", List.of("support", "resistance"));
+            "TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci"));
 
     @Autowired
     private WebApplicationContext context;
