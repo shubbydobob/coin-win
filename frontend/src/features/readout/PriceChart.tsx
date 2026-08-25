@@ -11,7 +11,7 @@ import {
 import { useEffect, useMemo, useRef } from "react";
 
 import { get } from "../../api/client";
-import { price } from "../../format";
+import { percent, price } from "../../format";
 import type { components } from "../../api/schema";
 
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
@@ -73,7 +73,18 @@ export function PriceChart({
         path: { symbol },
         query: { interval: readout.interval, from: 범위.from, to: 범위.to },
       }),
-    staleTime: 60_000,
+    /*
+      **아직 안 닫힌 봉이 있으므로 계속 다시 물어야 한다.**
+
+      키를 판독 봉에 맞춘 것은 옳았지만, 그러면 4시간 차트에서 키가 네 시간에 한 번만 바뀐다 —
+      그 사이 마지막 봉의 종가가 화면에서 멈춘다. 실제로 거래소 79,166.50 인데 화면은
+      79,168.60 이었다(2.10 차이).
+
+      키는 그대로 두고 주기만 짧게 한다. 서버는 판독을 부를 때마다 캔들을 다시 받아 두므로
+      (`ReadoutService` 가 동기화한다) 15초면 판독과 같은 시점이 된다.
+    */
+    refetchInterval: 15_000,
+    staleTime: 10_000,
   });
 
   // 차트는 한 번만 만든다. 값이 바뀔 때마다 다시 만들면 사용자가 옮겨 둔 축이 매번 되돌아간다.
@@ -164,16 +175,66 @@ export function PriceChart({
             ? `${candles.data.count}봉 · 마지막 ${price(readout.close)}`
             : "캔들을 가져오는 중"}
       </p>
+
+      <Levels readout={readout} />
     </div>
+  );
+}
+
+/**
+ * 차트 위의 선들을 **가격 순서 그대로** 아래에 적는다.
+ *
+ * 차트의 축 라벨은 작고 서로 겹치며, 창이 좁으면 잘린다. 무엇보다 **어느 선이 지금 가격보다
+ * 위인지**를 라벨만 보고 판단하려면 눈을 두 번 옮겨야 한다.
+ *
+ * **지금 가격을 목록 한가운데 끼워 넣는다.** 그러면 위/아래가 읽는 것이 아니라 보이는 것이
+ * 된다 — 자리만 정하는 것이라 새로 계산하는 수는 하나도 없다(`docs/adr/020`).
+ *
+ * **거리(%)는 서버가 준 것만 적는다.** 대와 매물대에는 `distancePercent` 가 있고 구름·밴드에는
+ * 없다. 여기서 `(선 − 지금) ÷ 지금` 을 하면 화면이 수를 만드는 것이 되고, 그 규칙은 이
+ * 저장소가 한 번 정해 지켜 온 것이다.
+ */
+function Levels({ readout }: { readout: Readout }) {
+  const 지금 = { price: readout.close, title: "지금", color: "#eaecef", now: true, note: "" };
+  const 줄들 = [...선들(readout).map((선) => ({ ...선, now: false })), 지금].sort(
+    (a, b) => b.price - a.price,
+  );
+
+  return (
+    <ul className="mt-2 divide-y divide-line-soft rounded bg-surface-2 px-2">
+      {줄들.map((줄) => (
+        <li
+          key={줄.title}
+          className={`flex items-baseline gap-2 py-1 text-xs tabular-nums ${
+            줄.now ? "font-medium text-ink" : "text-ink-2"
+          }`}
+        >
+          <span
+            className="inline-block h-0.5 w-4 shrink-0 rounded-full"
+            style={{ backgroundColor: 줄.color }}
+            aria-hidden="true"
+          />
+          <span className={줄.now ? "" : "text-ink-3"}>{줄.title}</span>
+          <span className="ml-auto">{price(줄.price)}</span>
+          <span className="w-16 shrink-0 text-right text-[11px] text-ink-4">{줄.note}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 /** 차트에 얹을 가로선. **없는 값은 선도 없다** — 0 으로 그리면 바닥에 가짜 선이 생긴다. */
 function 선들(readout: Readout) {
-  const out: { price: number; color: string; title: string; dashed?: boolean }[] = [];
-  const 더하기 = (value: number | null | undefined, color: string, title: string, dashed = false) => {
+  const out: Line[] = [];
+  const 더하기 = (
+    value: number | null | undefined,
+    color: string,
+    title: string,
+    dashed = false,
+    note = "",
+  ) => {
     if (value !== null && value !== undefined) {
-      out.push({ price: value, color, title, dashed });
+      out.push({ price: value, color, title, dashed, note });
     }
   };
 
@@ -185,11 +246,20 @@ function 선들(readout: Readout) {
 
   // 서버가 이미 **가장 가까운 대 하나씩만** 준다. 여럿을 다 그리면 선이 열 개를 넘어
   // 캔들이 안 보이는데, 그 판단은 이미 서버 쪽에서 끝나 있다.
-  더하기(readout.support?.near, "#0ecb81", "지지");
-  더하기(readout.resistance?.near, "#f6465d", "저항");
+  더하기(readout.support?.near, "#0ecb81", "지지", false, 거리(readout.support?.distancePercent));
+  더하기(readout.resistance?.near, "#f6465d", "저항", false, 거리(readout.resistance?.distancePercent));
   더하기(readout.volume.pointOfControl, "#f0b90b", "매물대 중심");
 
   return out;
+}
+
+type Line = { price: number; color: string; title: string; dashed: boolean; note: string };
+
+/** 서버가 준 거리만 적는다. 없으면 빈칸이다 — 화면이 만들어 채우지 않는다. */
+function 거리(distancePercent: number | null | undefined): string {
+  return distancePercent === null || distancePercent === undefined
+    ? ""
+    : percent(Math.abs(distancePercent));
 }
 
 /**
