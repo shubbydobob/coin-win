@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { get } from "../../api/client";
 import { percent, price } from "../../format";
+import { SideChip, type ChipSide } from "../../shared/SideChip";
 import type { components } from "../../api/schema";
 
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
@@ -209,10 +210,23 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
             {label}
           </label>
         ))}
-        <span className="text-ink-4">아래 칸: RSI · MACD</span>
       </div>
 
       <div ref={창} className="h-[440px] w-full" />
+
+      {/*
+        **판 이름을 캔버스 밖에 적는다.** 그림 안에 글자를 넣으면 축과 겹치고, 무엇보다
+        스크린리더와 테스트가 못 읽는다. 아래 두 칸이 무슨 칸인지 모르면 그 칸은 무늬다.
+      */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-4">
+        <span>가운데 칸 — <b className="text-ink-3">RSI(14)</b> 0~100, 점선은 30·70</span>
+        <span>
+          아래 칸 — <b className="text-ink-3">MACD(12/26/9)</b>
+          <span className="ml-1 text-[#0094ff]">MACD</span>
+          <span className="ml-1 text-[#ff6a00]">시그널</span>
+          <span className="ml-1">막대는 둘의 차</span>
+        </span>
+      </div>
 
       {/*
         **캔버스 밖에 상태를 적는다.** 그림 안에서 벌어지는 일은 테스트도 스크린리더도 못 본다.
@@ -227,10 +241,62 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
             : "지표를 가져오는 중"}
       </p>
 
+      {series.data && <Stances stances={series.data.stances} />}
+
       <Levels readout={readout} />
     </div>
   );
 }
+
+/**
+ * 지표마다 <b>지금 어느 쪽에 서 있는가.</b>
+ *
+ * <b>세되 우열은 내지 않는다.</b> 감시 화면의 「붐비는 쪽」과 같은 태도다 — 다섯 중 셋이
+ * 롱 쪽이라는 것은 사실이고, 그래서 롱이 유리하다는 것은 사실이 아니다. 이 저장소는 그 부류의
+ * 전제를 7년 15,110봉에서 반증했다(`docs/adr/021`).
+ *
+ * <b>판정은 서버가 한다.</b> 화면이 세 이동평균을 비교해 "정배열" 이라고 적으면 그 규칙이
+ * 화면에 생기고, 그러면 같은 규칙이 백테스트나 연구 쪽과 갈라진다.
+ *
+ * <b>말할 수 없는 것은 세지 않는다.</b> 봉이 모자란 지표는 딱지 없이 이유만 적는다 —
+ * 중립으로 세면 "가운데 있다" 는 없는 사실이 생긴다.
+ */
+function Stances({ stances }: { stances: Series["stances"] }) {
+  const 롱 = stances.filter((s) => s.stance === "LONG").length;
+  const 숏 = stances.filter((s) => s.stance === "SHORT").length;
+
+  return (
+    <section aria-label="지표가 선 자리" className="mt-2 rounded bg-surface-2 px-2 py-1.5">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-ink-3">지표가 선 자리</span>
+        <SideChip side="LONG">{롱}</SideChip>
+        <SideChip side="SHORT">{숏}</SideChip>
+        <span className="ml-auto text-[10px] text-ink-4">셀 뿐 어느 쪽이 유리한지는 말하지 않는다</span>
+      </div>
+      <dl className="mt-1 divide-y divide-line-soft">
+        {stances.map((stance) => (
+          <div key={stance.indicator} className="flex items-baseline gap-2 py-1 text-xs">
+            <dt className="w-16 shrink-0 text-ink-3">{stance.indicator}</dt>
+            <dd className="flex flex-wrap items-baseline gap-1.5">
+              {STANCE_CHIP[stance.stance] && (
+                <SideChip side={STANCE_CHIP[stance.stance]!} />
+              )}
+              <span className={stance.stance === "UNKNOWN" ? "text-ink-4" : "text-ink-2"}>
+                {stance.statement}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/** 중립과 말할 수 없음에는 딱지가 없다 — 둘 다 "어느 쪽" 이 아니기 때문이다. */
+const STANCE_CHIP: Record<string, ChipSide | undefined> = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+};
 
 type Overlay = "ichimoku" | "bollinger" | "movingAverages";
 

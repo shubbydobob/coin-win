@@ -2462,6 +2462,31 @@ export interface components {
             rsi: components["schemas"]["PricePointResponse"][];
             /** @description MACD(12/26/9). **봉이 모자라면 빈 목록이다** */
             macd: components["schemas"]["MacdPointResponse"][];
+            /**
+             * @description 지표마다 지금 어느 쪽에 서 있는가. **유리한 쪽이 아니라 관측이다** —
+             *     전부 정의로 정해지는 사실이고 그것이 계속된다는 뜻은 없다.
+             */
+            stances: components["schemas"]["IndicatorStanceResponse"][];
+        };
+        /** @description 지표 하나가 지금 선 자리. 유리한 쪽이 아니라 관측이다 */
+        IndicatorStanceResponse: {
+            /**
+             * @description 지표 이름
+             * @example MACD
+             */
+            indicator: string;
+            /**
+             * @description 어느 쪽에 서 있는가. **UNKNOWN 은 NEUTRAL 과 다른 사실이다** —
+             *     앞은 봉이 모자라 말할 수 없는 것이고 뒤는 어느 쪽도 아닌 것이다.
+             * @example SHORT
+             * @enum {string}
+             */
+            stance: "LONG" | "SHORT" | "NEUTRAL" | "UNKNOWN";
+            /**
+             * @description 그렇게 본 근거. **일어난 일까지만 적는다**
+             * @example 시그널 아래에 있다
+             */
+            statement: string;
         };
         /** @description 한 시점의 MACD 값 */
         MacdPointResponse: {

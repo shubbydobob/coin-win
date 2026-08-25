@@ -4072,6 +4072,13 @@
             "items": {
               "$ref": "#/components/schemas/MacdPointResponse"
             }
+          },
+          "stances": {
+            "type": "array",
+            "description": "지표마다 지금 어느 쪽에 서 있는가. **유리한 쪽이 아니라 관측이다** —\n전부 정의로 정해지는 사실이고 그것이 계속된다는 뜻은 없다.",
+            "items": {
+              "$ref": "#/components/schemas/IndicatorStanceResponse"
+            }
           }
         },
         "required": [
@@ -4083,7 +4090,40 @@
           "macd",
           "movingAverages",
           "rsi",
+          "stances",
           "symbol"
+        ]
+      },
+      "IndicatorStanceResponse": {
+        "type": "object",
+        "description": "지표 하나가 지금 선 자리. 유리한 쪽이 아니라 관측이다",
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "description": "지표 이름",
+            "example": "MACD"
+          },
+          "stance": {
+            "type": "string",
+            "description": "어느 쪽에 서 있는가. **UNKNOWN 은 NEUTRAL 과 다른 사실이다** —\n앞은 봉이 모자라 말할 수 없는 것이고 뒤는 어느 쪽도 아닌 것이다.",
+            "enum": [
+              "LONG",
+              "SHORT",
+              "NEUTRAL",
+              "UNKNOWN"
+            ],
+            "example": "SHORT"
+          },
+          "statement": {
+            "type": "string",
+            "description": "그렇게 본 근거. **일어난 일까지만 적는다**",
+            "example": "시그널 아래에 있다"
+          }
+        },
+        "required": [
+          "indicator",
+          "stance",
+          "statement"
         ]
       },
       "MacdPointResponse": {

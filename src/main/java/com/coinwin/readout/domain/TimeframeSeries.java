@@ -33,6 +33,9 @@ import java.util.function.Supplier;
  * 값을 갖는다. 길이를 맞추려고 앞을 채우지 않는다 — 없는 값을 0 이나 첫 값으로 채우면 그것이
  * 지표처럼 보인다. 점마다 시각을 달고 있으므로 그리는 쪽이 알아서 맞춘다.
  *
+ * <p><b>지금 어느 쪽에 서 있는지도 함께 낸다</b>({@code stances}). 그 판정을 화면에 두면
+ * "정배열" 같은 규칙이 화면에 생기고, 그러면 같은 규칙이 백테스트나 연구 쪽과 갈라진다.
+ *
  * <p><b>봉이 모자라면 그 지표만 빠진다.</b> 300봉 요청에 120봉만 저장돼 있으면 200 이동평균은
  * 없고 나머지는 있다. 하나 때문에 전부를 거절하면 짧은 주기가 아무것도 못 그린다.
  */
@@ -70,14 +73,28 @@ public record TimeframeSeries(
                 .map(period -> new MovingAverageLine(
                         period, orEmpty(() -> MovingAverage.simple(period).over(candles))))
                 .toList();
+        var ichimoku = orEmpty(() -> IchimokuCloud.standard().over(candles));
+        var bollinger = orEmpty(() -> BollingerBands.standard().over(candles));
+        var rsi = orEmpty(() -> RelativeStrengthIndex.standard().over(candles));
+        var macd = orEmpty(() -> Macd.standard().over(candles));
         return new TimeframeSeries(
                 interval,
                 candles,
-                orEmpty(() -> IchimokuCloud.standard().over(candles)),
-                orEmpty(() -> BollingerBands.standard().over(candles)),
+                ichimoku,
+                bollinger,
                 averages,
-                orEmpty(() -> RelativeStrengthIndex.standard().over(candles)),
-                orEmpty(() -> Macd.standard().over(candles)));
+                rsi,
+                macd);
+    }
+
+    /**
+     * 지표마다 <b>지금</b> 어느 쪽에 서 있는가.
+     *
+     * <p>생성자 인자가 아니라 파생값이다 — 자기가 든 값에서 나오므로 따로 받을 이유가 없고,
+     * 받으면 <b>지표와 판정이 어긋난 묶음</b>을 만들 수 있다.
+     */
+    public List<IndicatorStance> stances() {
+        return StanceReadout.over(this);
     }
 
     /**

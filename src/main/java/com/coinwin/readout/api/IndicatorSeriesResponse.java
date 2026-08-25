@@ -38,7 +38,12 @@ public record IndicatorSeriesResponse(
         @Schema(description = "RSI(14). 0~100. **봉이 모자라면 빈 목록이다**")
         List<PricePointResponse> rsi,
         @Schema(description = "MACD(12/26/9). **봉이 모자라면 빈 목록이다**")
-        List<MacdPointResponse> macd) {
+        List<MacdPointResponse> macd,
+
+        @Schema(description = """
+                지표마다 지금 어느 쪽에 서 있는가. **유리한 쪽이 아니라 관측이다** —
+                전부 정의로 정해지는 사실이고 그것이 계속된다는 뜻은 없다.""")
+        List<IndicatorStanceResponse> stances) {
 
     /** 목록을 그대로 들고 있으면 밖에서 바꿀 수 있다. 다른 응답 DTO 와 같은 처리다. */
     public IndicatorSeriesResponse {
@@ -48,6 +53,7 @@ public record IndicatorSeriesResponse(
         movingAverages = List.copyOf(movingAverages);
         rsi = List.copyOf(rsi);
         macd = List.copyOf(macd);
+        stances = List.copyOf(stances);
     }
 
     public static IndicatorSeriesResponse from(String symbol, TimeframeSeries series) {
@@ -65,6 +71,7 @@ public record IndicatorSeriesResponse(
                 series.rsi().stream()
                         .map(point -> new PricePointResponse(point.at(), point.value().value()))
                         .toList(),
-                MacdPointResponse.from(series.macd()));
+                MacdPointResponse.from(series.macd()),
+                IndicatorStanceResponse.from(series.stances()));
     }
 }
