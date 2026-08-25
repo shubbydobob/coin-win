@@ -144,6 +144,8 @@ const LABEL: Record<string, string> = {
   "15m": "15분",
   "1h": "1시간",
   "4h": "4시간",
+  "1d": "일봉",
+  "1w": "주봉",
 };
 
 const POSITION: Record<string, string> = {

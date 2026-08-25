@@ -48,7 +48,11 @@ public class ReadoutService {
      * 1시간·4시간에서 확인한다. 순서를 여기서 정해 두면 화면이 다시 정렬하지 않는다.
      */
     private static final List<CandleInterval> INTERVALS = List.of(
-            CandleInterval.FIFTEEN_MINUTES, CandleInterval.ONE_HOUR, CandleInterval.FOUR_HOURS);
+            CandleInterval.FIFTEEN_MINUTES,
+            CandleInterval.ONE_HOUR,
+            CandleInterval.FOUR_HOURS,
+            CandleInterval.ONE_DAY,
+            CandleInterval.ONE_WEEK);
 
     /**
      * 몇 봉을 보는가.

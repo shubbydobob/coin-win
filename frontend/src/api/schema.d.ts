@@ -2173,7 +2173,7 @@ export interface components {
              * @example 15m
              * @enum {string}
              */
-            interval: "15m" | "1h" | "4h";
+            interval: "15m" | "1h" | "4h" | "1d" | "1w";
             /**
              * Format: date-time
              * @description 판독 기준이 된 봉의 시각(UTC). **아직 닫히지 않은 봉일 수 있다**

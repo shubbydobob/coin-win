@@ -22,7 +22,7 @@ import java.util.Optional;
 public record TimeframeReadoutResponse(
 
         @Schema(description = "캔들 주기", example = "15m",
-                allowableValues = {"15m", "1h", "4h"})
+                allowableValues = {"15m", "1h", "4h", "1d", "1w"})
         String interval,
 
         @Schema(description = "판독 기준이 된 봉의 시각(UTC). **아직 닫히지 않은 봉일 수 있다**",
