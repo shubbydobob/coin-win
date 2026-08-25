@@ -133,8 +133,8 @@ describe("내 자리", () => {
     render(<MyPositionCard reconciliation={숏()} outliers={시장("LONG")} />);
     const 카드 = screen.getByRole("region", { name: "내 자리" });
 
-    expect(within(카드).getByText("롱 3")).toBeVisible();
-    expect(within(카드).getByText("숏 1")).toBeVisible();
+    expect(카드).toHaveTextContent("롱3");
+    expect(카드).toHaveTextContent("숏1");
     expect(within(카드).queryByText(/유리|불리|위험하다|줄여라|닫아라|버텨/)).toBeNull();
   });
 

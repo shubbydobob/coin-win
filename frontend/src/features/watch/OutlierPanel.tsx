@@ -1,5 +1,7 @@
 import { NOTHING, percent, price, quantity, ratio } from "../../format";
+import { LEVEL_TEXT, Light, LightLegend, type Level } from "../../shared/Light";
 import type { Side } from "../../shared/Meter";
+import { SideChip, type ChipSide } from "../../shared/SideChip";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -26,8 +28,11 @@ type Outlier = components["schemas"]["MetricOutlierResponse"];
  * 그림을 걷어내면서 그 교훈까지 되돌리면 앞판의 실패를 다시 하는 것이다.
  *
  * **신호등 색은 등락과 아무 관계가 없다.** 회색 → 노랑 → 주황이고 빨강·초록을 쓰지 않는다.
- * 그 둘은 이 저장소에서 이미 롱 쪽 / 숏 쪽을 뜻한다(`shared/tone.ts`). 그래서 이 패널에서
- * 진영은 **글로만** 말한다 — 색이 두 가지 일을 겹쳐서 하면 둘 다 못 읽는다.
+ * 그 둘은 이 저장소에서 이미 롱 쪽 / 숏 쪽을 뜻한다(`shared/tone.ts`).
+ *
+ * **진영은 딱지로 말한다.** 초록·빨강 글씨만으로는 구분이 안 왔다 — 이 화면에는 초록·빨강
+ * 글씨가 이미 많다(24시간 변동, 미실현, 다른 자산 열둘). 딱지는 모양·글자·색 셋을 겹치므로
+ * 그중 하나만 눈에 들어와도 읽힌다(`shared/SideChip`).
  *
  * **무엇을 하라고 말하지 않는다.** 문장도 일어난 일까지만 적는다.
  */
@@ -56,18 +61,8 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
         )}
       </div>
 
-      {/*
-        범례를 한 줄로 편다. 앞판은 접어 두었는데, 접힌 설명은 색이 무슨 뜻인지 모르는 사람에게
-        **없는 것과 같다.** 세 단계뿐이라 한 줄에 들어가므로 접을 이유가 사라졌다.
-      */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-4">
-        {(["usual", "leaning", "unusual"] as const).map((level) => (
-          <span key={level} className="flex items-center gap-1">
-            <Light level={level} />
-            {LEVEL_TEXT[level]}
-          </span>
-        ))}
-        <span className="text-ink-4">— 드문 정도이지 좋고 나쁨이 아니다</span>
+      <div className="mt-1.5">
+        <LightLegend note="드문 정도이지 좋고 나쁨이 아니다" />
       </div>
 
       {/*
@@ -75,11 +70,14 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
         그 가중치는 검증할 방법이 없다. 셋 대 하나라는 것은 사실이고, 그래서 어느 쪽이
         유리한가는 사실이 아니다.
       */}
-      <div className="mt-2 flex items-center gap-2 rounded bg-surface-2 px-2 py-1.5 text-xs">
+      <div
+        role="group"
+        aria-label="붐비는 쪽"
+        className="mt-2 flex items-center gap-2 rounded bg-surface-2 px-2 py-1.5 text-xs"
+      >
         <span className="text-ink-3">붐비는 쪽</span>
-        <span className="font-medium tabular-nums text-up">롱 {outliers.crowdedLong}</span>
-        <span className="text-ink-4">·</span>
-        <span className="font-medium tabular-nums text-down">숏 {outliers.crowdedShort}</span>
+        <SideChip side="LONG">{outliers.crowdedLong}</SideChip>
+        <SideChip side="SHORT">{outliers.crowdedShort}</SideChip>
         <span className="ml-auto text-[10px] text-ink-4">방향 있는 지표만 센다</span>
       </div>
 
@@ -140,8 +138,13 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
         정의이지 관측이 아니다. 기준선(가격)에는 축이 없으므로 뜨지 않는다.
       */}
       {!baseline && (
-        <p className="mt-1 pl-4 text-xs leading-snug text-ink-2">
-          {SIDE_TEXT[metric.metric]?.[metric.side as Side] ?? ""}
+        <p className="mt-1 flex flex-wrap items-baseline gap-1.5 pl-4 text-xs leading-snug text-ink-2">
+          {/*
+            **딱지를 문장 앞에 놓는다.** 문장만 있으면 "큰손은 롱 쪽에 실려 있다" 를 끝까지
+            읽어야 어느 쪽인지 알 수 있다. 다섯 줄이면 다섯 문장을 읽는 일이 된다.
+          */}
+          {CHIP[metric.side as Side] && <SideChip side={CHIP[metric.side as Side]!} />}
+          <span>{SIDE_TEXT[metric.metric]?.[metric.side as Side] ?? ""}</span>
         </p>
       )}
 
@@ -153,37 +156,6 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
         </p>
       )}
     </div>
-  );
-}
-
-type Level = "usual" | "leaning" | "unusual";
-
-const LEVEL_TEXT: Record<Level, string> = {
-  usual: "평소",
-  leaning: "치우침",
-  unusual: "평소와 다름",
-};
-
-const LEVEL_DOT: Record<Level, string> = {
-  usual: "bg-ink-4",
-  leaning: "bg-warn",
-  unusual: "bg-alert",
-};
-
-/**
- * 신호등 하나. **색만으로 뜻을 지지 않는다** — 옆에 언제나 글자가 붙고, 접근성 이름도 글자다.
- *
- * 색맹이 아니어도 필요하다. 회색·노랑·주황은 어두운 배경에서 서로 가까워 보이고, 이 화면은
- * 빠르게 훑는 자리다.
- */
-function Light({ level, label }: { level: Level; label?: string }) {
-  return (
-    <span
-      className={`inline-block size-2.5 shrink-0 rounded-full ${LEVEL_DOT[level]}`}
-      role={label ? "img" : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-    />
   );
 }
 
@@ -239,6 +211,18 @@ function 변화표기(metric: Outlier): string {
   const 값 = metric.change as number;
   return metric.metric === "FUNDING_RATE" ? `${percent(값)}p` : percent(값 * 100);
 }
+
+/**
+ * 진영을 딱지로. **`BALANCED` 와 `NONE` 에는 딱지가 없다.**
+ *
+ * 「중립」 딱지를 붙이면 다섯 줄 중 셋이 딱지를 갖게 되고, 그러면 딱지가 "어느 쪽인가" 가
+ * 아니라 "줄이 있다" 를 뜻하게 된다. **양쪽이 같은 것과 축이 없는 것은 문장이 말한다** —
+ * 그 둘은 서로 다른 사실이고 딱지 하나로는 구별되지 않는다.
+ */
+const CHIP: Partial<Record<Side, ChipSide>> = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+};
 
 const LABEL: Record<string, string> = {
   PRICE: "가격 (기준)",

@@ -30,7 +30,7 @@ const BOOK: components["schemas"]["OrderBookResponse"] = {
   askWall: null,
 };
 
-/** 표본은 스파크라인이 그려지도록 두 개 이상 둔다. */
+/** 표본은 위치를 말할 수 있도록 두 개 이상 둔다. */
 const 표본 = (from: number, step: number) =>
   Array.from({ length: 6 }, (_, index) => from + step * index);
 
@@ -213,8 +213,10 @@ describe("감시", () => {
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
-    expect(within(블록).getByText("롱 3")).toBeVisible();
-    expect(within(블록).getByText("숏 1")).toBeVisible();
+    // 딱지와 수가 다른 노드라 묶음의 글월로 본다 — 사람이 읽는 것은 「롱 3 · 숏 1」이다.
+    const 셈 = within(블록).getByRole("group", { name: "붐비는 쪽" });
+    expect(셈).toHaveTextContent("롱3");
+    expect(셈).toHaveTextContent("숏1");
   });
 
   /**

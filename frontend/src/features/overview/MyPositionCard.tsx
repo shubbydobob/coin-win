@@ -1,7 +1,7 @@
 import { instant, money, percent, price, quantity } from "../../format";
 import { RangeMeter } from "../../shared/Meter";
-import { DIRECTION } from "../../shared/labels";
 import { SmallButton } from "../../shared/SmallButton";
+import { SideChip } from "../../shared/SideChip";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -102,7 +102,7 @@ function RecordedOnly({ match }: { match: Match }) {
     <div className="rounded-lg border border-warn/50 bg-warn/5 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-base font-medium">
-          <span className={방향 === "LONG" ? "text-up" : "text-down"}>{DIRECTION[방향]}</span>{" "}
+          <SideChip side={방향} />{" "}
           <span className="tabular-nums">{quantity(기록.quantity)}</span>{" "}
           <span className="text-xs text-ink-3">BTC</span>
         </span>
@@ -139,7 +139,7 @@ function Open({ match, outliers }: { match: Match; outliers?: Outliers }) {
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-base font-medium">
-          <span className={방향 === "LONG" ? "text-up" : "text-down"}>{DIRECTION[방향]}</span>{" "}
+          <SideChip side={방향} />{" "}
           <span className="tabular-nums">{quantity(포지션.quantity)}</span>{" "}
           <span className="text-xs text-ink-3">BTC</span>
         </span>
@@ -235,14 +235,11 @@ function Crowd({ 방향, outliers }: { 방향: Direction; outliers?: Outliers })
     <div className="mt-3 space-y-1 border-t border-line-soft pt-2 text-xs">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-ink-3">내 방향</span>
-        <span className={`font-medium ${방향 === "LONG" ? "text-up" : "text-down"}`}>
-          {DIRECTION[방향]}
-        </span>
+        <SideChip side={방향} />
         <span className="text-ink-4">·</span>
         <span className="text-ink-3">붐비는 쪽</span>
-        <span className="tabular-nums font-medium text-up">롱 {outliers.crowdedLong}</span>
-        <span className="text-ink-4">·</span>
-        <span className="tabular-nums font-medium text-down">숏 {outliers.crowdedShort}</span>
+        <SideChip side="LONG">{outliers.crowdedLong}</SideChip>
+        <SideChip side="SHORT">{outliers.crowdedShort}</SideChip>
       </div>
       {펀딩 && (
         <p className="text-ink-2">

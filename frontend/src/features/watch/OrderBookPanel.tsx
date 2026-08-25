@@ -1,11 +1,11 @@
 import { money, percent, price, quantity, ratio } from "../../format";
-import { SplitMeter } from "../../shared/Meter";
+import { Light, type Level } from "../../shared/Light";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
 type Book = components["schemas"]["OrderBookResponse"];
 
-type Level = components["schemas"]["PriceLevelResponse"];
+type Level_ = components["schemas"]["PriceLevelResponse"];
 
 type Wall = components["schemas"]["OrderWallResponse"];
 
@@ -15,18 +15,14 @@ type Wall = components["schemas"]["OrderWallResponse"];
  * **방향을 말하지 않는다.** 불균형이 양수라는 것은 매수 잔량이 더 많다는 사실이고, 그것이
  * 오른다는 뜻은 아니다 — 호가는 취소될 수 있고 큰 벽은 오히려 미끼인 경우가 많다.
  *
- * **단 목록은 접혀 있다.** 요약(스프레드·잔량·불균형)은 밖에 남으므로 접어도 잃는 사실이
- * 없고, 40줄이 이 탭에서 가장 긴 블록이었다.
+ * **단 목록은 접혀 있다.** 요약(스프레드·두꺼운 단·불균형)은 밖에 남으므로 접어도 잃는
+ * 사실이 없고, 40줄이 이 탭에서 가장 긴 블록이었다.
  *
- * 막대 길이는 `format/` 을 거치지 않는다. **표시되는 수가 아니라 그리기 좌표**이기 때문이다 —
- * 사람이 읽는 값은 전부 옆의 숫자이고, 그것은 서버가 낸 값을 `format/` 이 옮긴 것이다.
+ * **막대가 하나도 없다.** 앞판에는 둘이 있었다 — 단마다 잔량 길이를 그린 띠, 그리고 매수/매도
+ * 잔량을 좌우로 나눈 띠. 둘 다 바로 옆 숫자가 이미 말하는 것을 한 번 더 그린 것이었고,
+ * **같은 사실을 두 번 그리면 둘 다 안 읽힌다.** 남긴 것은 신호등 하나와 문장 하나다.
  */
 export function OrderBookPanel({ book }: { book: Book }) {
-  const 최대잔량 = Math.max(
-    ...book.bids.map((level) => level.quantity),
-    ...book.asks.map((level) => level.quantity),
-  );
-
   return (
     <section aria-label="호가" className="rounded-lg border border-line bg-surface p-3">
       <h2 className="text-sm font-medium text-ink">호가</h2>
@@ -59,34 +55,35 @@ export function OrderBookPanel({ book }: { book: Book }) {
         </summary>
         <div className="mt-2 space-y-0.5">
           {[...book.asks].reverse().map((level) => (
-            <Row key={`ask-${level.price}`} level={level} max={최대잔량} tone="ask" />
+            <Row key={`ask-${level.price}`} level={level} tone="ask" />
           ))}
           <div className="my-1 border-t border-line-soft" />
           {book.bids.map((level) => (
-            <Row key={`bid-${level.price}`} level={level} max={최대잔량} tone="bid" />
+            <Row key={`bid-${level.price}`} level={level} tone="bid" />
           ))}
         </div>
       </details>
 
-      <div className="mt-3 space-y-1">
-        <div className="flex justify-between text-xs">
-          <span className="text-up">매수 {quantity(book.bidVolume)}</span>
-          <span className="text-ink-3">{두께(book.imbalance)}</span>
-          <span className="text-down">{quantity(book.askVolume)} 매도</span>
-        </div>
-        {/* 0.0910 을 읽고 "매수가 9% 두껍다" 로 옮기는 일을 사람이 하지 않게 한다. */}
-        <SplitMeter
-          left={book.bidVolume}
-          right={book.askVolume}
-          label={`매수 잔량 ${quantity(book.bidVolume)} 대 매도 잔량 ${quantity(book.askVolume)}, 불균형 ${ratio(book.imbalance)}`}
-        />
-        <dl className="grid grid-cols-[1fr_auto] items-start gap-x-4 pt-1 text-sm tabular-nums">
+      {/*
+        **막대를 걷어내고 신호등과 문장을 남겼다.** 앞판은 매수/매도 잔량을 좌우로 나눈 띠였다.
+        그 띠가 말하는 것은 "어느 쪽이 얼마나 두꺼운가" 인데, 바로 아래 숫자가 같은 것을 이미
+        말하고 있었다 — **같은 사실을 두 번 그리면 둘 다 안 읽힌다.**
+
+        남은 질문은 하나다. "이 불균형이 신경 쓸 만한가." 신호등이 그것에 답한다.
+      */}
+      <div className="mt-3 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Light level={불균형단계(book.imbalance)} label={`불균형: ${불균형말(book.imbalance)}`} />
           <Term
             label="불균형"
             hint="(매수 − 매도) ÷ 합. 보이는 단수까지만 센다. 방향을 뜻하지 않는다."
           />
-          <dd className="text-right">{ratio(book.imbalance)}</dd>
-        </dl>
+          <span className="ml-auto text-sm tabular-nums text-ink">{ratio(book.imbalance)}</span>
+        </div>
+        <p className="pl-4 text-xs leading-snug text-ink-2">{불균형말(book.imbalance)}</p>
+        <p className="pl-4 text-[11px] tabular-nums text-ink-4">
+          매수 {quantity(book.bidVolume)} · 매도 {quantity(book.askVolume)}
+        </p>
       </div>
     </section>
   );
@@ -147,28 +144,45 @@ function WallLine({ wall, label, tone }: { wall: Wall | null; label: string; ton
   );
 }
 
-function 두께(imbalance: number): string {
-  if (imbalance > 0) {
-    return "매수 두꺼움";
+/**
+ * 불균형을 말로. **어느 쪽이 두꺼운가까지만 적는다** — 두꺼운 쪽으로 간다는 뜻이 아니다.
+ */
+function 불균형말(imbalance: number): string {
+  const 세기 = 불균형단계(imbalance);
+  if (세기 === "usual") {
+    return "양쪽이 비슷하다";
   }
-  return imbalance < 0 ? "매도 두꺼움" : "균형";
+  const 쪽 = imbalance > 0 ? "매수" : "매도";
+  return 세기 === "unusual" ? `${쪽}가 크게 두껍다` : `${쪽}가 두껍다`;
 }
 
-/** 한 단. 잔량을 막대로도 보인다 — 어느 쪽이 두꺼운지는 숫자보다 길이가 빨리 읽힌다. */
-function Row({ level, max, tone }: { level: Level; max: number; tone: "bid" | "ask" }) {
-  const 길이 = max === 0 ? 0 : (level.quantity / max) * 100;
+/**
+ * 신호등 단계. **자리표시자다** — 근거 있는 수가 아니라 "어느 정도면 눈에 띄나" 를 눈으로 잡은
+ * 것이다. 호가 두께의 분포를 표본으로 재 본 적이 없다.
+ *
+ * 이상치 판정을 서버가 하는 다른 지표와 다른 자리다. 그쪽은 최근 표본에서 분위를 내지만
+ * 호가는 이력이 없다 — 어떤 덤프로도 소급되지 않는 값이기 때문이다.
+ */
+function 불균형단계(imbalance: number): Level {
+  const 크기 = Math.abs(imbalance);
+  if (크기 >= 0.5) {
+    return "unusual";
+  }
+  return 크기 >= 0.2 ? "leaning" : "usual";
+}
 
+/**
+ * 한 단. **막대를 걷어냈다.**
+ *
+ * 잔량 길이를 막대로 그리면 40줄이 전부 그림이 되고, 그 40개의 길이가 말하는 것은 "이 근처
+ * 어디가 두꺼운가" 하나다. 그 하나는 이미 「두꺼운 단」이 목록 밖에서 이름과 배수로 말한다 —
+ * 훨씬 정확하게. 여기서는 가격과 수량만 읽으면 된다.
+ */
+function Row({ level, tone }: { level: Level_; tone: "bid" | "ask" }) {
   return (
-    <div className="relative flex justify-between px-1 text-sm tabular-nums">
-      <div
-        className={`absolute inset-y-0 right-0 rounded-sm ${tone === "bid" ? "bg-up/20" : "bg-down/20"}`}
-        style={{ width: `${길이}%` }}
-        aria-hidden="true"
-      />
-      <span className={`relative ${tone === "bid" ? "text-up" : "text-down"}`}>
-        {price(level.price)}
-      </span>
-      <span className="relative text-ink-2">{quantity(level.quantity)}</span>
+    <div className="flex justify-between px-1 text-sm tabular-nums">
+      <span className={tone === "bid" ? "text-up" : "text-down"}>{price(level.price)}</span>
+      <span className="text-ink-2">{quantity(level.quantity)}</span>
     </div>
   );
 }
