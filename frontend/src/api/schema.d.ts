@@ -455,6 +455,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readout/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 다중 주기 판독
+         * @description 15분 · 1시간 · 4시간에서 지금 가격이 일목 구름과 볼린저 밴드의 어디에 있고
+         *     가장 가까운 지지·저항이 어디인가.
+         *
+         *     **셋을 한 응답으로 낸다.** 따로 부르면 세 응답이 서로 다른 순간의 사실이
+         *     되는데 화면은 그것을 나란히 놓는다 — 주기가 다른 것과 시점이 다른 것은
+         *     전혀 다른 문제다.
+         *
+         *     **무엇을 하라고 말하지 않는다.** 여기 있는 것은 전부 관측이다.
+         */
+        get: operations["read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{symbol}/outliers": {
         parameters: {
             query?: never;
@@ -2096,6 +2123,224 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 되돌림 레벨 하나 */
+        FibonacciLevelResponse: {
+            /**
+             * @description 되돌림 비율
+             * @example 0.618
+             */
+            ratio: number;
+            /**
+             * @description 그 비율의 가격
+             * @example 70074.2
+             */
+            price: number;
+        };
+        /** @description 최근 스윙의 피보나치 되돌림 레벨 */
+        FibonacciResponse: {
+            /**
+             * @description 스윙 저점
+             * @example 64000
+             */
+            low: number;
+            /**
+             * @description 스윙 고점
+             * @example 79900
+             */
+            high: number;
+            /**
+             * @description 저점에서 고점으로 간 스윙인가. **되돌림을 어느 쪽에서 재는지가 이 값으로
+             *     정해진다** — 오른 스윙은 고점에서 아래로, 내린 스윙은 저점에서 위로 잰다.
+             * @example true
+             */
+            upward: boolean;
+            /**
+             * @description 비율과 그 자리의 가격. 0.236 · 0.382 · 0.5 · 0.618 · 0.65 · 0.786 순이다.
+             *     **0.618 과 0.65 가 골든 포켓의 두 끝**이고, 그 사이는 점이 아니라 띠다.
+             */
+            levels: components["schemas"]["FibonacciLevelResponse"][];
+            /**
+             * @description 지금 가격이 골든 포켓(0.618~0.65) 안인가. **사실 하나이며 그 다음은 이 응답이
+             *     말하지 않는다.**
+             * @example false
+             */
+            inGoldenPocket: boolean;
+        };
+        /** @description 한 주기의 지표·지지저항 판독 */
+        TimeframeReadoutResponse: {
+            /**
+             * @description 캔들 주기
+             * @example 15m
+             * @enum {string}
+             */
+            interval: "15m" | "1h" | "4h";
+            /**
+             * Format: date-time
+             * @description 판독 기준이 된 봉의 시각(UTC). **아직 닫히지 않은 봉일 수 있다**
+             * @example 2026-08-25T01:15:00Z
+             */
+            at: string;
+            /**
+             * @description 그 봉의 종가. 아래 모든 위치 판정이 이 값 기준이다
+             * @example 79256.9
+             */
+            close: number;
+            /**
+             * @description 이 시점의 변동성(ATR). **대의 폭과 손절 버퍼가 이 단위로 정해진다** —
+             *     같은 1% 손절도 ATR 이 크면 잡음 안이고 작으면 진짜 이탈이다.
+             * @example 412.3
+             */
+            atr: number;
+            /**
+             * @description 구름 대비 위치
+             * @example ABOVE
+             * @enum {string}
+             */
+            ichimoku: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
+             * @example 78900
+             */
+            cloudTop: number;
+            /**
+             * @description 구름 아래 모서리
+             * @example 77300
+             */
+            cloudBottom: number;
+            /**
+             * @description 밴드 대비 위치
+             * @example INSIDE
+             * @enum {string}
+             */
+            bollinger: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 밴드 상단
+             * @example 80120
+             */
+            bollingerUpper: number;
+            /**
+             * @description 밴드 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            bollingerMiddle: number;
+            /**
+             * @description 밴드 하단
+             * @example 77680
+             */
+            bollingerLower: number;
+            /**
+             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
+             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
+             * @example 3.09
+             */
+            bandWidthPercent: number;
+            /**
+             * @description 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
+             *     채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.
+             */
+            support: components["schemas"]["ZoneResponse"] | null;
+            /** @description 위에서 가장 가까운 대. **없을 수 있다** */
+            resistance: components["schemas"]["ZoneResponse"] | null;
+            /**
+             * @description 최근 스윙의 피보나치 되돌림. **없을 수 있다** — 스윙 고점과 저점 중 한쪽이라도
+             *     안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다.
+             */
+            fibonacci: components["schemas"]["FibonacciResponse"] | null;
+            /**
+             * @description 매물대 — 거래량이 어느 가격에 몰려 있나. **대와 다른 것을 잰다**: 대는 가격이
+             *     몇 번 되돌아섰나를 세고 매물대는 거기서 얼마나 거래됐나를 센다. 둘이 같은 자리를
+             *     가리키면 그것이 두 개의 증거다.
+             *
+             *     **이 수치는 백테스트를 통과한 적이 없다** — 일목·볼린저·대와 같은 무게로 읽으면
+             *     안 된다.
+             */
+            volume: components["schemas"]["VolumeProfileResponse"];
+        };
+        /** @description 거래량이 어느 가격에 몰려 있나 */
+        VolumeProfileResponse: {
+            /**
+             * @description 가장 두껍게 거래된 가격(POC). **언제나 있다** — 거래가 한 건이라도 있으면
+             *     가장 두꺼운 칸은 정해진다.
+             * @example 79200
+             */
+            pointOfControl: number;
+            /**
+             * @description 아래에서 가장 가까운 매물대. **없을 수 있다** — 평균보다 두꺼운 구간이 아래에
+             *     하나도 없으면 null 이다.
+             */
+            below: components["schemas"]["VolumeShelfResponse"] | null;
+            /** @description 위에서 가장 가까운 매물대. **없을 수 있다** */
+            above: components["schemas"]["VolumeShelfResponse"] | null;
+            /**
+             * @description 지금 가격을 품고 있는 매물대. **없을 수 있다.** 이것이 비어 있지 않으면
+             *     위·아래가 둘 다 비어 있는 것이 정상이다 — 지금 물린 물량 한가운데에 있다는
+             *     뜻이고, 어느 쪽으로 움직이든 그것을 지나야 한다.
+             */
+            here: components["schemas"]["VolumeShelfResponse"] | null;
+        };
+        /** @description 거래량이 몰린 가격 구간 */
+        VolumeShelfResponse: {
+            /**
+             * @description 지금 가격에 먼저 닿는 모서리
+             * @example 77650
+             */
+            near: number;
+            /**
+             * @description 반대쪽 모서리. **이 구간을 지나려면 여기까지 가야 한다** —
+             *     매물대는 점이 아니라 물린 물량이 쌓인 폭이다.
+             * @example 77200
+             */
+            far: number;
+            /**
+             * @description 전체 거래량의 몇 %가 이 구간에서 오갔나. **두께를 기간과 무관하게 견주는 수다** —
+             *     BTC 수량은 보는 기간이 길수록 커져서 그 자체로는 두꺼운지 알 수 없다.
+             * @example 9.24
+             */
+            sharePercent: number;
+            /**
+             * @description 지금 가격에서 가까운 모서리까지 몇 %. 언제나 0 이상이다
+             * @example 1.12
+             */
+            distancePercent: number;
+        };
+        /** @description 가장 가까운 지지 또는 저항 구간 */
+        ZoneResponse: {
+            /**
+             * @description 지금 가격에 가까운 쪽 모서리. **먼저 닿는 값이라 이쪽이 판단의 기준이다** —
+             *     지지대는 위쪽 모서리, 저항대는 아래쪽 모서리가 여기 온다.
+             * @example 76500
+             */
+            near: number;
+            /**
+             * @description 반대쪽 모서리. 대를 뚫었는지는 여기까지 가 봐야 안다 —
+             *     가까운 모서리를 스친 것과 대를 통과한 것은 다른 사실이다.
+             * @example 76120
+             */
+            far: number;
+            /**
+             * Format: int32
+             * @description 이 구간에 몇 번 닿았나. **많을수록 사람이 실제로 반응한 자리다.**
+             *     최소 2회부터 대로 친다 — 한 번 닿은 것은 대가 아니라 그냥 지나간 가격이다.
+             * @example 3
+             */
+            touches: number;
+            /**
+             * @description 지금 가격에서 가까운 모서리까지 몇 %. **언제나 0 이상이다** —
+             *     위인지 아래인지는 이 값이 지지에 붙었는지 저항에 붙었는지가 이미 말한다.
+             * @example 0.421
+             */
+            distancePercent: number;
+        };
         /** @description 한 지표의 평소 대비 위치 */
         MetricOutlierResponse: {
             /**
@@ -2323,6 +2568,33 @@ export interface components {
             bids: components["schemas"]["PriceLevelResponse"][];
             /** @description 매도 호가. 낮은 값부터 */
             asks: components["schemas"]["PriceLevelResponse"][];
+            /**
+             * @description 매수 쪽에서 가장 두꺼운 단. **평소보다 두꺼울 때만 있다** — 언제나 최댓값을
+             *     내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.
+             *     조건을 못 넘으면 null 이다.
+             */
+            bidWall: components["schemas"]["OrderWallResponse"] | null;
+            /** @description 매도 쪽에서 가장 두꺼운 단. **없을 수 있다** */
+            askWall: components["schemas"]["OrderWallResponse"] | null;
+        };
+        /** @description 평균보다 두꺼운 호가 한 단 */
+        OrderWallResponse: {
+            /**
+             * @description 그 단의 가격
+             * @example 78700
+             */
+            price: number;
+            /**
+             * @description 그 단에 걸린 잔량 (BTC)
+             * @example 12.4
+             */
+            quantity: number;
+            /**
+             * @description 같은 쪽 호가 한 단 평균의 몇 배인가. **배수로 말하는 이유는** 12 BTC 가 두꺼운지
+             *     얇은지를 그 자체로는 알 수 없기 때문이다 — 이상치 지표가 분위로 말하는 것과 같다.
+             * @example 8.14
+             */
+            multipleOfAverage: number;
         };
         /** @description 호가 한 단 */
         PriceLevelResponse: {
@@ -2486,7 +2758,7 @@ export interface components {
              * @example EQUITY
              * @enum {string}
              */
-            group: "EQUITY" | "METAL" | "ENERGY" | "RATES" | "FEAR";
+            group: "CRYPTO" | "EQUITY" | "METAL" | "ENERGY" | "RATES" | "FEAR";
             /**
              * @description 묶음의 사람이 읽는 이름
              * @example 주가
@@ -3441,6 +3713,55 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["TradeResponse"][];
+                };
+            };
+        };
+    };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 15분 · 1시간 · 4시간 순서의 판독 셋 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TimeframeReadoutResponse"][];
+                };
+            };
+            /** @description 종목 표기가 올바르지 않다 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 지표를 낼 만큼 봉이 모이지 않았다 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

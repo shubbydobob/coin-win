@@ -99,6 +99,62 @@ class OrderBookTest {
         assertThat(book.bids()).hasSize(1);
     }
 
+    /** 스트림은 20단을 밀어 주는데 화면은 5단을 물을 수 있다. 자르는 규칙은 도메인이 갖는다. */
+    @Test
+    void 위에서_요청한_단수만큼만_남긴다() {
+        OrderBook book = 스무단짜리();
+
+        OrderBook 잘린것 = book.truncatedTo(OrderBookDepth.of(5));
+
+        assertThat(잘린것.bids()).hasSize(5);
+        assertThat(잘린것.asks()).hasSize(5);
+        assertThat(잘린것.bestBid()).isEqualTo(book.bestBid());
+        assertThat(잘린것.bestAsk()).isEqualTo(book.bestAsk());
+    }
+
+    /** 20단을 물었는데 12단뿐인 것은 거래소가 그만큼만 가진 것이지 오류가 아니다. */
+    @Test
+    void 모자라면_있는_만큼만_남긴다() {
+        OrderBook book = 호가(List.of(단("100.00", "1")), List.of(단("101.00", "1")));
+
+        assertThat(book.truncatedTo(OrderBookDepth.of(20)).bids()).hasSize(1);
+    }
+
+    /** 늘 떠 있는 표시는 아무것도 알려 주지 않는다. 기준을 못 넘으면 벽이 아니다. */
+    @Test
+    void 고른_호가에는_벽이_없다() {
+        OrderBook book = 스무단짜리();
+
+        assertThat(book.biggestBid()).isEmpty();
+        assertThat(book.biggestAsk()).isEmpty();
+    }
+
+    /** 매수 다섯 단이 1·1·1·1·10 이면 합 14, 한 단 평균 2.8, 가장 두꺼운 단은 그 3.5714배다. */
+    @Test
+    void 한_단이_평균의_세_배를_넘으면_벽이다() {
+        OrderBook book = 호가(
+                List.of(단("100.00", "1"), 단("99.00", "1"), 단("98.00", "1"),
+                        단("97.00", "1"), 단("96.00", "10")),
+                List.of(단("101.00", "1"), 단("102.00", "1")));
+
+        assertThat(book.biggestBid()).isPresent();
+        assertThat(book.biggestBid().orElseThrow().level().price().value())
+                .isEqualByComparingTo("96.00");
+        assertThat(book.biggestBid().orElseThrow().multipleOfAverage())
+                .isEqualByComparingTo("3.5714");
+        assertThat(book.biggestAsk()).isEmpty();
+    }
+
+    private static OrderBook 스무단짜리() {
+        List<PriceLevel> bids = new java.util.ArrayList<>();
+        List<PriceLevel> asks = new java.util.ArrayList<>();
+        for (int step = 0; step < 20; step++) {
+            bids.add(단(String.valueOf(100 - step) + ".00", "1"));
+            asks.add(단(String.valueOf(101 + step) + ".00", "1"));
+        }
+        return 호가(bids, asks);
+    }
+
     private static OrderBook 호가(List<PriceLevel> bids, List<PriceLevel> asks) {
         return new OrderBook(Symbol.of("BTCUSDT"), bids, asks, AT);
     }
