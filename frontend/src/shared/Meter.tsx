@@ -1,4 +1,4 @@
-import { BG_TONE, type Tone } from "./tone";
+import type { Tone } from "./tone";
 
 /**
  * 값 하나를 눈금 위에 찍는다.
@@ -7,6 +7,14 @@ import { BG_TONE, type Tone } from "./tone";
  * 사람이 읽는 수는 언제나 옆에 있는 `format/` 의 출력이다 — 이 막대만 보고 값을 읽어 내지
  * 않는다. 그래서 여기 있는 산술은 `docs/adr/020` 이 금지한 계산에 해당하지 않는다.
  * 접근성 도구에도 그 뜻을 그대로 전한다(`role="img"` + `aria-label`).
+ *
+ * **막대가 하나만 남았다.** 한때 셋이었다(값 위치 · 좌우 분할 · 범위). 셋 다 바로 옆 숫자가
+ * 이미 말하는 것을 한 번 더 그리고 있었고, 그렇게 겹친 그림이 열 개가 되자 **어느 것도 읽히지
+ * 않았다.** 지금은 그 자리를 신호등(`shared/Light`)과 딱지(`shared/SideChip`)가 대신한다 —
+ * 둘 다 "얼마나 그런가" 가 아니라 **"신경 쓸 일인가"** 에 답하는 것들이다.
+ *
+ * 남은 하나는 24시간 범위다. 저·고가와 지금 값 셋을 한눈에 놓는 자리이고, 그 셋의 관계는
+ * 숫자만으로는 머릿속에서 그려야 한다.
  */
 
 /** 진영. 서버가 정하고 화면은 색과 방향만 고른다. */
@@ -24,100 +32,10 @@ export function toneOf(side: Side, outlier = false): Tone {
 }
 
 /**
- * 0~1 사이의 위치를 눈금 위에 점으로 찍는다. 이상치면 색이 바뀐다.
+ * 저점에서 고점까지 중 지금이 어디인가.
  *
- * 눈금 양 끝의 5% 를 옅게 칠해 **경계가 어디인지를 그림으로** 보인다 — "상위 5% 안" 이라는
- * 문장을 읽고 머릿속에서 5% 를 그리지 않아도 되게 하는 것이 이 띠의 전부다.
- *
- * **`neutral` 을 주면 같은 눈금이 진영 축이 된다.** 새 막대를 만들지 않은 이유가 이것이다 —
- * 중립점 위치는 서버가 현재값과 *같은 방식으로* 잰 값이라 같은 눈금 위에 있다. 따로 그리면
- * 점과 선이 다른 좌표계에 놓이고, 그때 "가운데선 오른쪽에 있으니 롱 쪽" 이라는 읽기가
- * 거짓이 된다.
- */
-export function PositionMeter({
-  ratio,
-  outlier,
-  label,
-  neutral,
-  side = "NONE",
-}: {
-  ratio: number;
-  outlier: boolean;
-  label: string;
-  neutral?: number;
-  side?: Side;
-}) {
-  const 위치 = 눈금(ratio);
-  const 가운데 = neutral === undefined ? null : 눈금(neutral);
-
-  return (
-    <div className="relative h-1.5 w-full rounded-full bg-surface-2" role="img" aria-label={label}>
-      <div className="absolute inset-y-0 left-0 w-[5%] rounded-l-full bg-warn/25" />
-      <div className="absolute inset-y-0 right-0 w-[5%] rounded-r-full bg-warn/25" />
-      {가운데 !== null && (
-        <>
-          {/* 중립점에서 지금까지. 얼마나 치우쳤나가 길이로 보인다. */}
-          <div
-            className={`absolute inset-y-0 opacity-35 ${BG_TONE[toneOf(side)]}`}
-            style={{
-              left: `${Math.min(위치, 가운데)}%`,
-              width: `${Math.abs(위치 - 가운데)}%`,
-            }}
-          />
-          {/* 가운데선. 눈금 끝에 붙어 있으면 표본 내내 한쪽이었다는 뜻이다. */}
-          <div
-            className="absolute inset-y-[-3px] w-px -translate-x-1/2 bg-ink-3"
-            style={{ left: `${가운데}%` }}
-          />
-        </>
-      )}
-      <div
-        className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface ${
-          BG_TONE[toneOf(가운데 === null ? "NONE" : side, outlier)]
-        }`}
-        style={{ left: `${위치}%` }}
-      />
-    </div>
-  );
-}
-
-const 눈금 = (ratio: number) => Math.min(100, Math.max(0, ratio * 100));
-
-
-/**
- * 두 양의 비율을 좌우로 나눈 막대. 호가 불균형이 이 모양이다.
- *
- * `0.0910` 이라는 수를 읽고 "매수가 9% 두껍다" 로 옮기는 일을 사람이 하지 않게 한다.
- */
-export function SplitMeter({
-  left,
-  right,
-  label,
-}: {
-  left: number;
-  right: number;
-  label: string;
-}) {
-  const 합 = left + right;
-  const 왼쪽 = 합 === 0 ? 50 : (left / 합) * 100;
-
-  return (
-    <div
-      className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-2"
-      role="img"
-      aria-label={label}
-    >
-      <div className="bg-up" style={{ width: `${왼쪽}%` }} />
-      <div className="flex-1 bg-down" />
-    </div>
-  );
-}
-
-/**
- * 구간 안에서 지금이 어디인가. 24시간 고저와 현재가가 이 모양이다.
- *
- * 최고·최저를 숫자로만 두면 <b>지금이 그 사이 어디인지</b>가 안 보인다. 하루의 꼭대기에
- * 붙어 있는 것과 바닥에 붙어 있는 것은 같은 숫자 셋으로 표현되지만 전혀 다른 상황이다.
+ * 세 수(저가·현재가·고가)의 관계를 그린다. 숫자 셋을 나란히 적으면 사람이 머릿속에서 뺄셈을
+ * 두 번 해야 하고, 이 자리는 그 뺄셈 말고는 볼 것이 없다.
  */
 export function RangeMeter({
   low,
