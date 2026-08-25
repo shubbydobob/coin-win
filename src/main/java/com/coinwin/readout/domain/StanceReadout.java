@@ -4,11 +4,12 @@ import com.coinwin.indicator.domain.BollingerValue;
 import com.coinwin.indicator.domain.IchimokuValue;
 import com.coinwin.indicator.domain.IndicatorPoint;
 import com.coinwin.indicator.domain.MacdValue;
+import com.coinwin.market.domain.Candle;
 import com.coinwin.market.domain.CandleSeries;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.time.Instant;
 
 /**
  * 다섯 지표가 <b>지금</b> 어느 쪽에 서 있는지를 낸다.
@@ -20,6 +21,10 @@ import java.util.Optional;
  * 적으면 그 규칙이 화면에 생기고, 그러면 같은 규칙이 백테스트나 연구 쪽과 갈라진다. 위치
  * 판정을 {@code BandPosition} 으로 도메인에 둔 것과 같은 판단이다.
  *
+ * <p><b>아무 봉 시점을 물을 수 있다.</b> 화면은 마지막 봉만 쓰지만, "이 자리에 섰을 때
+ * 다음에 무슨 일이 있었나" 를 재려면 과거의 모든 봉에서 같은 판정이 나와야 한다. 그 판정이
+ * 재는 쪽에 복사되면 화면과 측정이 다른 규칙을 쓰게 된다.
+ *
  * <p><b>50 · 정배열 같은 경계는 관습이다.</b> 이 저장소가 검증한 수가 아니고, 검증한 적이
  * 없다는 사실이 화면 설명에 적혀 있어야 한다.
  */
@@ -28,15 +33,14 @@ final class StanceReadout {
     private StanceReadout() {
     }
 
-    static List<IndicatorStance> over(TimeframeSeries series) {
-        CandleSeries candles = series.candles();
-        BigDecimal close = candles.isEmpty() ? null : candles.last().close().value();
+    static List<IndicatorStance> at(TimeframeSeries series, Instant bar) {
+        BigDecimal close = closeAt(series.candles(), bar);
         List<IndicatorStance> out = new ArrayList<>(5);
-        out.add(ichimokuStance(close, last(series.ichimoku())));
-        out.add(bollingerStance(close, last(series.bollinger())));
-        out.add(movingAverageStance(series.movingAverages()));
-        out.add(rsiStance(last(series.rsi())));
-        out.add(macdStance(last(series.macd())));
+        out.add(ichimokuStance(close, valueAt(series.ichimoku(), bar)));
+        out.add(bollingerStance(close, valueAt(series.bollinger(), bar)));
+        out.add(movingAverageStance(series.movingAverages(), bar));
+        out.add(rsiStance(valueAt(series.rsi(), bar)));
+        out.add(macdStance(valueAt(series.macd(), bar)));
         return List.copyOf(out);
     }
 
@@ -72,12 +76,13 @@ final class StanceReadout {
      * <b>정배열은 순서일 뿐이다.</b> 20 &gt; 50 &gt; 200 이면 짧은 평균이 긴 평균 위라는
      * 사실이고, 그것이 계속된다는 뜻은 아니다.
      */
-    private static IndicatorStance movingAverageStance(List<MovingAverageLine> averages) {
+    private static IndicatorStance movingAverageStance(
+            List<MovingAverageLine> averages, Instant bar) {
         // **구간을 이름으로 고른다.** 목록의 자리로 고르면 구간을 하나 더하는 날 판정의 뜻이
         // 조용히 바뀐다 — 실제로 셋에서 다섯으로 늘리면서 그 자리가 생겼다.
-        BigDecimal fast = lastOf(averages, 20);
-        BigDecimal mid = lastOf(averages, 50);
-        BigDecimal slow = lastOf(averages, 200);
+        BigDecimal fast = valueOf(averages, 20, bar);
+        BigDecimal mid = valueOf(averages, 50, bar);
+        BigDecimal slow = valueOf(averages, 200, bar);
         if (fast == null || mid == null || slow == null) {
             return IndicatorStance.unknown("이동평균");
         }
@@ -119,20 +124,61 @@ final class StanceReadout {
         return new IndicatorStance("MACD", Stance.NEUTRAL, "시그널과 같다");
     }
 
-    /** 그 구간 선의 마지막 값. 선이 없거나 비었으면 없다. */
-    private static BigDecimal lastOf(List<MovingAverageLine> averages, int period) {
+    /** 그 구간 선의 그 봉 값. 선이 없거나 그 봉에 값이 없으면 없다. */
+    private static BigDecimal valueOf(List<MovingAverageLine> averages, int period, Instant bar) {
         return averages.stream()
                 .filter(line -> line.period() == period)
                 .findFirst()
-                .filter(line -> !line.points().isEmpty())
-                .map(line -> line.points().get(line.points().size() - 1).value().value())
+                .map(line -> valueAt(line.points(), bar))
+                .map(com.coinwin.common.domain.Price::value)
                 .orElse(null);
     }
 
-    private static <T> T last(List<IndicatorPoint<T>> points) {
-        return Optional.ofNullable(points)
-                .filter(list -> !list.isEmpty())
-                .map(list -> list.get(list.size() - 1).value())
-                .orElse(null);
+    /**
+     * 그 봉의 값. <b>인덱스가 아니라 시각으로 찾는다</b> — 지표마다 시작하는 봉이 달라 같은
+     * 인덱스가 같은 시각을 뜻하지 않는다.
+     *
+     * <p><b>이진 탐색인 이유는 과거를 훑는 쪽 때문이다.</b> 화면은 마지막 봉 하나만 물으므로
+     * 선형이어도 티가 안 나지만, 1만5천 봉을 훑으며 봉마다 다섯 지표를 물으면 그것이
+     * 1만5천 × 5 × 1만5천 이 된다. 점들은 시간순이므로 반씩 접을 수 있다.
+     */
+    private static <T> T valueAt(List<IndicatorPoint<T>> points, Instant bar) {
+        if (points == null || points.isEmpty()) {
+            return null;
+        }
+        int low = 0;
+        int high = points.size() - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int cmp = points.get(mid).at().compareTo(bar);
+            if (cmp == 0) {
+                return points.get(mid).value();
+            }
+            if (cmp < 0) {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return null;
+    }
+
+    private static BigDecimal closeAt(CandleSeries candles, Instant bar) {
+        List<Candle> bars = candles.candles();
+        int low = 0;
+        int high = bars.size() - 1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            int cmp = bars.get(mid).openTime().compareTo(bar);
+            if (cmp == 0) {
+                return bars.get(mid).close().value();
+            }
+            if (cmp < 0) {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return null;
     }
 }

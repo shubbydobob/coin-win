@@ -100,7 +100,18 @@ public record TimeframeSeries(
      * 받으면 <b>지표와 판정이 어긋난 묶음</b>을 만들 수 있다.
      */
     public List<IndicatorStance> stances() {
-        return StanceReadout.over(this);
+        return candles.isEmpty() ? stancesAt(java.time.Instant.EPOCH)
+                : stancesAt(candles.last().openTime());
+    }
+
+    /**
+     * <b>그 봉 시점의</b> 선 자리. 화면은 마지막 봉만 쓰고, 과거를 훑어 재는 쪽이 나머지를 쓴다.
+     *
+     * <p>같은 함수를 쓰는 것이 요점이다 — 재는 쪽이 규칙을 복사하면 화면과 측정이 다른 것을
+     * 말하게 되고, 그러면 측정 결과를 화면에 되돌려 읽을 수 없다.
+     */
+    public List<IndicatorStance> stancesAt(java.time.Instant bar) {
+        return StanceReadout.at(this, bar);
     }
 
     /**
