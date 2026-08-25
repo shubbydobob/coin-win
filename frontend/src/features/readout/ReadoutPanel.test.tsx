@@ -201,15 +201,36 @@ describe("지표 판독", () => {
       />,
     );
 
-    expect(screen.getByText(/지지 1\.2691% 아래 · 매물대 1\.4632% 아래 · 저항 2\.1521% 위/))
-      .toBeVisible();
+    expect(screen.getByText(/아래 지지 1\.2691% · 매물대 1\.4632%/)).toBeVisible();
+    expect(screen.getByText(/위 저항 2\.1521% · 매물대 1\.3919%/)).toBeVisible();
   });
 
   /** 그 방향에 아무것도 없다는 것도 사실이다. 빈 자리로 두면 무슨 뜻인지 알 수 없다. */
   it("없는 쪽은 없다고 읽어 준다", () => {
+    render(
+      <ReadoutPanel
+        readouts={[
+          판독({
+            resistance: null,
+            volume: { pointOfControl: 79200, below: null, above: null, here: null },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("위 없음")).toBeVisible();
+  });
+
+  /**
+   * <b>글의 방향과 띠의 방향이 어긋나면 안 된다.</b> 처음에는 매물대를 아래·위 중 하나만
+   * 골라 적었고, 그래서 띠에는 오른쪽(위)에 칠해져 있는데 글은 "아래" 라고 말하는 화면이
+   * 나왔다 — 둘 다 사실인데 글이 눈에 안 보이는 쪽을 골랐다.
+   */
+  it("매물대가 위아래 모두 있으면 양쪽에 다 적는다", () => {
     render(<ReadoutPanel readouts={[판독({ resistance: null })]} />);
 
-    expect(screen.getByText(/위에 저항 없음/)).toBeVisible();
+    expect(screen.getByText(/아래 지지 1\.2691% · 매물대 1\.4632%/)).toBeVisible();
+    expect(screen.getByText(/위 매물대 1\.3919%/)).toBeVisible();
   });
 
   /**

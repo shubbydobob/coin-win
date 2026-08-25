@@ -50,7 +50,19 @@ export function TimeframeTrack({ readout, label }: { readout: Readout; label: st
         <Level 창={창} 값={readout.resistance?.near} label="저항" />
       </div>
 
-      <p className="mt-1 text-[11px] tabular-nums text-ink-3">{읽어주기(readout)}</p>
+      {/*
+        **글의 배치가 띠의 배치와 같다.** 아래 것은 왼쪽에, 위 것은 오른쪽에 둔다 — 눈이
+        띠에서 글로 내려올 때 좌우가 뒤집히면 같은 사실을 두 번 해석하게 된다.
+      */}
+      <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-[11px] tabular-nums text-ink-3">
+        <span>아래 {아래읽기(readout)}</span>
+        {readout.volume.here && (
+          <span className="text-warn">
+            지금 매물대 안 (두께 {percent(readout.volume.here.sharePercent)})
+          </span>
+        )}
+        <span>위 {위읽기(readout)}</span>
+      </div>
     </div>
   );
 }
@@ -140,32 +152,32 @@ function Level({ 창, 값, label }: { 창: 창범위; 값?: number; label: strin
 }
 
 /**
- * 띠를 한 줄로 읽어 준다.
+ * 띠를 거리로 읽어 준다. **아래 쪽과 위 쪽을 따로 낸다.**
+ *
+ * 처음에는 한 줄에 「지지 · 매물대 · 저항」을 이어 붙였고, 매물대는 아래·위 중 <b>하나만</b>
+ * 골라 적었다. 그래서 띠에는 매물대가 오른쪽(위)에 칠해져 있는데 글은 "매물대 0.99% 아래"
+ * 라고 말하는 화면이 나왔다 — <b>둘 다 사실인데 글이 눈에 안 보이는 쪽을 골랐다.</b>
+ * 방향별로 나누면 그 어긋남이 생길 자리가 없다.
  *
  * **거리로 말한다.** 띠 위의 가격은 손절을 어디 둘지에 쓰는 값이고, "가까운가" 는 거리에서만
  * 나온다 — 주기마다 창 폭이 달라 그림의 길이는 서로 견줄 수 없다.
  *
  * **여기서도 방향은 말하지 않는다.** "지지 0.2% 아래" 는 사실이고 "그러니 반등" 은 예측이다.
  */
-function 읽어주기(readout: Readout): string {
-  return [
-    readout.support ? `지지 ${percent(readout.support.distancePercent)} 아래` : "아래에 지지 없음",
-    매물대읽기(readout.volume),
-    readout.resistance ? `저항 ${percent(readout.resistance.distancePercent)} 위` : "위에 저항 없음",
-  ].join(" · ");
+function 아래읽기(readout: Readout): string {
+  const 조각 = [
+    readout.support && `지지 ${percent(readout.support.distancePercent)}`,
+    readout.volume.below && `매물대 ${percent(readout.volume.below.distancePercent)}`,
+  ].filter(Boolean);
+  return 조각.length === 0 ? "없음" : 조각.join(" · ");
 }
 
-function 매물대읽기(volume: Readout["volume"]): string {
-  if (volume.here) {
-    return `지금 매물대 안 (두께 ${percent(volume.here.sharePercent)})`;
-  }
-  if (volume.below) {
-    return `매물대 ${percent(volume.below.distancePercent)} 아래`;
-  }
-  if (volume.above) {
-    return `매물대 ${percent(volume.above.distancePercent)} 위`;
-  }
-  return "매물대 없음";
+function 위읽기(readout: Readout): string {
+  const 조각 = [
+    readout.resistance && `저항 ${percent(readout.resistance.distancePercent)}`,
+    readout.volume.above && `매물대 ${percent(readout.volume.above.distancePercent)}`,
+  ].filter(Boolean);
+  return 조각.length === 0 ? "없음" : 조각.join(" · ");
 }
 
 /**
