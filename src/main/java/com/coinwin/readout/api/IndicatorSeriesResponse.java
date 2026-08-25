@@ -58,9 +58,9 @@ public record IndicatorSeriesResponse(
                 SeriesCandleResponse.from(series.candles()),
                 IchimokuPointResponse.from(series.ichimoku()),
                 BollingerPointResponse.from(series.bollinger()),
-                series.movingAverages().entrySet().stream()
-                        .map(entry -> new MovingAverageSeriesResponse(
-                                entry.getKey(), PricePointResponse.from(entry.getValue())))
+                series.movingAverages().stream()
+                        .map(line -> new MovingAverageSeriesResponse(
+                                line.period(), PricePointResponse.from(line.points())))
                         .toList(),
                 series.rsi().stream()
                         .map(point -> new PricePointResponse(point.at(), point.value().value()))

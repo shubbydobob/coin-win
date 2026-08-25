@@ -34,9 +34,11 @@ class TimeframeSeriesTest {
         assertThat(series.bollinger()).isNotEmpty();
         assertThat(series.rsi()).isNotEmpty();
         assertThat(series.macd()).isNotEmpty();
-        assertThat(series.movingAverages()).containsOnlyKeys(20, 50, 200);
-        assertThat(series.movingAverages().values()).allSatisfy(points ->
-                assertThat(points).isNotEmpty());
+        // **순서가 곧 계약이다.** 화면이 색을 자리로 고르므로 흔들리면 선 색이 바뀐다.
+        assertThat(series.movingAverages()).extracting(MovingAverageLine::period)
+                .containsExactly(20, 50, 200);
+        assertThat(series.movingAverages()).allSatisfy(line ->
+                assertThat(line.points()).isNotEmpty());
     }
 
     /**
@@ -48,8 +50,9 @@ class TimeframeSeriesTest {
     void 모자란_지표만_빈다() {
         TimeframeSeries series = TimeframeSeries.over(CandleInterval.FIFTEEN_MINUTES, 봉(100));
 
-        assertThat(series.movingAverages().get(200)).isEmpty();
-        assertThat(series.movingAverages().get(50)).isNotEmpty();
+        assertThat(series.movingAverages().get(2).period()).isEqualTo(200);
+        assertThat(series.movingAverages().get(2).points()).isEmpty();
+        assertThat(series.movingAverages().get(1).points()).isNotEmpty();
         assertThat(series.rsi()).isNotEmpty();
         assertThat(series.macd()).isNotEmpty();
     }
@@ -63,8 +66,8 @@ class TimeframeSeriesTest {
         assertThat(series.bollinger()).isEmpty();
         assertThat(series.rsi()).isEmpty();
         assertThat(series.macd()).isEmpty();
-        assertThat(series.movingAverages().values()).allSatisfy(points ->
-                assertThat(points).isEmpty());
+        assertThat(series.movingAverages()).allSatisfy(line ->
+                assertThat(line.points()).isEmpty());
         assertThat(series.candles().size()).isEqualTo(5);
     }
 

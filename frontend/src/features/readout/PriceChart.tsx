@@ -2,92 +2,71 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CandlestickSeries,
   ColorType,
+  HistogramSeries,
+  LineSeries,
   LineStyle,
   createChart,
   type IChartApi,
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { get } from "../../api/client";
 import { percent, price } from "../../format";
 import type { components } from "../../api/schema";
 
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
+type Series = components["schemas"]["IndicatorSeriesResponse"];
+type AnySeries = ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | ISeriesApi<"Histogram">;
+
+/** 봉 시각을 차트가 쓰는 초 단위로. */
+const 초 = (iso: string) => (Date.parse(iso) / 1000) as UTCTimestamp;
 
 /**
- * 캔들 차트. **띠를 대신한다.**
+ * 캔들 차트와 지표 곡선.
  *
- * 앞판은 가격 축 하나에 지지·저항·매물대·포켓을 칠한 가로 띠였다. 값은 전부 맞았지만
- * **가격이 어떻게 거기까지 왔는지가 없었다** — 지금 79,305 가 저항 79,974 아래라는 사실은,
- * 그 저항을 방금 찍고 내려온 것인지 사흘째 못 닿고 있는 것인지에 따라 전혀 다른 뜻이다.
- * 캔들은 그 차이를 그림 한 장으로 말한다.
+ * **수평선이던 것이 곡선이 됐다.** 앞판은 구름과 밴드를 지금 봉의 값으로 가로선을 그었다 —
+ * 판독 응답에 봉 하나의 값밖에 없었기 때문이다. 이제 서버가 봉마다의 값을 주므로 원래 모양대로
+ * 그린다. 자리만 맞던 것이 모양까지 맞는다.
  *
- * **선은 전부 서버가 낸 값이다.** 이 파일에 지표 계산이 없다 — 일목과 볼린저는 자바가
- * 트레이딩뷰 원문과 대조해 확정한 것이고(`docs/adr/014`·`015`), 여기서 다시 구현하면 두
- * 정의가 갈라진다. 그리는 좌표만 이쪽에서 만든다(`docs/adr/020`).
+ * **칸을 셋으로 나눈다.** RSI 는 0~100 이고 MACD 는 가격의 차라 가격 축에 얹을 수 없다.
+ * 억지로 얹으면 캔들이 한 줄로 눌린다.
  *
- * **지금은 가로선이다.** 구름과 밴드는 원래 시간에 따라 움직이는데, 판독 응답은 **지금 봉
- * 하나의 값**만 준다. 그래서 이 판에서는 그 값들을 수평선으로 놓는다 — 자리는 정확하고
- * 모양은 아직 아니다. 시계열을 서버가 내주면 이 파일의 `createPriceLine` 자리가 선 시리즈로
- * 바뀐다.
+ * **기본으로 켜는 것은 둘뿐이다.** 여덟 선을 한꺼번에 그리면 캔들이 안 보이고, 그러면 띠를
+ * 걷어낸 이유가 그대로 돌아온다. 볼린저는 중심선이 이동평균 20 과 **같은 값**이라 기본에서
+ * 뺐다 — 중복이 아니라 사실이고, 켜면 겹쳐 보인다.
  *
- * **캔버스라 자동 테스트가 닿지 않는다.** 이 저장소는 화면 테스트로 두 번 거짓 초록을 잡았고
- * (`findByText`·`findByRole`), 이 그림은 그 그물 밖에 있다. 그래서 **차트가 비었을 때와
- * 실패했을 때를 DOM 으로 말한다** — 최소한 "값이 왔는가" 는 테스트가 볼 수 있다.
+ * **이 파일에 지표 계산이 없다.** 전부 서버가 낸 값이다. 넷 다 트레이딩뷰 원문과 대조해
+ * 정의를 확정했고(`docs/adr/014`·`015`, RSI·MACD 는 Pine 소스), 그리는 좌표만 이쪽에서
+ * 만든다(`docs/adr/020`).
+ *
+ * **캔버스라 자동 테스트가 닿지 않는다.** 그래서 상태를 캔버스 밖에 글로 남긴다 — 몇 봉인지,
+ * 어느 지표가 왜 비었는지. 그림이 맞는지는 사람이 봐야 안다.
  */
-export function PriceChart({
-  symbol,
-  readout,
-  bars = 200,
-}: {
-  symbol: string;
-  readout: Readout;
-  bars?: number;
-}) {
+export function PriceChart({ symbol, readout }: { symbol: string; readout: Readout }) {
   const 창 = useRef<HTMLDivElement>(null);
   const 차트 = useRef<IChartApi | null>(null);
-  const 캔들 = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const 그린것 = useRef<AnySeries[]>([]);
+  const [켠것, 켜기] = useState<Record<Overlay, boolean>>({
+    ichimoku: true,
+    bollinger: false,
+    movingAverages: true,
+  });
 
-  /*
-    **범위를 판독 봉에 맞춘다. `new Date()` 로 잡으면 안 된다.**
-
-    첫 판이 그랬고 차트가 영원히 "가져오는 중" 이었다. 렌더마다 지금 시각이 새로 나오므로
-    `queryKey` 가 매번 달라지고, 그러면 요청이 끝나기도 전에 다음 요청이 시작된다 — 서버는
-    멀쩡한데 화면만 멈춘 것처럼 보인다.
-
-    `readout.at` 은 서버가 판독한 봉의 시각이라 **봉이 바뀔 때만 바뀐다.** 15초마다 다시
-    물어도 같은 값이므로 키가 안정되고, 차트의 오른쪽 끝이 판독 기준과 같아지는 것은 덤이 아니라
-    옳은 모양이다 — 요약 줄의 값과 차트가 다른 시점을 말하면 안 된다.
-  */
-  const 범위 = useMemo(() => 조회범위(readout.interval, bars, readout.at), [
-    readout.interval,
-    readout.at,
-    bars,
-  ]);
-  const candles = useQuery({
-    queryKey: ["candles", symbol, readout.interval, 범위.from, 범위.to],
+  const series = useQuery({
+    queryKey: ["series", symbol, readout.interval, readout.at],
     queryFn: () =>
-      get("/api/markets/{symbol}/candles", {
+      get("/api/readout/{symbol}/series", {
         path: { symbol },
-        query: { interval: readout.interval, from: 범위.from, to: 범위.to },
+        query: { interval: readout.interval },
       }),
-    /*
-      **아직 안 닫힌 봉이 있으므로 계속 다시 물어야 한다.**
-
-      키를 판독 봉에 맞춘 것은 옳았지만, 그러면 4시간 차트에서 키가 네 시간에 한 번만 바뀐다 —
-      그 사이 마지막 봉의 종가가 화면에서 멈춘다. 실제로 거래소 79,166.50 인데 화면은
-      79,168.60 이었다(2.10 차이).
-
-      키는 그대로 두고 주기만 짧게 한다. 서버는 판독을 부를 때마다 캔들을 다시 받아 두므로
-      (`ReadoutService` 가 동기화한다) 15초면 판독과 같은 시점이 된다.
-    */
+    // 마지막 봉은 아직 안 닫혔다. 판독과 같은 주기로 다시 묻는다.
     refetchInterval: 15_000,
     staleTime: 10_000,
   });
 
-  // 차트는 한 번만 만든다. 값이 바뀔 때마다 다시 만들면 사용자가 옮겨 둔 축이 매번 되돌아간다.
+  // 차트는 한 번만 만든다. 값이 바뀔 때마다 다시 만들면 옮겨 둔 축이 매번 되돌아간다.
   useEffect(() => {
     if (!창.current || 차트.current) {
       return;
@@ -97,83 +76,155 @@ export function PriceChart({
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: "#848e9c",
         attributionLogo: false,
+        panes: { separatorColor: "#2b3139", separatorHoverColor: "#3b4149" },
       },
-      grid: {
-        vertLines: { color: "#21262d" },
-        horzLines: { color: "#21262d" },
-      },
+      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
       rightPriceScale: { borderColor: "#2b3139" },
       timeScale: { borderColor: "#2b3139", timeVisible: true },
       crosshair: { mode: 0 },
-      height: 260,
       autoSize: true,
     });
     차트.current = chart;
-    캔들.current = chart.addSeries(CandlestickSeries, {
+    return () => {
+      chart.remove();
+      차트.current = null;
+      그린것.current = [];
+    };
+  }, []);
+
+  // 값이나 켠 것이 바뀌면 전부 다시 그린다. 시리즈가 여덟이라 부분 갱신은 얽힌다.
+  useEffect(() => {
+    const chart = 차트.current;
+    const data = series.data;
+    if (!chart || !data) {
+      return;
+    }
+    그린것.current.forEach((s) => chart.removeSeries(s));
+    그린것.current = [];
+
+    const 선 = (color: string, pane: number, dashed = false, width: 1 | 2 = 1) => {
+      const s = chart.addSeries(LineSeries, {
+        color,
+        lineWidth: width,
+        lineStyle: dashed ? LineStyle.Dashed : LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      }, pane);
+      그린것.current.push(s);
+      return s;
+    };
+
+    const candles = chart.addSeries(CandlestickSeries, {
       upColor: "#0ecb81",
       downColor: "#f6465d",
       borderUpColor: "#0ecb81",
       borderDownColor: "#f6465d",
       wickUpColor: "#0ecb81",
       wickDownColor: "#f6465d",
-    });
-    return () => {
-      chart.remove();
-      차트.current = null;
-      캔들.current = null;
-    };
-  }, []);
+    }, 0);
+    그린것.current.push(candles);
+    candles.setData(data.candles.map((c) => ({
+      time: 초(c.openTime),
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    })));
 
-  // 캔들. **축 맞추기는 여기서만 한다** — 선이 갱신될 때마다 하면 15초마다 확대가 풀린다.
-  useEffect(() => {
-    const series = 캔들.current;
-    if (!series || !candles.data) {
-      return;
+    if (켠것.ichimoku) {
+      선("#8a8f98", 0).setData(점(data.ichimoku, (p) => p.leadingSpanA));
+      선("#8a8f98", 0).setData(점(data.ichimoku, (p) => p.leadingSpanB));
+      선("#c9a227", 0, true).setData(점(data.ichimoku, (p) => p.conversionLine));
+      선("#3b6ea5", 0, true).setData(점(data.ichimoku, (p) => p.baseLine));
     }
-    series.setData(
-      candles.data.candles.map((candle) => ({
-        time: (Date.parse(candle.openTime) / 1000) as UTCTimestamp,
-        open: candle.open,
-        high: candle.high,
-        low: candle.low,
-        close: candle.close,
-      })),
-    );
-    차트.current?.timeScale().fitContent();
-  }, [candles.data]);
+    if (켠것.bollinger) {
+      선("#4a7fb5", 0, true).setData(점(data.bollinger, (p) => p.upper));
+      선("#4a7fb5", 0, true).setData(점(data.bollinger, (p) => p.lower));
+    }
+    if (켠것.movingAverages) {
+      data.movingAverages.forEach((ma) => {
+        선(MA_COLOR[ma.period] ?? "#848e9c", 0).setData(점(ma.points, (p) => p.value));
+      });
+    }
 
-  // 선. 판독은 15초마다 새로 오고 그때마다 값이 조금씩 움직인다.
-  useEffect(() => {
-    const series = 캔들.current;
-    if (!series) {
-      return;
-    }
-    const lines = 선들(readout).map((선) =>
-      series.createPriceLine({
-        price: 선.price,
-        color: 선.color,
+    // 지지·저항·매물대는 곡선이 아니라 자리다. 가로선이 원래 모양이다.
+    수평선(readout).forEach((줄) =>
+      candles.createPriceLine({
+        price: 줄.price,
+        color: 줄.color,
         lineWidth: 1,
-        lineStyle: 선.dashed ? LineStyle.Dashed : LineStyle.Solid,
+        lineStyle: LineStyle.Solid,
         axisLabelVisible: true,
-        title: 선.title,
+        title: 줄.title,
       }),
     );
-    return () => lines.forEach((line) => series.removePriceLine(line));
-  }, [readout]);
+
+    if (data.rsi.length > 0) {
+      선("#a35bb5", 1, false, 2).setData(점(data.rsi, (p) => p.value));
+      // 30·70 은 관습이지 검증한 수가 아니다. 그래서 눈금이지 신호가 아니다.
+      [30, 70].forEach((level) => {
+        선("#3a4048", 1, true).setData(data.rsi.map((p) => ({ time: 초(p.at), value: level })));
+      });
+    }
+    if (data.macd.length > 0) {
+      const bars = chart.addSeries(
+        HistogramSeries, { priceLineVisible: false, lastValueVisible: false }, 2);
+      그린것.current.push(bars);
+      bars.setData(data.macd.map((p) => ({
+        time: 초(p.at),
+        value: p.histogram,
+        color: p.histogram >= 0 ? "#0ecb8155" : "#f6465d55",
+      })));
+      선("#0094ff", 2).setData(점(data.macd, (p) => p.macd));
+      선("#ff6a00", 2).setData(점(data.macd, (p) => p.signal));
+    }
+
+    // 가격 칸을 넓게. 그러지 않으면 셋이 같은 높이로 나뉘어 캔들이 눌린다.
+    const panes = chart.panes();
+    panes[0]?.setStretchFactor(3);
+    panes[1]?.setStretchFactor(1);
+    panes[2]?.setStretchFactor(1);
+    chart.timeScale().fitContent();
+  }, [series.data, readout, 켠것]);
 
   return (
     <div className="mt-2">
-      <div ref={창} className="h-[260px] w-full" />
+      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        {OVERLAYS.map(({ key, label, swatches }) => (
+          <label key={key} className="flex cursor-pointer items-center gap-1 text-ink-3">
+            <input
+              type="checkbox"
+              checked={켠것[key]}
+              onChange={(event) => 켜기((전) => ({ ...전, [key]: event.target.checked }))}
+              className="size-3"
+            />
+            {swatches.map((color) => (
+              <span
+                key={color}
+                className="inline-block h-0.5 w-3 rounded-full"
+                style={{ backgroundColor: color }}
+                aria-hidden="true"
+              />
+            ))}
+            {label}
+          </label>
+        ))}
+        <span className="text-ink-4">아래 칸: RSI · MACD</span>
+      </div>
+
+      <div ref={창} className="h-[440px] w-full" />
+
       {/*
         **캔버스 밖에 상태를 적는다.** 그림 안에서 벌어지는 일은 테스트도 스크린리더도 못 본다.
-        비었는지·실패했는지·몇 봉인지는 글로 남긴다.
+        어느 지표가 왜 비었는지까지 글로 남긴다 — 빈 것이 고장인지 봉이 모자란 것인지가
+        화면에서 갈려야 한다.
       */}
       <p className="mt-1 text-[11px] text-ink-4" aria-live="polite">
-        {candles.isError
-          ? "캔들을 가져오지 못했다"
-          : candles.data
-            ? `${candles.data.count}봉 · 마지막 ${price(readout.close)}`
-            : "캔들을 가져오는 중"}
+        {series.isError
+          ? "지표를 가져오지 못했다"
+          : series.data
+            ? `${series.data.count}봉 · 마지막 ${price(readout.close)}${빈것(series.data)}`
+            : "지표를 가져오는 중"}
       </p>
 
       <Levels readout={readout} />
@@ -181,22 +232,46 @@ export function PriceChart({
   );
 }
 
+type Overlay = "ichimoku" | "bollinger" | "movingAverages";
+
+const MA_COLOR: Record<number, string> = { 20: "#eaecef", 50: "#f0b90b", 200: "#f6465d" };
+
+const OVERLAYS: { key: Overlay; label: string; swatches: string[] }[] = [
+  { key: "ichimoku", label: "일목", swatches: ["#8a8f98", "#c9a227", "#3b6ea5"] },
+  { key: "bollinger", label: "볼린저 (중심은 MA20 과 같다)", swatches: ["#4a7fb5"] },
+  { key: "movingAverages", label: "이동평균 20·50·200", swatches: ["#eaecef", "#f0b90b", "#f6465d"] },
+];
+
+/** 값이 있는 점만. `null` 을 0 으로 바꾸면 차트 바닥에 없는 선이 생긴다. */
+function 점<T extends { at: string }>(points: T[], pick: (point: T) => number | null | undefined) {
+  return points
+    .map((point) => ({ time: 초(point.at), value: pick(point) }))
+    .filter((row): row is { time: UTCTimestamp; value: number } =>
+      row.value !== null && row.value !== undefined);
+}
+
+/** 비어 있는 지표를 이름으로 적는다. 없는 것과 고장난 것은 다른 사실이다. */
+function 빈것(data: Series): string {
+  const 빈 = [
+    data.ichimoku.length === 0 ? "일목" : null,
+    data.bollinger.length === 0 ? "볼린저" : null,
+    data.rsi.length === 0 ? "RSI" : null,
+    data.macd.length === 0 ? "MACD" : null,
+    ...data.movingAverages.filter((ma) => ma.points.length === 0).map((ma) => `MA${ma.period}`),
+  ].filter(Boolean);
+  return 빈.length === 0 ? "" : ` · 봉이 모자라 못 그린 것: ${빈.join(" · ")}`;
+}
+
 /**
- * 차트 위의 선들을 **가격 순서 그대로** 아래에 적는다.
+ * 차트 위의 가로선을 **가격 순서 그대로** 아래에 적는다.
  *
- * 차트의 축 라벨은 작고 서로 겹치며, 창이 좁으면 잘린다. 무엇보다 **어느 선이 지금 가격보다
- * 위인지**를 라벨만 보고 판단하려면 눈을 두 번 옮겨야 한다.
- *
- * **지금 가격을 목록 한가운데 끼워 넣는다.** 그러면 위/아래가 읽는 것이 아니라 보이는 것이
- * 된다 — 자리만 정하는 것이라 새로 계산하는 수는 하나도 없다(`docs/adr/020`).
- *
- * **거리(%)는 서버가 준 것만 적는다.** 대와 매물대에는 `distancePercent` 가 있고 구름·밴드에는
- * 없다. 여기서 `(선 − 지금) ÷ 지금` 을 하면 화면이 수를 만드는 것이 되고, 그 규칙은 이
- * 저장소가 한 번 정해 지켜 온 것이다.
+ * 차트의 축 라벨은 작고 서로 겹치며 창이 좁으면 잘린다. **지금 가격을 목록 한가운데 끼워
+ * 넣으면** 위/아래가 읽는 것이 아니라 보이는 것이 된다 — 자리만 정하는 것이라 새로 계산하는
+ * 수는 하나도 없다(`docs/adr/020`).
  */
 function Levels({ readout }: { readout: Readout }) {
   const 지금 = { price: readout.close, title: "지금", color: "#eaecef", now: true, note: "" };
-  const 줄들 = [...선들(readout).map((선) => ({ ...선, now: false })), 지금].sort(
+  const 줄들 = [...수평선(readout).map((줄) => ({ ...줄, now: false })), 지금].sort(
     (a, b) => b.price - a.price,
   );
 
@@ -223,65 +298,29 @@ function Levels({ readout }: { readout: Readout }) {
   );
 }
 
-/** 차트에 얹을 가로선. **없는 값은 선도 없다** — 0 으로 그리면 바닥에 가짜 선이 생긴다. */
-function 선들(readout: Readout) {
-  const out: Line[] = [];
-  const 더하기 = (
-    value: number | null | undefined,
-    color: string,
-    title: string,
-    dashed = false,
-    note = "",
-  ) => {
+/**
+ * 곡선이 아니라 **자리**인 것들. 지지·저항·매물대는 시간에 따라 움직이는 값이 아니므로
+ * 가로선이 원래 모양이다.
+ *
+ * **거리(%)는 서버가 준 것만 적는다.** 여기서 `(선 − 지금) ÷ 지금` 을 하면 화면이 수를
+ * 만드는 것이 되고, 그 규칙은 이 저장소가 한 번 정해 지켜 온 것이다.
+ */
+function 수평선(readout: Readout) {
+  const out: { price: number; color: string; title: string; note: string }[] = [];
+  const 더하기 = (value: number | null | undefined, color: string, title: string, note = "") => {
     if (value !== null && value !== undefined) {
-      out.push({ price: value, color, title, dashed, note });
+      out.push({ price: value, color, title, note });
     }
   };
 
-  더하기(readout.cloudTop, "#5e6673", "구름 위", true);
-  더하기(readout.cloudBottom, "#5e6673", "구름 아래", true);
-  더하기(readout.bollingerUpper, "#3b6ea5", "밴드 상단", true);
-  더하기(readout.bollingerMiddle, "#3b6ea5", "밴드 중심", true);
-  더하기(readout.bollingerLower, "#3b6ea5", "밴드 하단", true);
-
-  // 서버가 이미 **가장 가까운 대 하나씩만** 준다. 여럿을 다 그리면 선이 열 개를 넘어
-  // 캔들이 안 보이는데, 그 판단은 이미 서버 쪽에서 끝나 있다.
-  더하기(readout.support?.near, "#0ecb81", "지지", false, 거리(readout.support?.distancePercent));
-  더하기(readout.resistance?.near, "#f6465d", "저항", false, 거리(readout.resistance?.distancePercent));
+  더하기(readout.support?.near, "#0ecb81", "지지", 거리(readout.support?.distancePercent));
+  더하기(readout.resistance?.near, "#f6465d", "저항", 거리(readout.resistance?.distancePercent));
   더하기(readout.volume.pointOfControl, "#f0b90b", "매물대 중심");
-
   return out;
 }
 
-type Line = { price: number; color: string; title: string; dashed: boolean; note: string };
-
-/** 서버가 준 거리만 적는다. 없으면 빈칸이다 — 화면이 만들어 채우지 않는다. */
 function 거리(distancePercent: number | null | undefined): string {
   return distancePercent === null || distancePercent === undefined
     ? ""
     : percent(Math.abs(distancePercent));
 }
-
-/**
- * 몇 봉을 볼 것인가를 시각 범위로 옮긴다. 서버가 `from`·`to` 를 받기 때문이다.
- *
- * **끝을 지금이 아니라 판독 봉에 맞춘다.** 지금 시각을 쓰면 렌더마다 값이 달라져 요청이 끝없이
- * 새로 시작된다. 그리고 요약 줄과 차트가 같은 시점을 말해야 한다.
- */
-function 조회범위(interval: string, bars: number, anchor: string) {
-  const 분 = INTERVAL_MINUTES[interval] ?? 15;
-  // 판독 봉은 아직 안 닫혔을 수 있다. 한 봉 더 뒤까지 달라고 해야 그 봉이 잘리지 않는다.
-  const to = new Date(Date.parse(anchor) + 분 * 60_000);
-  const from = new Date(to.getTime() - 분 * 60_000 * bars);
-  return { from: from.toISOString(), to: to.toISOString() };
-}
-
-const INTERVAL_MINUTES: Record<string, number> = {
-  "1m": 1,
-  "5m": 5,
-  "15m": 15,
-  "1h": 60,
-  "4h": 240,
-  "1d": 1440,
-  "1w": 10080,
-};

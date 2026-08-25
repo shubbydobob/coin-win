@@ -2,7 +2,6 @@ package com.coinwin.readout.domain;
 
 import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Percentage;
-import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.BollingerBands;
 import com.coinwin.indicator.domain.BollingerValue;
 import com.coinwin.indicator.domain.IchimokuCloud;
@@ -15,9 +14,7 @@ import com.coinwin.indicator.domain.RelativeStrengthIndex;
 import com.coinwin.market.domain.CandleInterval;
 import com.coinwin.market.domain.CandleSeries;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
-import java.util.LinkedHashMap;
 
 /**
  * 한 주기의 지표를 <b>봉마다</b> 낸 것. 판독({@link TimeframeReadout})이 마지막 봉 하나를
@@ -44,7 +41,7 @@ public record TimeframeSeries(
         CandleSeries candles,
         List<IndicatorPoint<IchimokuValue>> ichimoku,
         List<IndicatorPoint<BollingerValue>> bollinger,
-        Map<Integer, List<IndicatorPoint<Price>>> movingAverages,
+        List<MovingAverageLine> movingAverages,
         List<IndicatorPoint<Percentage>> rsi,
         List<IndicatorPoint<MacdValue>> macd) {
 
@@ -61,7 +58,7 @@ public record TimeframeSeries(
         DomainValues.required(candles, "캔들 묶음");
         ichimoku = List.copyOf(ichimoku);
         bollinger = List.copyOf(bollinger);
-        movingAverages = Map.copyOf(movingAverages);
+        movingAverages = List.copyOf(movingAverages);
         rsi = List.copyOf(rsi);
         macd = List.copyOf(macd);
     }
@@ -69,10 +66,10 @@ public record TimeframeSeries(
     /** 캔들에서 다섯 지표를 낸다. 봉이 모자란 지표는 빈 목록이 된다. */
     public static TimeframeSeries over(CandleInterval interval, CandleSeries candles) {
         DomainValues.required(candles, "캔들 묶음");
-        Map<Integer, List<IndicatorPoint<Price>>> averages = new LinkedHashMap<>();
-        for (int period : MA_PERIODS) {
-            averages.put(period, orEmpty(() -> MovingAverage.simple(period).over(candles)));
-        }
+        List<MovingAverageLine> averages = MA_PERIODS.stream()
+                .map(period -> new MovingAverageLine(
+                        period, orEmpty(() -> MovingAverage.simple(period).over(candles))))
+                .toList();
         return new TimeframeSeries(
                 interval,
                 candles,
