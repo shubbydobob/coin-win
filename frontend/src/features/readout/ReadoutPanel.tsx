@@ -46,8 +46,12 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
               <th className="pb-0.5 font-normal" colSpan={2}>
                 지금 어디에 서 있나
               </th>
+              {/*
+                묶음 이름은 묶음이 **시작하는 쪽**에 붙인다. 오른쪽 끝에 두었더니 네 열을
+                가리키는 이름이 맨 끝 열(골든 포켓) 하나만 가리키는 것처럼 보였다.
+              */}
               <th
-                className="border-l border-line-soft pb-0.5 pl-3 text-right font-normal"
+                className="border-l border-line-soft pb-0.5 pl-3 text-left font-normal"
                 colSpan={4}
               >
                 주변에 무엇이 있나
@@ -294,13 +298,24 @@ function PocketCell({ fibonacci }: { fibonacci: Fibonacci | null }) {
       </td>
     );
   }
-  const 포켓 = fibonacci.levels.filter((level) => POCKET.includes(level.ratio));
+  /*
+    **낮은 값부터 적는다.** 서버는 비율 순서(0.618 → 0.65)로 주는데, 오른 스윙의 되돌림은
+    고점에서 **아래로** 재므로 0.65 가 더 낮은 가격이다. 그대로 이어 붙였더니 오른 스윙에서는
+    `79,069.30 ~ 79,049.03` 로 큰 값이 앞에 오고 내린 스윙에서는 반대로 나왔다 — 같은 표의
+    세 줄이 서로 다른 규칙으로 적힌 셈이다. 매물대에서 고친 것과 같은 종류다.
+
+    **정렬은 수를 만드는 것이 아니다.** 서버가 준 두 값을 그대로 쓰고 순서만 세운다.
+  */
+  const 포켓 = fibonacci.levels
+    .filter((level) => POCKET.includes(level.ratio))
+    .map((level) => level.price)
+    .sort((a, b) => a - b);
   const 안 = fibonacci.inGoldenPocket;
 
   return (
     <td className="py-2.5 text-right tabular-nums">
       <span className={안 ? "font-medium text-warn" : "text-ink-3"}>
-        {포켓.map((level) => price(level.price)).join(" ~ ")}
+        {포켓.map((값) => price(값)).join(" ~ ")}
       </span>
       <span className={`mt-0.5 block text-[10px] ${안 ? "text-warn" : "text-ink-4"}`}>
         {안 ? "지금 이 안" : fibonacci.upward ? "오른 스윙" : "내린 스윙"}
