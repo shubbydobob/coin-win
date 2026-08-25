@@ -12,16 +12,21 @@ type Readout = components["schemas"]["TimeframeReadoutResponse"];
  * 같은 이유로 같은 말을 적어 두었다. 그래서 여기 있는 산술은 `docs/adr/020` 이 금지한
  * 계산에 해당하지 않는다.
  *
+ * **그리는 것은 셋뿐이다** — 매물대(면) · 지지·저항(선) · 지금(선). 처음에는 구름과 골든
+ * 포켓도 그렸는데, 구름은 창 밖이면 아예 안 보이면서 「구름 위」 라는 글자가 이미 같은 말을
+ * 하고 있었고, 골든 포켓은 폭이 창의 1~2% 라 **점선 부스러기처럼 보였다.** 그리는 것이
+ * 늘수록 무엇을 보는 화면인지가 흐려진다. 둘 다 값은 `aria-label` 에 그대로 있다.
+ *
  * **창은 ATR 로 정한다.** 지금 가격의 위아래 2 ATR 이 창이다. 지지·저항으로 창을 잡으면
  * 한쪽이 없을 때(자주 그렇다) 창 자체가 정해지지 않고, 고정 % 로 잡으면 변동성이 큰 날과
- * 작은 날이 같은 폭으로 그려져 **같은 거리가 다른 뜻인 것이 지워진다.** ATR 은 서버가 낸
- * 값이고 그 주기의 하루치 흔들림이다.
+ * 작은 날이 같은 폭으로 그려져 **같은 거리가 다른 뜻인 것이 지워진다.**
  *
  * **창 밖은 지우지 않고 가장자리에 붙인다.** 4시간 지지가 −16% 인 것은 사실이고, 지우면
- * "아래에 아무것도 없다" 가 된다. 화살표로 그 방향에 있다는 것만 말한다.
+ * "아래에 아무것도 없다" 가 된다. 화살표가 **어느 쪽인지**를 말한다 — 처음에는 위아래 모두
+ * `‹` 를 붙여, 창 위에 있는 저항을 아래를 가리키며 표시하고 있었다.
  *
- * **읽는 수는 전부 `aria-label` 에도 있다.** 띠는 눈으로 보는 것이고, 값이 필요한 사람과
- * 스크린 리더는 같은 문장을 읽는다.
+ * **띠 아래 한 줄이 그 띠를 읽어 준다.** 그림만으로는 "가까운가" 가 눈대중이 되고, 눈대중은
+ * 주기마다 창 폭이 달라 서로 견줄 수 없다. 거리는 서버가 낸 값이다.
  */
 export function TimeframeTrack({ readout, label }: { readout: Readout; label: string }) {
   const 창 = 창범위(readout);
@@ -29,23 +34,23 @@ export function TimeframeTrack({ readout, label }: { readout: Readout; label: st
   return (
     <div className="mt-1.5">
       <div
-        className="relative h-9 rounded bg-surface-2"
+        className="relative h-7 rounded bg-surface-2"
         role="img"
         aria-label={설명(readout, label)}
       >
-        <Band 창={창} 아래={readout.cloudBottom} 위={readout.cloudTop} className="bg-ink-4/15" />
         <VolumeBand 창={창} volume={readout.volume} />
-        <PocketBand 창={창} fibonacci={readout.fibonacci} />
 
         {/* 지금. 언제나 한가운데다 — 창이 지금을 중심으로 잡히기 때문이다. */}
         <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-ink" />
-        <span className="absolute left-1/2 top-0.5 -translate-x-1/2 rounded bg-surface px-1 text-[10px] font-medium tabular-nums text-ink">
+        <span className="absolute left-1/2 top-1 -translate-x-1/2 rounded bg-surface px-1 text-[10px] font-medium tabular-nums text-ink">
           <Decimal text={price(readout.close)} />
         </span>
 
         <Level 창={창} 값={readout.support?.near} label="지지" />
         <Level 창={창} 값={readout.resistance?.near} label="저항" />
       </div>
+
+      <p className="mt-1 text-[11px] tabular-nums text-ink-3">{읽어주기(readout)}</p>
     </div>
   );
 }
@@ -57,7 +62,7 @@ type 창범위 = { 아래: number; 위: number };
  * 지금 가격의 위아래 2 ATR.
  *
  * ATR 이 0 인 경우는 캔들이 전혀 움직이지 않았다는 뜻이라 실전에서 오지 않지만, 0 이면
- * 나눗셈이 무너지므로 최소 폭을 준다. 그 폭이 무엇이든 띠에는 아무것도 안 보이게 된다.
+ * 나눗셈이 무너지므로 최소 폭을 준다.
  */
 function 창범위(readout: Readout): 창범위 {
   const 폭 = readout.atr > 0 ? readout.atr * 2 : 1;
@@ -70,71 +75,32 @@ function 위치(창: 창범위, 값: number): number {
   return Math.min(100, Math.max(0, 비율));
 }
 
-function 창밖(창: 창범위, 값: number): boolean {
-  return 값 < 창.아래 || 값 > 창.위;
-}
-
-function Band({
-  창,
-  아래,
-  위,
-  className,
-}: {
-  창: 창범위;
-  아래: number;
-  위: number;
-  className: string;
-}) {
-  const 왼쪽 = 위치(창, 아래);
-  const 오른쪽 = 위치(창, 위);
-  if (오른쪽 <= 왼쪽) {
-    return null;
-  }
-  return (
-    <div
-      className={`absolute inset-y-0 ${className}`}
-      style={{ left: `${왼쪽}%`, width: `${오른쪽 - 왼쪽}%` }}
-      aria-hidden="true"
-    />
-  );
-}
-
 /**
  * 매물대.
  *
  * **위·아래·품은 것이 같은 색이다.** 셋은 위치가 다를 뿐 같은 것이고, 어느 쪽인지는 띠에서
  * 눈으로 보인다 — 색을 나누면 "지금 이 안" 이라는 사실을 다시 글로 적어야 한다.
+ *
+ * **아주 얇아도 보이게 둔다.** 창의 1% 밖에 안 되는 대도 있는데 그때 0픽셀로 사라지면
+ * "매물대가 없다" 로 읽힌다.
  */
 function VolumeBand({ 창, volume }: { 창: 창범위; volume: Readout["volume"] }) {
   const 대들 = [volume.here, volume.below, volume.above].filter((대) => 대 !== null);
   return (
     <>
-      {대들.map((대) => (
-        <Band
-          key={`${대.near}-${대.far}`}
-          창={창}
-          아래={Math.min(대.near, 대.far)}
-          위={Math.max(대.near, 대.far)}
-          className="bg-warn/20"
-        />
-      ))}
+      {대들.map((대) => {
+        const 왼쪽 = 위치(창, Math.min(대.near, 대.far));
+        const 오른쪽 = 위치(창, Math.max(대.near, 대.far));
+        return (
+          <div
+            key={`${대.near}-${대.far}`}
+            className="absolute inset-y-0 min-w-[2px] rounded-sm bg-warn/20"
+            style={{ left: `${왼쪽}%`, width: `${오른쪽 - 왼쪽}%` }}
+            aria-hidden="true"
+          />
+        );
+      })}
     </>
-  );
-}
-
-/** 골든 포켓. 서버가 준 두 값을 쓰고 순서만 세운다. */
-function PocketBand({ 창, fibonacci }: { 창: 창범위; fibonacci: Readout["fibonacci"] }) {
-  const 포켓 = 포켓구간(fibonacci);
-  if (!포켓) {
-    return null;
-  }
-  return (
-    <Band
-      창={창}
-      아래={포켓.아래}
-      위={포켓.위}
-      className="border-y border-dashed border-ink-3/60"
-    />
   );
 }
 
@@ -149,7 +115,9 @@ function Level({ 창, 값, label }: { 창: 창범위; 값?: number; label: strin
     return null;
   }
   const 왼쪽 = 위치(창, 값);
-  const 밖 = 창밖(창, 값);
+  const 아래로밖 = 값 < 창.아래;
+  const 위로밖 = 값 > 창.위;
+  const 밖 = 아래로밖 || 위로밖;
   return (
     <>
       <div
@@ -161,13 +129,43 @@ function Level({ 창, 값, label }: { 창: 창범위; 값?: number; label: strin
         className={`absolute bottom-0.5 -translate-x-1/2 whitespace-nowrap px-1 text-[10px] tabular-nums ${
           밖 ? "text-ink-4" : "text-ink-2"
         }`}
-        style={{ left: `${Math.min(88, Math.max(12, 왼쪽))}%` }}
+        style={{ left: `${Math.min(86, Math.max(14, 왼쪽))}%` }}
       >
-        {밖 && "‹ "}
+        {아래로밖 && "‹ "}
         {label} <Decimal text={price(값)} />
+        {위로밖 && " ›"}
       </span>
     </>
   );
+}
+
+/**
+ * 띠를 한 줄로 읽어 준다.
+ *
+ * **거리로 말한다.** 띠 위의 가격은 손절을 어디 둘지에 쓰는 값이고, "가까운가" 는 거리에서만
+ * 나온다 — 주기마다 창 폭이 달라 그림의 길이는 서로 견줄 수 없다.
+ *
+ * **여기서도 방향은 말하지 않는다.** "지지 0.2% 아래" 는 사실이고 "그러니 반등" 은 예측이다.
+ */
+function 읽어주기(readout: Readout): string {
+  return [
+    readout.support ? `지지 ${percent(readout.support.distancePercent)} 아래` : "아래에 지지 없음",
+    매물대읽기(readout.volume),
+    readout.resistance ? `저항 ${percent(readout.resistance.distancePercent)} 위` : "위에 저항 없음",
+  ].join(" · ");
+}
+
+function 매물대읽기(volume: Readout["volume"]): string {
+  if (volume.here) {
+    return `지금 매물대 안 (두께 ${percent(volume.here.sharePercent)})`;
+  }
+  if (volume.below) {
+    return `매물대 ${percent(volume.below.distancePercent)} 아래`;
+  }
+  if (volume.above) {
+    return `매물대 ${percent(volume.above.distancePercent)} 위`;
+  }
+  return "매물대 없음";
 }
 
 /**
@@ -187,6 +185,7 @@ function 설명(readout: Readout, label: string): string {
   }
   조각.push(매물대문장(readout.volume));
   조각.push(`POC ${price(readout.volume.pointOfControl)}`);
+  조각.push(`구름 ${price(readout.cloudBottom)}~${price(readout.cloudTop)}`);
   조각.push(포켓문장(readout.fibonacci));
   return 조각.join(" · ");
 }
@@ -194,8 +193,8 @@ function 설명(readout: Readout, label: string): string {
 /**
  * 골든 포켓.
  *
- * **띠에는 점선으로만 그리고 값은 여기에 둔다.** 화면에서 숫자를 덜어낸 것이지 사실을 덜어낸
- * 것이 아니다 — 값이 아예 없으면 손절을 그 경계에 두려는 사람이 화면에서 읽을 수 없다.
+ * **띠에는 그리지 않고 값만 여기 둔다.** 폭이 창의 1~2% 라 그리면 점선 부스러기가 되고,
+ * 그럼에도 값이 아예 없으면 손절을 그 경계에 두려는 사람이 화면에서 읽을 수 없다.
  */
 function 포켓문장(fibonacci: Readout["fibonacci"]): string {
   const 포켓 = 포켓구간(fibonacci);
@@ -224,9 +223,7 @@ function 매물대문장(volume: Readout["volume"]): string {
  * 0.65 가 더 낮은 가격이다. 순서를 세우지 않으면 오른 스윙과 내린 스윙이 서로 다른 규칙으로
  * 적힌다. **정렬은 수를 만드는 것이 아니다** — 서버가 준 두 값을 그대로 쓰고 순서만 세운다.
  */
-function 포켓구간(
-  fibonacci: Readout["fibonacci"],
-): { 아래: number; 위: number } | null {
+function 포켓구간(fibonacci: Readout["fibonacci"]): { 아래: number; 위: number } | null {
   if (!fibonacci) {
     return null;
   }

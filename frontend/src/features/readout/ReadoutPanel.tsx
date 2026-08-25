@@ -68,19 +68,8 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-4">
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-2.5 w-4 rounded-sm bg-ink-4/15" aria-hidden="true" />
-            구름
-          </span>
-          <span className="inline-flex items-center gap-1">
             <span className="inline-block h-2.5 w-4 rounded-sm bg-warn/20" aria-hidden="true" />
             매물대
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-2.5 w-4 border-y border-dashed border-ink-3/60"
-              aria-hidden="true"
-            />
-            골든 포켓
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-2.5 w-px bg-ink-3" aria-hidden="true" />
@@ -95,8 +84,8 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
         <p className="mt-2 text-[11px] leading-snug text-ink-4">
           띠의 폭은 <b>지금 가격 위아래 2 ATR</b> 이다. 같은 화면 폭이 주기마다 다른 가격 범위를
           뜻하므로, 세 띠는 <b>거리가 아니라 「그 주기 기준으로 가까운가」를 견준다.</b>
-          <b>창 밖은 지우지 않고 가장자리에 붙인다</b>(‹ 표시) — 4시간 지지가 −16% 인 것은
-          사실이고, 지우면 "아래에 아무것도 없다" 가 된다.
+          <b>창 밖은 지우지 않고 가장자리에 붙인다</b> — 화살표(‹ ›)가 어느 쪽인지 말한다.
+          4시간 지지가 −16% 인 것은 사실이고, 지우면 "아래에 아무것도 없다" 가 된다.
           <b>비어 있는 것도 정상이다</b>: 그 방향에 사람이 반응한 적 있는 자리가 아직 없거나
           스윙 한쪽이 안 잡혔다는 뜻이고, 0 이나 창 끝으로 채우면 없는 선이 생긴다.
         </p>
@@ -107,6 +96,9 @@ export function ReadoutPanel({ readouts }: { readouts: Readout[] }) {
           <b>다만 매물대는 백테스트를 통과한 적이 없고</b>, 봉 안에서 거래량이 어느 가격에
           몰렸는지는 캔들만으로 알 수 없어 고르게 나눈 <b>근사</b>다.
           <b>골든 포켓에서 되돌아온다는 것도 이 도구가 재 본 적 없는 주장이다.</b>
+          <b>구름과 골든 포켓은 띠에 그리지 않는다</b> — 구름은 「구름 위/아래」가 이미 같은
+          말을 하고, 골든 포켓은 폭이 창의 1~2% 라 그리면 부스러기로 보인다. 두 값은 띠에
+          마우스를 올리면 나오는 문장에 그대로 있다.
         </p>
       </details>
     </section>

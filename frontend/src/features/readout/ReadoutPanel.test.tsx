@@ -189,6 +189,30 @@ describe("지표 판독", () => {
   });
 
   /**
+   * <b>띠 아래 한 줄이 그 띠를 읽어 준다.</b> 그림만으로는 "가까운가" 가 눈대중이 되고,
+   * 눈대중은 주기마다 창 폭이 달라 서로 견줄 수 없다.
+   */
+  it("띠를 거리로 한 줄 읽어 준다", () => {
+    render(
+      <ReadoutPanel
+        readouts={[
+          판독({ resistance: { near: 80500, far: 80900, touches: 4, distancePercent: 2.1521 } }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/지지 1\.2691% 아래 · 매물대 1\.4632% 아래 · 저항 2\.1521% 위/))
+      .toBeVisible();
+  });
+
+  /** 그 방향에 아무것도 없다는 것도 사실이다. 빈 자리로 두면 무슨 뜻인지 알 수 없다. */
+  it("없는 쪽은 없다고 읽어 준다", () => {
+    render(<ReadoutPanel readouts={[판독({ resistance: null })]} />);
+
+    expect(screen.getByText(/위에 저항 없음/)).toBeVisible();
+  });
+
+  /**
    * <b>읽는 법은 접혀 있다.</b> 펼쳐 두면 화면에서 가장 긴 덩어리가 되고, 그러면 매일 보는
    * 값들이 한 번 읽고 마는 글에 밀린다.
    */
