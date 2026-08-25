@@ -4,7 +4,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.market.application.port.out.LoadMacroQuotesPort;
 import com.coinwin.market.domain.MacroQuote;
 import com.coinwin.market.domain.MacroWatchlist;
-import com.coinwin.market.domain.Symbol;
+import com.coinwin.market.domain.MacroTicker;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -51,10 +51,16 @@ public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
 
     @Override
     public List<MacroQuote> quotes() {
-        return MacroWatchlist.ordered().stream().map(this::quoteOf).flatMap(Optional::stream).toList();
+        // **자기 몫만 읽는다.** 야후에서 오는 셋은 이 어댑터가 부를 수 있는 것이 아니다.
+        return java.util.stream.Stream.concat(
+                        MacroWatchlist.orderedFrom(MacroWatchlist.Venue.PERPETUAL).stream(),
+                        MacroWatchlist.orderedFrom(MacroWatchlist.Venue.SPOT).stream())
+                .map(this::quoteOf)
+                .flatMap(Optional::stream)
+                .toList();
     }
 
-    private Optional<MacroQuote> quoteOf(Symbol symbol) {
+    private Optional<MacroQuote> quoteOf(MacroTicker symbol) {
         boolean spot = MacroWatchlist.venueOf(symbol) == MacroWatchlist.Venue.SPOT;
         try {
             BinanceTicker ticker = (spot ? spotClient : client).get()
@@ -75,11 +81,12 @@ public class BinanceMacroQuoteAdapter implements LoadMacroQuotesPort {
     }
 
     /** 이름과 묶음은 관심 목록이 안다. 어댑터는 값만 옮긴다. */
-    private static MacroQuote toQuote(Symbol symbol, BinanceTicker ticker) {
+    private static MacroQuote toQuote(MacroTicker symbol, BinanceTicker ticker) {
         return new MacroQuote(
                 symbol,
                 MacroWatchlist.labelOf(symbol),
                 MacroWatchlist.groupOf(symbol),
+                MacroWatchlist.venueOf(symbol),
                 Price.of(ticker.lastPrice()),
                 new BigDecimal(ticker.priceChangePercent()));
     }

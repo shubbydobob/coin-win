@@ -1,6 +1,7 @@
 package com.coinwin.market.adapter.in.web;
 
 import com.coinwin.market.domain.MacroQuote;
+import com.coinwin.market.domain.MacroWatchlist;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,7 +28,8 @@ public record MacroQuoteResponse(
         @Schema(description = """
                 어느 묶음인가. 열두 종목을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다.""",
                 example = "EQUITY",
-                allowableValues = {"CRYPTO", "EQUITY", "METAL", "ENERGY", "RATES", "FEAR"})
+                allowableValues = {"CRYPTO", "EQUITY", "METAL", "ENERGY", "RATES",
+                    "CURRENCY", "FEAR"})
         String group,
 
         @Schema(description = "묶음의 사람이 읽는 이름", example = "주가")
@@ -37,17 +39,25 @@ public record MacroQuoteResponse(
         BigDecimal last,
 
         @Schema(description = "24시간 변동률 (%). 음수면 하락이다", example = "0.840000")
-        BigDecimal change24hPercent) {
+        BigDecimal change24hPercent,
+
+        @Schema(description = """
+                **24시간 내내 움직이는 값인가.** 바이낸스 무기한은 그렇고, 야후에서 오는
+                지수·선물은 아니다 — 미국 장 시간에만(선물은 거의 24시간이되 주말은 쉼)
+                움직이므로 같은 '24시간 변동률' 이라도 뜻이 코인과 다르다.""",
+                example = "true")
+        boolean roundTheClock) {
 
     static List<MacroQuoteResponse> from(List<MacroQuote> quotes) {
         return quotes.stream()
                 .map(quote -> new MacroQuoteResponse(
-                        quote.symbol().value(),
+                        quote.ticker().value(),
                         quote.label(),
                         quote.group().name(),
                         quote.group().label(),
                         quote.last().value(),
-                        quote.change24hPercent()))
+                        quote.change24hPercent(),
+                        quote.venue() != MacroWatchlist.Venue.YAHOO))
                 .toList();
     }
 }

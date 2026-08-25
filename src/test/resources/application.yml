@@ -61,3 +61,9 @@ coinwin:
       market: KRW-USDT
       connect-timeout: 1s
       read-timeout: 2s
+    yahoo:
+      # 같은 이유로 닿지 않는 주소를 준다. 이 블록이 운영 설정을 통째로 가리므로 여기 없는
+      # 키는 null 이 되고, 그러면 컨텍스트가 아예 뜨지 않는다 — 업비트를 붙일 때 겪은 자리다.
+      base-url: http://localhost:1
+      connect-timeout: 1s
+      read-timeout: 2s

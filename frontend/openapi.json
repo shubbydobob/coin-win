@@ -4794,6 +4794,7 @@
               "METAL",
               "ENERGY",
               "RATES",
+              "CURRENCY",
               "FEAR"
             ],
             "example": "EQUITY"
@@ -4812,6 +4813,11 @@
             "type": "number",
             "description": "24시간 변동률 (%). 음수면 하락이다",
             "example": 0.84
+          },
+          "roundTheClock": {
+            "type": "boolean",
+            "description": "**24시간 내내 움직이는 값인가.** 바이낸스 무기한은 그렇고, 야후에서 오는\n지수·선물은 아니다 — 미국 장 시간에만(선물은 거의 24시간이되 주말은 쉼)\n움직이므로 같은 '24시간 변동률' 이라도 뜻이 코인과 다르다.",
+            "example": true
           }
         },
         "required": [
@@ -4820,6 +4826,7 @@
           "groupLabel",
           "label",
           "last",
+          "roundTheClock",
           "symbol"
         ]
       },

@@ -103,6 +103,12 @@ coinwin:
       market: KRW-USDT
       connect-timeout: 3s
       read-timeout: 10s
+    yahoo:
+      # 바이낸스에 없는 셋(나스닥 선물 · S&P 500 지수 · 달러지수)만 여기서 읽는다.
+      # 문서화된 API 가 아니다 — 예고 없이 막히거나 모양이 바뀔 수 있고, 그때는 그 줄만 빠진다.
+      base-url: ${COINWIN_YAHOO_URL:https://query1.finance.yahoo.com}
+      connect-timeout: 3s
+      read-timeout: 10s
   watch:
     binance:
       # 공지는 시세와 호스트가 다르다. 그리고 이것은 문서화된 공개 API 가 아니라

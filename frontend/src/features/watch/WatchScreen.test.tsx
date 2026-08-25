@@ -87,9 +87,9 @@ const MACRO: components["schemas"]["MacroQuoteListResponse"] = {
   requested: 12,
   quotes: [
     { symbol: "QQQUSDT", label: "나스닥 100", group: "EQUITY", groupLabel: "주가",
-      last: 612.34, change24hPercent: 0.84 },
+      last: 612.34, change24hPercent: 0.84, roundTheClock: true },
     { symbol: "XAUUSDT", label: "금", group: "METAL", groupLabel: "금속",
-      last: 2410.5, change24hPercent: -0.31 },
+      last: 2410.5, change24hPercent: -0.31, roundTheClock: true },
   ],
 };
 

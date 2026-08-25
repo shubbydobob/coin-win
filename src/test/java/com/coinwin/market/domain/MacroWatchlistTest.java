@@ -34,7 +34,7 @@ class MacroWatchlistTest {
 
     @Test
     void 심볼로_이름과_묶음을_찾는다() {
-        Symbol brent = Symbol.of("BZUSDT");
+        MacroTicker brent = MacroTicker.of("BZUSDT");
 
         assertThat(MacroWatchlist.labelOf(brent)).isEqualTo("브렌트 원유");
         assertThat(MacroWatchlist.groupOf(brent)).isEqualTo(MacroWatchlist.Group.ENERGY);
@@ -43,8 +43,8 @@ class MacroWatchlistTest {
     /** 목록에 없는 것을 물으면 심볼 그대로 돌려준다. 화면이 빈 칸을 그리지 않게. */
     @Test
     void 모르는_심볼은_이름_대신_심볼을_준다() {
-        assertThat(MacroWatchlist.labelOf(Symbol.of("NOPEUSDT"))).isEqualTo("NOPEUSDT");
-        assertThat(MacroWatchlist.groupOf(Symbol.of("NOPEUSDT")))
+        assertThat(MacroWatchlist.labelOf(MacroTicker.of("NOPEUSDT"))).isEqualTo("NOPEUSDT");
+        assertThat(MacroWatchlist.groupOf(MacroTicker.of("NOPEUSDT")))
                 .isEqualTo(MacroWatchlist.Group.EQUITY);
     }
 
@@ -86,7 +86,7 @@ class MacroWatchlistTest {
      */
     @Test
     void 비트코인_현물만_현물_시장이다() {
-        assertThat(MacroWatchlist.venueOf(Symbol.of("BTCUSDT")))
+        assertThat(MacroWatchlist.venueOf(MacroTicker.of("BTCUSDT")))
                 .isEqualTo(MacroWatchlist.Venue.SPOT);
 
         assertThat(MacroWatchlist.assets().stream()
@@ -101,12 +101,12 @@ class MacroWatchlistTest {
      */
     @Test
     void 목록에_없는_종목은_무기한이다() {
-        assertThat(MacroWatchlist.venueOf(Symbol.of("ETHUSDT")))
+        assertThat(MacroWatchlist.venueOf(MacroTicker.of("ETHUSDT")))
                 .isEqualTo(MacroWatchlist.Venue.PERPETUAL);
     }
 
     private static String labelOfSymbol(String symbol) {
-        return MacroWatchlist.labelOf(Symbol.of(symbol));
+        return MacroWatchlist.labelOf(MacroTicker.of(symbol));
     }
 
     /** 이어진 같은 값을 하나로 줄인 뒤 다시 펼친다. 원본과 같으면 흩어져 있지 않은 것이다. */
@@ -118,5 +118,48 @@ class MacroWatchlistTest {
             }
         }
         return 순서.stream().filter(묶음::contains).toList();
+    }
+
+    /**
+     * <b>출처가 둘이 되면서 생긴 갈래.</b> 어댑터는 자기 몫만 읽어야 하고, 그 고름이
+     * 관심 목록에 있어야 어댑터가 상대를 모른 채 살 수 있다.
+     */
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("출처별로 갈라 낸 것을 합치면 전체와 같다")
+    void 출처별로_갈라진다() {
+        var perpetual = MacroWatchlist.orderedFrom(MacroWatchlist.Venue.PERPETUAL);
+        var spot = MacroWatchlist.orderedFrom(MacroWatchlist.Venue.SPOT);
+        var yahoo = MacroWatchlist.orderedFrom(MacroWatchlist.Venue.YAHOO);
+
+        assertThat(perpetual.size() + spot.size() + yahoo.size())
+                .isEqualTo(MacroWatchlist.size());
+        assertThat(perpetual).doesNotContainAnyElementsOf(yahoo);
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("바이낸스에 없는 셋은 야후에서 읽는다")
+    void 야후에서_읽는_셋() {
+        assertThat(MacroWatchlist.orderedFrom(MacroWatchlist.Venue.YAHOO))
+                .extracting(MacroTicker::value)
+                .containsExactly("NQ=F", "^GSPC", "DX-Y.NYB");
+    }
+
+    /** 목록에 없는 표기는 이름을 지어내지 않고 표기 그대로 돌려준다. */
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("모르는 표기는 표기 자체가 이름이 된다")
+    void 모르는_표기() {
+        MacroTicker unknown = MacroTicker.of("ZZZUSDT");
+
+        assertThat(MacroWatchlist.labelOf(unknown)).isEqualTo("ZZZUSDT");
+        assertThat(MacroWatchlist.groupOf(unknown)).isEqualTo(MacroWatchlist.Group.EQUITY);
+        assertThat(MacroWatchlist.venueOf(unknown)).isEqualTo(MacroWatchlist.Venue.PERPETUAL);
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("묶음마다 사람이 읽는 이름이 있다")
+    void 묶음_이름() {
+        for (MacroWatchlist.Group group : MacroWatchlist.Group.values()) {
+            assertThat(group.label()).isNotBlank();
+        }
     }
 }

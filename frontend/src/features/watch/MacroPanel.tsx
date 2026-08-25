@@ -84,7 +84,17 @@ function Tile({ quote }: { quote: Quote }) {
 
   return (
     <div className="rounded bg-surface-2 p-2 text-center">
-      <dt className="text-[11px] leading-tight text-ink-3">{quote.label}</dt>
+      <dt className="text-[11px] leading-tight text-ink-3">
+        {quote.label}
+        {/*
+          **시계가 다른 것을 표시한다.** 야후에서 오는 지수·선물은 미국 장 시간에만 움직인다
+          (선물은 거의 24시간이되 주말은 쉼). 같은 "24시간 변동률" 이라도 코인과 뜻이 달라서,
+          그 사실을 지우면 주말에 0% 인 것이 "안 움직였다" 로 읽힌다.
+        */}
+        {!quote.roundTheClock && (
+          <span className="ml-1 text-ink-4" title="미국 장 시간에만 움직인다">장중</span>
+        )}
+      </dt>
       {값이답 ? (
         <>
           <dd className="mt-1 text-base font-semibold tabular-nums text-ink">

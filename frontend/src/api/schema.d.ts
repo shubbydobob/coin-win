@@ -2963,7 +2963,7 @@ export interface components {
              * @example EQUITY
              * @enum {string}
              */
-            group: "CRYPTO" | "EQUITY" | "METAL" | "ENERGY" | "RATES" | "FEAR";
+            group: "CRYPTO" | "EQUITY" | "METAL" | "ENERGY" | "RATES" | "CURRENCY" | "FEAR";
             /**
              * @description 묶음의 사람이 읽는 이름
              * @example 주가
@@ -2979,6 +2979,13 @@ export interface components {
              * @example 0.84
              */
             change24hPercent: number;
+            /**
+             * @description **24시간 내내 움직이는 값인가.** 바이낸스 무기한은 그렇고, 야후에서 오는
+             *     지수·선물은 아니다 — 미국 장 시간에만(선물은 거의 24시간이되 주말은 쉼)
+             *     움직이므로 같은 '24시간 변동률' 이라도 뜻이 코인과 다르다.
+             * @example true
+             */
+            roundTheClock: boolean;
         };
         /** @description 거래소가 말하는 지금 이 순간의 포지션 */
         ExchangeSideResponse: {
