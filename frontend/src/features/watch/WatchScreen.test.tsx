@@ -176,7 +176,8 @@ describe("감시", () => {
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
     expect(within(블록).getByText("표본 2개 — 위치를 아직 말할 수 없다")).toBeVisible();
-    expect(within(블록).getByText("상위 7.2200%")).toBeVisible();
+    // 위치는 단계 이름과 한 줄에 붙는다 — "평소와 다름 · 최근 N개 중 상위 7.2200%".
+    expect(within(블록).getByText(/상위 7\.2200%/)).toBeVisible();
     // 변화를 말할 수 없는 것과 0 은 다른 사실이다.
     expect(within(블록).getByText("변화를 말할 수 없다")).toBeVisible();
   });
@@ -234,68 +235,63 @@ describe("감시", () => {
   });
 
   /**
-   * <b>색은 뜻 하나만 갖는다.</b> 첫 판은 스파크라인이 오르내림(초록/빨강)을, 막대가
-   * 진영(초록/빨강)을 뜻해서 <b>같은 초록이 한 줄 안에서 두 가지를 가리켰다.</b> 게다가 그
-   * 두 색은 매매에서 좋다/나쁘다로 읽히는데 미결제약정이 오르는 것이 좋은 일인지는 아무도
-   * 모른다.
-   *
-   * 지금은 넷뿐이다 — 롱 쪽 · 숏 쪽 · 평소와 다름 · 방향 없음.
+   * <b>범례는 펼쳐져 있어야 한다.</b> 앞판은 접어 두었는데, 접힌 설명은 색이 무슨 뜻인지
+   * 모르는 사람에게 <b>없는 것과 같다.</b> 세 단계뿐이라 한 줄에 들어가므로 접을 이유가
+   * 사라졌다 — 클릭 없이 보이는 것이 이 테스트가 지키는 것이다.
    */
-  it("색이 무엇을 뜻하는지를 화면이 스스로 말한다", async () => {
+  it("신호등이 무엇을 뜻하는지를 화면이 스스로 말한다", async () => {
     server.use(...전부성공);
-    const user = userEvent.setup();
     renderScreen(<WatchScreen />);
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
 
-    /*
-      **접혀 있지만 화면 안에 있다.** 이 테스트가 지키는 것은 "늘 펼쳐져 있다" 가 아니라
-      "이 화면 밖으로 나가지 않는다" 다 — 뜻을 툴팁이나 다른 문서로 옮기면 올리지 않는
-      사람에게는 없는 것과 같아진다(`shared/Term`). 펼치면 그대로 남는다.
-    */
-    await user.click(within(블록).getByText(/색과 눈금 읽는 법/));
-
-    ["롱 쪽", "숏 쪽", "평소와 다름", "방향 없음"].forEach((뜻) => {
+    ["평소", "치우침", "평소와 다름"].forEach((뜻) => {
       expect(within(블록).getAllByText(뜻).length).toBeGreaterThan(0);
     });
-    // 눈금을 어떻게 읽는지도 그림 옆에 붙는다.
-    expect(within(블록).getByRole("img", { name: "눈금 읽는 법 예시" })).toBeVisible();
+    // 드문 정도이지 좋고 나쁨이 아니라는 것도 화면이 말한다.
+    expect(within(블록).getByText(/드문 정도이지 좋고 나쁨이 아니다/)).toBeVisible();
   });
 
   /**
-   * <b>접힌 것이 기본이다.</b> 색과 눈금의 뜻은 한 번 익히면 끝나는 것인데 그것이 패널에서
-   * 가장 먼저 눈에 닿는 자리를 늘 차지하고 있었다. 지금 값에 닿기까지 지나쳐야 하는 거리가
-   * 그만큼 길어진다.
+   * <b>색만으로 뜻을 지지 않는다.</b> 회색·노랑·주황은 어두운 배경에서 서로 가까워 보이고
+   * 이 화면은 빠르게 훑는 자리다. 신호등마다 읽을 수 있는 이름이 붙어야 한다.
    */
-  it("범례는 기본으로 접혀 있다", async () => {
+  it("신호등에는 언제나 읽을 수 있는 이름이 붙는다", async () => {
     server.use(...전부성공);
     renderScreen(<WatchScreen />);
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
-    expect(within(블록).getByRole("img", { name: "눈금 읽는 법 예시" })).not.toBeVisible();
+
+    const 등들 = within(블록).getAllByRole("img");
+    expect(등들.length).toBeGreaterThan(0);
+    등들.forEach((등) => {
+      expect(등.getAttribute("aria-label")).toMatch(/평소|치우침|평소와 다름/);
+    });
   });
 
   /**
-   * <b>미결제약정은 늘든 줄든 어느 편도 아니다.</b> 축이 없는 값에 초록·빨강을 쓰면
-   * "포지션이 쌓이는 것은 좋은 일" 이라는, 뜻이 없는 말이 색으로 생긴다.
+   * <b>신호등 색은 등락과 아무 관계가 없다.</b> 초록·빨강은 이 저장소에서 이미 롱 쪽 / 숏 쪽을
+   * 뜻한다(<code>shared/tone.ts</code>). 신호등에까지 쓰면 같은 초록이 한 화면에서 두 가지를
+   * 가리키고, 그것이 그 파일이 고치려고 쓰인 문제다.
    *
-   * 픽스처에서 미결제약정은 이상치(양 끝 5%)이므로 <b>주황</b>이어야 하고, 롱 쪽으로 가는
-   * 테이커는 초록이어야 한다.
+   * 픽스처에서 미결제약정은 이상치(양 끝 5%)이므로 가장 센 단계여야 한다.
    */
-  it("축이 없는 지표에는 진영 색을 쓰지 않는다", async () => {
+  it("신호등에는 롱숏 색을 쓰지 않는다", async () => {
     server.use(...전부성공);
     renderScreen(<WatchScreen />);
 
     await screen.findByText("평소와 다른가");
     const 블록 = screen.getByRole("region", { name: "이상치" });
 
-    const 미결제 = within(블록).getByRole("img", { name: /미결제약정 최근/ });
-    expect(미결제.getAttribute("class")).toContain("text-warn");
+    const 미결제 = within(블록).getByRole("img", { name: /미결제약정: 평소와 다름/ });
+    expect(미결제.getAttribute("class")).toContain("bg-alert");
 
-    const 테이커 = within(블록).getByRole("img", { name: /테이커 매수\/매도 최근/ });
-    expect(테이커.getAttribute("class")).toContain("text-up");
+    within(블록).getAllByRole("img").forEach((등) => {
+      expect(등.getAttribute("class")).not.toContain("bg-up");
+      expect(등.getAttribute("class")).not.toContain("bg-down");
+    });
   });
 
   /**
