@@ -48,6 +48,30 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
   };
 }
 
+/**
+ * 값이 여러 요소에 걸쳐 있을 때 쓴다.
+ *
+ * <b>`Decimal` 이 뒷자리를 다른 span 으로 떼어 놓는다.</b> 기본 `getByText` 는 요소의
+ * <b>직계 텍스트만</b> 보므로 `−1.2691%` 를 못 찾는다 — 값이 쪼개진 것은 화면의 사실이 아니라
+ * 표시 방법이고, 그것 때문에 테스트가 약해지면 안 된다.
+ *
+ * 자식이 같은 값을 통째로 갖고 있으면 제외한다. 그래야 조상 요소가 아니라 <b>값을 실제로
+ * 담고 있는 가장 안쪽 요소</b>가 잡힌다 — 그 구분이 없으면 표 전체가 매칭되어 아무것도
+ * 검사하지 않는 것과 같아진다.
+ */
+function 숫자(pattern: RegExp) {
+  return (_content: string, element: Element | null) => {
+    if (!element) {
+      return false;
+    }
+    const 자기가가짐 = pattern.test(element.textContent ?? "");
+    const 자식이가짐 = Array.from(element.children).some((child) =>
+      pattern.test(child.textContent ?? ""),
+    );
+    return 자기가가짐 && !자식이가짐;
+  };
+}
+
 describe("지표 판독", () => {
   /**
    * <b>세 주기가 세로로 읽혀야 한다.</b> 이 화면이 답하는 질문은 "15분은 어떤가" 가 아니라
@@ -94,8 +118,8 @@ describe("지표 판독", () => {
     })]} />);
 
     const 행 = screen.getByRole("row", { name: /15분/ });
-    expect(within(행).getByText(/−1\.2691%/)).toBeVisible();
-    expect(within(행).getByText(/\+2\.1521%/)).toBeVisible();
+    expect(within(행).getByText(숫자(/−1\.2691%/))).toBeVisible();
+    expect(within(행).getByText(숫자(/\+2\.1521%/))).toBeVisible();
   });
 
   /**
@@ -106,16 +130,31 @@ describe("지표 판독", () => {
     render(<ReadoutPanel readouts={[판독()]} />);
 
     const 행 = screen.getByRole("row", { name: /15분/ });
-    expect(within(행).getByText(/79,900\.00/)).toBeVisible();
-    expect(within(행).getByText(/77,650\.00/)).toBeVisible();
-    expect(within(행).getByText(/9\.2400%/)).toBeVisible();
+    expect(within(행).getByText(숫자(/↑ 79,900\.00/))).toBeVisible();
+    expect(within(행).getByText(숫자(/↓ 77,650\.00/))).toBeVisible();
+    // 두 %는 뜻이 다르다. 라벨이 없으면 사람이 둘을 같은 종류로 읽는다.
+    expect(within(행).getByText(숫자(/두께 9\.2400%/))).toBeVisible();
   });
 
-  /** 가장 두껍게 거래된 가격은 주기마다 하나뿐이라 행 머리에 둔다. */
-  it("POC 를 주기 옆에 적는다", () => {
+  /** POC 는 매물대의 일부다. 주기 이름 밑에 두면 ATR 과 나란히 놓여 설정값처럼 읽힌다. */
+  it("POC 를 매물대 칸에 적는다", () => {
     render(<ReadoutPanel readouts={[판독()]} />);
 
-    expect(screen.getByRole("rowheader", { name: /POC 79,200\.00/ })).toBeVisible();
+    const 행 = screen.getByRole("row", { name: /15분/ });
+    expect(within(행).getByText(숫자(/POC 79,200\.00/))).toBeVisible();
+    expect(screen.getByRole("rowheader", { name: /15분/ }).textContent).not.toMatch(/POC/);
+  });
+
+  /**
+   * <b>왼쪽 둘은 상태이고 오른쪽 넷은 자리다.</b> 묶음 이름이 없으면 "볼린저" 와
+   * "가까운 지지" 가 같은 종류로 보이고, 한 행에 값이 열 개가 넘어 그 구분을 눈이 매번
+   * 스스로 그어야 한다.
+   */
+  it("열을 두 묶음으로 갈라 이름을 붙인다", () => {
+    render(<ReadoutPanel readouts={[판독()]} />);
+
+    expect(screen.getByText("지금 어디에 서 있나")).toBeVisible();
+    expect(screen.getByText("주변에 무엇이 있나")).toBeVisible();
   });
 
   /**
@@ -136,7 +175,7 @@ describe("지표 판독", () => {
     expect(within(행).getByText("지금 이 안")).toBeVisible();
     expect(within(행).queryByText("고르게 퍼짐")).not.toBeInTheDocument();
     // 낮은 값이 앞이다. far ~ near 로 적으면 큰 값이 앞에 와 사람이 오타로 읽는다.
-    expect(within(행).getByText(/78,600\.00 ~ 79,100\.00/)).toBeVisible();
+    expect(within(행).getByText(숫자(/78,600\.00 ~ 79,100\.00/))).toBeVisible();
   });
 
   /** 두꺼운 칸이 하나도 없으면 매물대가 없는 것이고, 그것도 사실이다. */
