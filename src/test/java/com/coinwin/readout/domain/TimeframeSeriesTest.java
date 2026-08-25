@@ -28,7 +28,8 @@ class TimeframeSeriesTest {
     @Test
     @DisplayName("봉이 넉넉하면 다섯 지표가 모두 나온다")
     void 다섯_지표() {
-        TimeframeSeries series = TimeframeSeries.over(CandleInterval.FOUR_HOURS, 봉(300));
+        // 300 이동평균까지 나오려면 300봉으로는 점이 하나뿐이라 넉넉히 준다.
+        TimeframeSeries series = TimeframeSeries.over(CandleInterval.FOUR_HOURS, 봉(700));
 
         assertThat(series.ichimoku()).isNotEmpty();
         assertThat(series.bollinger()).isNotEmpty();
@@ -36,7 +37,7 @@ class TimeframeSeriesTest {
         assertThat(series.macd()).isNotEmpty();
         // **순서가 곧 계약이다.** 화면이 색을 자리로 고르므로 흔들리면 선 색이 바뀐다.
         assertThat(series.movingAverages()).extracting(MovingAverageLine::period)
-                .containsExactly(20, 50, 200);
+                .containsExactly(10, 20, 50, 200, 300);
         assertThat(series.movingAverages()).allSatisfy(line ->
                 assertThat(line.points()).isNotEmpty());
     }
@@ -50,9 +51,11 @@ class TimeframeSeriesTest {
     void 모자란_지표만_빈다() {
         TimeframeSeries series = TimeframeSeries.over(CandleInterval.FIFTEEN_MINUTES, 봉(100));
 
-        assertThat(series.movingAverages().get(2).period()).isEqualTo(200);
-        assertThat(series.movingAverages().get(2).points()).isEmpty();
-        assertThat(series.movingAverages().get(1).points()).isNotEmpty();
+        // 100봉이면 10·20·50 은 나오고 200·300 은 못 나온다.
+        assertThat(series.movingAverages()).filteredOn(line -> line.period() >= 200)
+                .allSatisfy(line -> assertThat(line.points()).isEmpty());
+        assertThat(series.movingAverages()).filteredOn(line -> line.period() <= 50)
+                .allSatisfy(line -> assertThat(line.points()).isNotEmpty());
         assertThat(series.rsi()).isNotEmpty();
         assertThat(series.macd()).isNotEmpty();
     }

@@ -64,6 +64,18 @@ public class ReadoutService {
      */
     private static final int BARS = 300;
 
+    /**
+     * 곡선은 더 멀리 본다.
+     *
+     * <p><b>판독과 다른 수인 이유가 둘이다.</b> 하나는 300 이동평균인데, 300봉만 받으면 그
+     * 선의 점이 <b>하나</b>다. 다른 하나는 판독의 대 판정이 이 봉 수에 달려 있다는 것 —
+     * 여기서 300 을 바꾸면 지지·저항이 함께 바뀌고, 그것은 지표를 하나 더한 대가로 치르기에
+     * 너무 큰 변화다. 그래서 판독은 300 그대로 두고 곡선만 늘렸다.
+     *
+     * <p>마지막 봉은 둘이 같으므로 요약 줄과 차트가 어긋나지 않는다.
+     */
+    private static final int SERIES_BARS = 700;
+
     private final LoadMarketDataUseCase marketData;
 
     private final SyncMarketDataUseCase syncMarketData;
@@ -84,7 +96,8 @@ public class ReadoutService {
      * 차트가 다른 시점을 말하면 안 된다.
      */
     public TimeframeSeries series(Symbol symbol, CandleInterval interval) {
-        return TimeframeSeries.over(interval, fill(symbol, interval, clock.instant()));
+        return TimeframeSeries.over(
+                interval, fill(symbol, interval, clock.instant(), SERIES_BARS));
     }
 
     /** 세 주기를 <b>같은 시각 기준으로</b> 판독한다. */
@@ -110,14 +123,14 @@ public class ReadoutService {
     private TimeframeReadout read(Symbol symbol, CandleInterval interval, Instant now) {
         return TimeframeReadout.over(
                 interval,
-                fill(symbol, interval, now),
+                fill(symbol, interval, now, BARS),
                 ZoneSettings.standard(),
                 VolumeProfileSettings.standard());
     }
 
     /** 거래소에서 채운 뒤 저장된 것을 읽는다. 판독과 곡선이 이 한 곳을 함께 쓴다. */
-    private CandleSeries fill(Symbol symbol, CandleInterval interval, Instant now) {
-        TimeRange range = new TimeRange(now.minus(interval.length().multipliedBy(BARS)), now);
+    private CandleSeries fill(Symbol symbol, CandleInterval interval, Instant now, int bars) {
+        TimeRange range = new TimeRange(now.minus(interval.length().multipliedBy(bars)), now);
         CandleQuery query = new CandleQuery(symbol, interval, range);
         syncMarketData.sync(query);
         return marketData.candles(query);

@@ -77,20 +77,21 @@ class ReadoutControllerTest {
     @Test
     @DisplayName("봉이 넉넉하면 다섯 지표가 모두 실려 온다")
     void 다섯_지표가_실린다() throws Exception {
-        exchange.answer = 봉(300);
+        exchange.answer = 봉(700);
 
         mvc.perform(get(SERIES).param("interval", "1h"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.symbol").value("BTCUSDT"))
                 .andExpect(jsonPath("$.interval").value("1h"))
-                .andExpect(jsonPath("$.count").value(300))
+                .andExpect(jsonPath("$.count").value(700))
                 .andExpect(jsonPath("$.candles[0].openTime").exists())
                 .andExpect(jsonPath("$.ichimoku[0].conversionLine").exists())
                 .andExpect(jsonPath("$.bollinger[0].upper").exists())
                 .andExpect(jsonPath("$.rsi[0].value").exists())
                 .andExpect(jsonPath("$.macd[0].histogram").exists())
-                .andExpect(jsonPath("$.movingAverages.length()").value(3))
-                .andExpect(jsonPath("$.movingAverages[0].period").value(20));
+                .andExpect(jsonPath("$.movingAverages.length()").value(5))
+                .andExpect(jsonPath("$.movingAverages[0].period").value(10))
+                .andExpect(jsonPath("$.movingAverages[4].period").value(300));
     }
 
     /**
@@ -104,8 +105,10 @@ class ReadoutControllerTest {
 
         mvc.perform(get(SERIES).param("interval", "1h"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.movingAverages[2].period").value(200))
-                .andExpect(jsonPath("$.movingAverages[2].points.length()").value(0))
+                .andExpect(jsonPath("$.movingAverages[3].period").value(200))
+                .andExpect(jsonPath("$.movingAverages[3].points.length()").value(0))
+                .andExpect(jsonPath("$.movingAverages[0].points.length()")
+                        .value(org.hamcrest.Matchers.greaterThan(0)))
                 .andExpect(jsonPath("$.rsi.length()").value(Matchers.greaterThan(0)));
     }
 

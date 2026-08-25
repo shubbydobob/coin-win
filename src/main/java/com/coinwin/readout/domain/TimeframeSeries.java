@@ -52,9 +52,15 @@ public record TimeframeSeries(
      * 화면에 놓는 이동평균 구간.
      *
      * <p>20 은 볼린저 중심선과 같은 값이다 — 중복이 아니라 <b>사실</b>이고, 밴드를 끄고 봐도
-     * 그 선이 남아야 하므로 따로 낸다. 50·200 은 관습이며 검증한 수가 아니다.
+     * 그 선이 남아야 하므로 따로 낸다.
+     *
+     * <p><b>다섯 다 관습이지 검증한 수가 아니다.</b> 이 저장소는 어떤 이동평균 구간도
+     * 백테스트로 재 본 적이 없다. 화면에 그린다는 것이 "이 구간이 값을 한다" 는 뜻은 아니다.
+     *
+     * <p><b>300 이 가장 긴 것이 봉 수를 정한다.</b> {@code ReadoutService} 가 곡선용으로 더
+     * 많은 봉을 받는 이유가 이것이다 — 300봉만 받으면 이 선의 점이 하나뿐이다.
      */
-    public static final List<Integer> MA_PERIODS = List.of(20, 50, 200);
+    public static final List<Integer> MA_PERIODS = List.of(10, 20, 50, 200, 300);
 
     public TimeframeSeries {
         DomainValues.required(interval, "캔들 주기");

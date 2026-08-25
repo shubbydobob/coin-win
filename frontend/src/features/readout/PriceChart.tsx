@@ -276,7 +276,15 @@ function Stances({ stances }: { stances: Series["stances"] }) {
       <dl className="mt-1 divide-y divide-line-soft">
         {stances.map((stance) => (
           <div key={stance.indicator} className="flex items-baseline gap-2 py-1 text-xs">
-            <dt className="w-16 shrink-0 text-ink-3">{stance.indicator}</dt>
+            {/*
+              **마우스 툴팁은 덤이다.** 이 저장소는 뜻을 툴팁에 숨기지 않기로 했다
+              (`shared/Term`) — 올리지 않는 사람에게는 없는 것과 같기 때문이다. 그래서 같은
+              정의를 아래 「지표가 무엇을 재는가」에 펼칠 수 있게 두고, 툴팁은 이미 아는
+              사람이 빠르게 확인하는 용도로만 붙인다.
+            */}
+            <dt className="w-16 shrink-0 text-ink-3" title={정의[stance.indicator]}>
+              {stance.indicator}
+            </dt>
             <dd className="flex flex-wrap items-baseline gap-1.5">
               {STANCE_CHIP[stance.stance] && (
                 <SideChip side={STANCE_CHIP[stance.stance]!} />
@@ -288,9 +296,49 @@ function Stances({ stances }: { stances: Series["stances"] }) {
           </div>
         ))}
       </dl>
+
+      {/*
+        **정의를 화면 안에 둔다.** 접혀 있어도 이 화면 밖으로 나가지 않는 것이 요점이다 —
+        다른 문서로 옮기면 찾아보지 않는 사람에게는 없는 것과 같다.
+      */}
+      <details className="group mt-1.5">
+        <summary className="cursor-pointer list-none text-[11px] text-ink-4 hover:text-ink-3">
+          지표가 무엇을 재는가
+          <span aria-hidden="true" className="group-open:hidden">{" ▸"}</span>
+          <span aria-hidden="true" className="hidden group-open:inline">{" ▾"}</span>
+        </summary>
+        <dl className="mt-1.5 space-y-1.5 text-[11px] leading-snug text-ink-4">
+          {Object.entries(정의).map(([이름, 뜻]) => (
+            <div key={이름}>
+              <dt className="inline font-medium text-ink-3">{이름} — </dt>
+              <dd className="inline">{뜻}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-[11px] leading-snug text-ink-4">
+          <b>경계는 전부 관습이다.</b> RSI 50, 이동평균 정배열, MACD 시그널 교차 —
+          어느 것도 이 저장소가 재 본 수가 아니다. 그래서 <b>딱지는 어느 쪽에 서 있는가까지만
+          말하고 유리한 쪽은 말하지 않는다.</b> 지지·저항 기반 규칙은 실제로 7년 15,110봉에서
+          반증됐다(<code>docs/adr/021</code>).
+        </p>
+      </details>
     </section>
   );
 }
+
+/**
+ * 지표가 무엇을 재는가. <b>정의만 적고 판단하지 않는다.</b>
+ *
+ * "RSI 가 70 이면 과열이니 조심하라" 같은 문장은 이 화면이 하지 않기로 한 일이다. 적는 것은
+ * 서버가 그 수를 어떻게 세는가까지이고, 그 계산은 전부 트레이딩뷰 원문과 대조해 확정했다.
+ */
+const 정의: Record<string, string> = {
+  일목: "9봉·26봉 중간값으로 전환선과 기준선을 만들고, 그 둘의 평균과 52봉 중간값을 25봉 앞으로 밀어 구름을 그린다. 변위 26 이 실제로는 25봉을 미는 것까지 트레이딩뷰 원문으로 확정했다.",
+  볼린저: "20봉 단순이동평균에 표준편차의 2배를 더하고 뺀 띠. 표준편차는 모집단 기준이다. 폭이 좁아지면 최근 움직임이 작았다는 뜻이고, 그 다음이 무엇인지는 말하지 않는다.",
+  이동평균: "종가의 단순 평균. 10·20·50·200·300 을 그린다. 20 은 볼린저 중심선과 같은 값이다. 짧은 것이 긴 것 위에 놓이면 최근 가격이 예전보다 높다는 뜻이고, 그것이 계속된다는 뜻은 아니다.",
+  RSI: "오른 폭의 평균 ÷ 내린 폭의 평균을 0~100 으로 옮긴 것. 14봉이고 평활은 와일더 방식(RMA)이다 — EMA 로 짜면 값이 조금씩 다르면서 그럴듯해 보인다.",
+  MACD: "12봉 EMA 에서 26봉 EMA 를 뺀 값과, 그것의 9봉 EMA(시그널). 막대는 둘의 차다. 가격이 아니라 가격의 차라 음수가 될 수 있다.",
+};
 
 /** 중립과 말할 수 없음에는 딱지가 없다 — 둘 다 "어느 쪽" 이 아니기 때문이다. */
 const STANCE_CHIP: Record<string, ChipSide | undefined> = {
@@ -300,12 +348,26 @@ const STANCE_CHIP: Record<string, ChipSide | undefined> = {
 
 type Overlay = "ichimoku" | "bollinger" | "movingAverages";
 
-const MA_COLOR: Record<number, string> = { 20: "#eaecef", 50: "#f0b90b", 200: "#f6465d" };
+/**
+ * 이동평균 다섯 구간의 색. **짧을수록 밝다** — 다섯 선을 색 이름으로 외우지 않고 밝기로
+ * 읽으라는 뜻이다. 구간을 바꾸면 여기도 함께 바꿔야 하고, 없는 구간은 회색으로 떨어진다.
+ */
+const MA_COLOR: Record<number, string> = {
+  10: "#ffffff",
+  20: "#eaecef",
+  50: "#f0b90b",
+  200: "#f6465d",
+  300: "#8a4bff",
+};
 
 const OVERLAYS: { key: Overlay; label: string; swatches: string[] }[] = [
   { key: "ichimoku", label: "일목", swatches: ["#8a8f98", "#c9a227", "#3b6ea5"] },
   { key: "bollinger", label: "볼린저 (중심은 MA20 과 같다)", swatches: ["#4a7fb5"] },
-  { key: "movingAverages", label: "이동평균 20·50·200", swatches: ["#eaecef", "#f0b90b", "#f6465d"] },
+  {
+    key: "movingAverages",
+    label: "이동평균 10·20·50·200·300",
+    swatches: ["#ffffff", "#eaecef", "#f0b90b", "#f6465d", "#8a4bff"],
+  },
 ];
 
 /** 값이 있는 점만. `null` 을 0 으로 바꾸면 차트 바닥에 없는 선이 생긴다. */

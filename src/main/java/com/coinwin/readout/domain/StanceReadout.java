@@ -73,16 +73,14 @@ final class StanceReadout {
      * 사실이고, 그것이 계속된다는 뜻은 아니다.
      */
     private static IndicatorStance movingAverageStance(List<MovingAverageLine> averages) {
-        List<BigDecimal> values = averages.stream()
-                .map(line -> line.points().isEmpty() ? null
-                        : line.points().get(line.points().size() - 1).value().value())
-                .toList();
-        if (values.size() < 3 || values.contains(null)) {
+        // **구간을 이름으로 고른다.** 목록의 자리로 고르면 구간을 하나 더하는 날 판정의 뜻이
+        // 조용히 바뀐다 — 실제로 셋에서 다섯으로 늘리면서 그 자리가 생겼다.
+        BigDecimal fast = lastOf(averages, 20);
+        BigDecimal mid = lastOf(averages, 50);
+        BigDecimal slow = lastOf(averages, 200);
+        if (fast == null || mid == null || slow == null) {
             return IndicatorStance.unknown("이동평균");
         }
-        BigDecimal fast = values.get(0);
-        BigDecimal mid = values.get(1);
-        BigDecimal slow = values.get(2);
         if (fast.compareTo(mid) > 0 && mid.compareTo(slow) > 0) {
             return new IndicatorStance("이동평균", Stance.LONG, "20 > 50 > 200 으로 놓여 있다");
         }
@@ -119,6 +117,16 @@ final class StanceReadout {
             return new IndicatorStance("MACD", Stance.SHORT, "시그널 아래에 있다");
         }
         return new IndicatorStance("MACD", Stance.NEUTRAL, "시그널과 같다");
+    }
+
+    /** 그 구간 선의 마지막 값. 선이 없거나 비었으면 없다. */
+    private static BigDecimal lastOf(List<MovingAverageLine> averages, int period) {
+        return averages.stream()
+                .filter(line -> line.period() == period)
+                .findFirst()
+                .filter(line -> !line.points().isEmpty())
+                .map(line -> line.points().get(line.points().size() - 1).value().value())
+                .orElse(null);
     }
 
     private static <T> T last(List<IndicatorPoint<T>> points) {
