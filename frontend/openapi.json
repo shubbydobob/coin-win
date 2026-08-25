@@ -1216,6 +1216,66 @@
         }
       }
     },
+    "/api/readout/{symbol}/series": {
+      "get": {
+        "tags": [
+          "지표 판독"
+        ],
+        "summary": "한 주기의 캔들과 지표 곡선",
+        "description": "위 판독이 \"지금 어디에 서 있나\" 라면 이쪽은 **\"어떻게 여기까지 왔나\"** 다.\n\n구름과 밴드는 시간에 따라 움직이고, 이동평균선은 곡선이 아니면 뜻이 없으며,\nRSI 는 0~100 축이라 아예 다른 칸이 필요하다. 판독 응답은 봉 하나의 값만\n주므로 화면이 그것들을 수평선으로 그리고 있었다.\n\n**캔들까지 한 응답에 담는다.** 따로 부르면 캔들과 지표가 서로 다른 순간의\n것이 되고, 그러면 마지막 봉 위의 점이 그 봉의 값이 아니게 된다.\n\n**지표마다 길이가 다르고 빈 목록도 정상이다.** 200 이동평균은 200봉째부터\n값을 갖는다 — 앞을 채우면 없는 값이 지표처럼 보인다.\n\n**무엇을 하라고 말하지 않는다.** 여기 있는 것은 전부 관측이다.",
+        "operationId": "series",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "그 주기의 캔들과 지표 곡선",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndicatorSeriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "종목 표기나 캔들 주기가 올바르지 않다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "거래소에 닿지 못했다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/markets/{symbol}/outliers": {
       "get": {
         "tags": [
@@ -3859,6 +3919,293 @@
           "far",
           "near",
           "touches"
+        ]
+      },
+      "BollingerPointResponse": {
+        "type": "object",
+        "description": "한 시점의 볼린저 밴드 값",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "봉 시각(UTC)",
+            "example": "2026-08-25T12:00:00Z"
+          },
+          "upper": {
+            "type": "number",
+            "description": "상단",
+            "example": 80120.0
+          },
+          "middle": {
+            "type": "number",
+            "description": "중심. 20봉 단순이동평균이다",
+            "example": 78900.0
+          },
+          "lower": {
+            "type": "number",
+            "description": "하단",
+            "example": 77680.0
+          }
+        },
+        "required": [
+          "at",
+          "lower",
+          "middle",
+          "upper"
+        ]
+      },
+      "IchimokuPointResponse": {
+        "type": "object",
+        "description": "한 시점의 일목균형표 값",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "봉 시각(UTC)",
+            "example": "2026-08-25T12:00:00Z"
+          },
+          "conversionLine": {
+            "type": "number",
+            "description": "전환선 (9)",
+            "example": 79100.0
+          },
+          "baseLine": {
+            "type": "number",
+            "description": "기준선 (26)",
+            "example": 78420.0
+          },
+          "leadingSpanA": {
+            "type": "number",
+            "description": "선행스팬 1",
+            "example": 78760.0
+          },
+          "leadingSpanB": {
+            "type": "number",
+            "description": "선행스팬 2",
+            "example": 77300.0
+          },
+          "laggingSpan": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "후행스팬. **없을 수 있다** — 밀 자리가 아직 없는 구간이다",
+            "example": 79880.0
+          }
+        },
+        "required": [
+          "at",
+          "baseLine",
+          "conversionLine",
+          "laggingSpan",
+          "leadingSpanA",
+          "leadingSpanB"
+        ]
+      },
+      "IndicatorSeriesResponse": {
+        "type": "object",
+        "description": "한 주기의 캔들과 지표 곡선",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "종목",
+            "example": "BTCUSDT"
+          },
+          "interval": {
+            "type": "string",
+            "description": "캔들 주기",
+            "enum": [
+              "1m",
+              "5m",
+              "15m",
+              "1h",
+              "4h",
+              "1d",
+              "1w"
+            ],
+            "example": "4h"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "봉 수",
+            "example": 300
+          },
+          "candles": {
+            "type": "array",
+            "description": "봉",
+            "items": {
+              "$ref": "#/components/schemas/SeriesCandleResponse"
+            }
+          },
+          "ichimoku": {
+            "type": "array",
+            "description": "일목균형표. **봉이 모자라면 빈 목록이다**",
+            "items": {
+              "$ref": "#/components/schemas/IchimokuPointResponse"
+            }
+          },
+          "bollinger": {
+            "type": "array",
+            "description": "볼린저 밴드. **봉이 모자라면 빈 목록이다**",
+            "items": {
+              "$ref": "#/components/schemas/BollingerPointResponse"
+            }
+          },
+          "movingAverages": {
+            "type": "array",
+            "description": "이동평균선들. 구간마다 하나씩",
+            "items": {
+              "$ref": "#/components/schemas/MovingAverageSeriesResponse"
+            }
+          },
+          "rsi": {
+            "type": "array",
+            "description": "RSI(14). 0~100. **봉이 모자라면 빈 목록이다**",
+            "items": {
+              "$ref": "#/components/schemas/PricePointResponse"
+            }
+          },
+          "macd": {
+            "type": "array",
+            "description": "MACD(12/26/9). **봉이 모자라면 빈 목록이다**",
+            "items": {
+              "$ref": "#/components/schemas/MacdPointResponse"
+            }
+          }
+        },
+        "required": [
+          "bollinger",
+          "candles",
+          "count",
+          "ichimoku",
+          "interval",
+          "macd",
+          "movingAverages",
+          "rsi",
+          "symbol"
+        ]
+      },
+      "MacdPointResponse": {
+        "type": "object",
+        "description": "한 시점의 MACD 값",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "봉 시각(UTC)",
+            "example": "2026-08-25T12:00:00Z"
+          },
+          "macd": {
+            "type": "number",
+            "description": "빠른 EMA(12) − 느린 EMA(26). 음수일 수 있다",
+            "example": 123.4567
+          },
+          "signal": {
+            "type": "number",
+            "description": "MACD 의 EMA(9)",
+            "example": 98.7654
+          },
+          "histogram": {
+            "type": "number",
+            "description": "MACD − 시그널",
+            "example": 24.6913
+          }
+        },
+        "required": [
+          "at",
+          "histogram",
+          "macd",
+          "signal"
+        ]
+      },
+      "MovingAverageSeriesResponse": {
+        "type": "object",
+        "description": "이동평균선 하나",
+        "properties": {
+          "period": {
+            "type": "integer",
+            "format": "int32",
+            "description": "구간(봉 수)",
+            "example": 20
+          },
+          "points": {
+            "type": "array",
+            "description": "봉마다의 값. **봉이 모자라면 빈 목록이다**",
+            "items": {
+              "$ref": "#/components/schemas/PricePointResponse"
+            }
+          }
+        },
+        "required": [
+          "period",
+          "points"
+        ]
+      },
+      "PricePointResponse": {
+        "type": "object",
+        "description": "한 시점의 값 하나",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "그 값이 속한 봉의 시각(UTC)",
+            "example": "2026-08-25T12:00:00Z"
+          },
+          "value": {
+            "type": "number",
+            "description": "값",
+            "example": 79120.45
+          }
+        },
+        "required": [
+          "at",
+          "value"
+        ]
+      },
+      "SeriesCandleResponse": {
+        "type": "object",
+        "description": "차트에 그릴 봉 하나",
+        "properties": {
+          "openTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "봉이 열린 시각(UTC)",
+            "example": "2026-08-25T12:00:00Z"
+          },
+          "open": {
+            "type": "number",
+            "description": "시가",
+            "example": 79000.0
+          },
+          "high": {
+            "type": "number",
+            "description": "고가",
+            "example": 79500.0
+          },
+          "low": {
+            "type": "number",
+            "description": "저가",
+            "example": 78800.0
+          },
+          "close": {
+            "type": "number",
+            "description": "종가",
+            "example": 79200.0
+          },
+          "volume": {
+            "type": "number",
+            "description": "거래량(BTC)",
+            "example": 1234.567
+          }
+        },
+        "required": [
+          "close",
+          "high",
+          "low",
+          "open",
+          "openTime",
+          "volume"
         ]
       },
       "MetricOutlierResponse": {

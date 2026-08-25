@@ -482,6 +482,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readout/{symbol}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 한 주기의 캔들과 지표 곡선
+         * @description 위 판독이 "지금 어디에 서 있나" 라면 이쪽은 **"어떻게 여기까지 왔나"** 다.
+         *
+         *     구름과 밴드는 시간에 따라 움직이고, 이동평균선은 곡선이 아니면 뜻이 없으며,
+         *     RSI 는 0~100 축이라 아예 다른 칸이 필요하다. 판독 응답은 봉 하나의 값만
+         *     주므로 화면이 그것들을 수평선으로 그리고 있었다.
+         *
+         *     **캔들까지 한 응답에 담는다.** 따로 부르면 캔들과 지표가 서로 다른 순간의
+         *     것이 되고, 그러면 마지막 봉 위의 점이 그 봉의 값이 아니게 된다.
+         *
+         *     **지표마다 길이가 다르고 빈 목록도 정상이다.** 200 이동평균은 200봉째부터
+         *     값을 갖는다 — 앞을 채우면 없는 값이 지표처럼 보인다.
+         *
+         *     **무엇을 하라고 말하지 않는다.** 여기 있는 것은 전부 관측이다.
+         */
+        get: operations["series"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{symbol}/outliers": {
         parameters: {
             query?: never;
@@ -2341,6 +2373,179 @@ export interface components {
              */
             distancePercent: number;
         };
+        /** @description 한 시점의 볼린저 밴드 값 */
+        BollingerPointResponse: {
+            /**
+             * Format: date-time
+             * @description 봉 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 상단
+             * @example 80120
+             */
+            upper: number;
+            /**
+             * @description 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            middle: number;
+            /**
+             * @description 하단
+             * @example 77680
+             */
+            lower: number;
+        };
+        /** @description 한 시점의 일목균형표 값 */
+        IchimokuPointResponse: {
+            /**
+             * Format: date-time
+             * @description 봉 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 선행스팬 1
+             * @example 78760
+             */
+            leadingSpanA: number;
+            /**
+             * @description 선행스팬 2
+             * @example 77300
+             */
+            leadingSpanB: number;
+            /**
+             * @description 후행스팬. **없을 수 있다** — 밀 자리가 아직 없는 구간이다
+             * @example 79880
+             */
+            laggingSpan: number | null;
+        };
+        /** @description 한 주기의 캔들과 지표 곡선 */
+        IndicatorSeriesResponse: {
+            /**
+             * @description 종목
+             * @example BTCUSDT
+             */
+            symbol: string;
+            /**
+             * @description 캔들 주기
+             * @example 4h
+             * @enum {string}
+             */
+            interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w";
+            /**
+             * Format: int32
+             * @description 봉 수
+             * @example 300
+             */
+            count: number;
+            /** @description 봉 */
+            candles: components["schemas"]["SeriesCandleResponse"][];
+            /** @description 일목균형표. **봉이 모자라면 빈 목록이다** */
+            ichimoku: components["schemas"]["IchimokuPointResponse"][];
+            /** @description 볼린저 밴드. **봉이 모자라면 빈 목록이다** */
+            bollinger: components["schemas"]["BollingerPointResponse"][];
+            /** @description 이동평균선들. 구간마다 하나씩 */
+            movingAverages: components["schemas"]["MovingAverageSeriesResponse"][];
+            /** @description RSI(14). 0~100. **봉이 모자라면 빈 목록이다** */
+            rsi: components["schemas"]["PricePointResponse"][];
+            /** @description MACD(12/26/9). **봉이 모자라면 빈 목록이다** */
+            macd: components["schemas"]["MacdPointResponse"][];
+        };
+        /** @description 한 시점의 MACD 값 */
+        MacdPointResponse: {
+            /**
+             * Format: date-time
+             * @description 봉 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 빠른 EMA(12) − 느린 EMA(26). 음수일 수 있다
+             * @example 123.4567
+             */
+            macd: number;
+            /**
+             * @description MACD 의 EMA(9)
+             * @example 98.7654
+             */
+            signal: number;
+            /**
+             * @description MACD − 시그널
+             * @example 24.6913
+             */
+            histogram: number;
+        };
+        /** @description 이동평균선 하나 */
+        MovingAverageSeriesResponse: {
+            /**
+             * Format: int32
+             * @description 구간(봉 수)
+             * @example 20
+             */
+            period: number;
+            /** @description 봉마다의 값. **봉이 모자라면 빈 목록이다** */
+            points: components["schemas"]["PricePointResponse"][];
+        };
+        /** @description 한 시점의 값 하나 */
+        PricePointResponse: {
+            /**
+             * Format: date-time
+             * @description 그 값이 속한 봉의 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 값
+             * @example 79120.45
+             */
+            value: number;
+        };
+        /** @description 차트에 그릴 봉 하나 */
+        SeriesCandleResponse: {
+            /**
+             * Format: date-time
+             * @description 봉이 열린 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            openTime: string;
+            /**
+             * @description 시가
+             * @example 79000
+             */
+            open: number;
+            /**
+             * @description 고가
+             * @example 79500
+             */
+            high: number;
+            /**
+             * @description 저가
+             * @example 78800
+             */
+            low: number;
+            /**
+             * @description 종가
+             * @example 79200
+             */
+            close: number;
+            /**
+             * @description 거래량(BTC)
+             * @example 1234.567
+             */
+            volume: number;
+        };
         /** @description 한 지표의 평소 대비 위치 */
         MetricOutlierResponse: {
             /**
@@ -3748,6 +3953,48 @@ export interface operations {
             };
             /** @description 지표를 낼 만큼 봉이 모이지 않았다 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    series: {
+        parameters: {
+            query: {
+                interval: string;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 그 주기의 캔들과 지표 곡선 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["IndicatorSeriesResponse"];
+                };
+            };
+            /** @description 종목 표기나 캔들 주기가 올바르지 않다 */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
