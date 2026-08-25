@@ -8,7 +8,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { get } from "../../api/client";
 import { price } from "../../format";
@@ -50,9 +50,24 @@ export function PriceChart({
   const 차트 = useRef<IChartApi | null>(null);
   const 캔들 = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
-  const 범위 = 조회범위(readout.interval, bars);
+  /*
+    **범위를 판독 봉에 맞춘다. `new Date()` 로 잡으면 안 된다.**
+
+    첫 판이 그랬고 차트가 영원히 "가져오는 중" 이었다. 렌더마다 지금 시각이 새로 나오므로
+    `queryKey` 가 매번 달라지고, 그러면 요청이 끝나기도 전에 다음 요청이 시작된다 — 서버는
+    멀쩡한데 화면만 멈춘 것처럼 보인다.
+
+    `readout.at` 은 서버가 판독한 봉의 시각이라 **봉이 바뀔 때만 바뀐다.** 15초마다 다시
+    물어도 같은 값이므로 키가 안정되고, 차트의 오른쪽 끝이 판독 기준과 같아지는 것은 덤이 아니라
+    옳은 모양이다 — 요약 줄의 값과 차트가 다른 시점을 말하면 안 된다.
+  */
+  const 범위 = useMemo(() => 조회범위(readout.interval, bars, readout.at), [
+    readout.interval,
+    readout.at,
+    bars,
+  ]);
   const candles = useQuery({
-    queryKey: ["candles", symbol, readout.interval, 범위.from],
+    queryKey: ["candles", symbol, readout.interval, 범위.from, 범위.to],
     queryFn: () =>
       get("/api/markets/{symbol}/candles", {
         path: { symbol },
@@ -98,7 +113,7 @@ export function PriceChart({
     };
   }, []);
 
-  // 캔들과 선을 값이 올 때마다 다시 얹는다.
+  // 캔들. **축 맞추기는 여기서만 한다** — 선이 갱신될 때마다 하면 15초마다 확대가 풀린다.
   useEffect(() => {
     const series = 캔들.current;
     if (!series || !candles.data) {
@@ -113,6 +128,15 @@ export function PriceChart({
         close: candle.close,
       })),
     );
+    차트.current?.timeScale().fitContent();
+  }, [candles.data]);
+
+  // 선. 판독은 15초마다 새로 오고 그때마다 값이 조금씩 움직인다.
+  useEffect(() => {
+    const series = 캔들.current;
+    if (!series) {
+      return;
+    }
     const lines = 선들(readout).map((선) =>
       series.createPriceLine({
         price: 선.price,
@@ -123,9 +147,8 @@ export function PriceChart({
         title: 선.title,
       }),
     );
-    차트.current?.timeScale().fitContent();
     return () => lines.forEach((line) => series.removePriceLine(line));
-  }, [candles.data, readout]);
+  }, [readout]);
 
   return (
     <div className="mt-2">
@@ -170,15 +193,16 @@ function 선들(readout: Readout) {
 }
 
 /**
- * 몇 봉을 볼 것인가를 시각 범위로 옮긴다.
+ * 몇 봉을 볼 것인가를 시각 범위로 옮긴다. 서버가 `from`·`to` 를 받기 때문이다.
  *
- * 서버가 `from`·`to` 를 받으므로 봉 수를 시간으로 바꿔야 한다. 여유를 두 배로 잡는 이유는
- * 거래소가 빈 구간을 돌려주는 경우가 있어서다 — 모자라면 화면이 짧아지고, 남으면 서버가 자른다.
+ * **끝을 지금이 아니라 판독 봉에 맞춘다.** 지금 시각을 쓰면 렌더마다 값이 달라져 요청이 끝없이
+ * 새로 시작된다. 그리고 요약 줄과 차트가 같은 시점을 말해야 한다.
  */
-function 조회범위(interval: string, bars: number) {
+function 조회범위(interval: string, bars: number, anchor: string) {
   const 분 = INTERVAL_MINUTES[interval] ?? 15;
-  const to = new Date();
-  const from = new Date(to.getTime() - 분 * 60_000 * bars * 2);
+  // 판독 봉은 아직 안 닫혔을 수 있다. 한 봉 더 뒤까지 달라고 해야 그 봉이 잘리지 않는다.
+  const to = new Date(Date.parse(anchor) + 분 * 60_000);
+  const from = new Date(to.getTime() - 분 * 60_000 * bars);
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
