@@ -3,3 +3,6 @@
 # 손으로 고치는 파일이 아니므로 diff 에서 접는다.
 frontend/openapi.json      linguist-generated=true
 frontend/src/api/schema.d.ts linguist-generated=true
+
+# 배치 파일은 CRLF 여야 한다. LF 로 저장되면 goto/label 이 어긋난다.
+*.cmd text eol=crlf
