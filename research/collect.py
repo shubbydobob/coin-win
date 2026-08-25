@@ -130,9 +130,26 @@ def capture_book(conn):
     return slot
 
 
-def next_wake(now_ms):
-    """다음 경계 LEAD_S 초 전."""
-    return ((now_ms // SLOT_MS) + 1) * SLOT_MS - LEAD_S * 1000
+def first_boundary(now_ms):
+    """지금 이후의 첫 슬롯 경계."""
+    return ((now_ms // SLOT_MS) + 1) * SLOT_MS
+
+
+def advance(boundary, now_ms):
+    """이미 지나간 경계를 건너뛴다.
+
+    **이것이 없으면 마지막 5초를 태운다.** 경계 5초 전에 깨어나 일을 마치면 시계는 아직 같은
+    슬롯 안이고, 거기서 "다음 경계" 를 다시 계산하면 방금 처리한 그 경계가 또 나온다. 깨어날
+    시각이 과거이므로 `sleep(0)` 이 되고, 경계를 넘길 때까지 같은 일을 반복한다 — **실제로
+    슬롯마다 호가를 30번씩 받고 있었다.** 로그에는 "다음 수집까지 886초" 만 보여 멀쩡해 보였고,
+    슬롯별 기록 횟수를 세고 나서야 드러났다.
+
+    그래서 경계를 매번 계산하지 않고 **들고 간다.** 한 번 처리한 경계로는 다시 돌아오지 않는다.
+    한 슬롯보다 오래 걸린 경우에는 밀린 경계를 건너뛴다 — 못 받은 호가는 어차피 못 받는다.
+    """
+    while boundary - LEAD_S * 1000 <= now_ms:
+        boundary += SLOT_MS
+    return boundary
 
 
 def run(once=False):
@@ -143,10 +160,10 @@ def run(once=False):
         if once:
             capture_book(conn)
             return 0
+        boundary = first_boundary(_now_ms())
         while True:
-            wake = next_wake(_now_ms())
-            delay = max(0.0, (wake - _now_ms()) / 1000)
-            _log(f"다음 수집까지 {delay:.0f}초 (슬롯 {_fmt(wake + LEAD_S * 1000)})")
+            delay = max(0.0, (boundary - LEAD_S * 1000 - _now_ms()) / 1000)
+            _log(f"다음 수집까지 {delay:.0f}초 (슬롯 {_fmt(boundary)})")
             time.sleep(delay)
             try:
                 capture_book(conn)
@@ -155,6 +172,7 @@ def run(once=False):
                 # 한 슬롯이 실패해도 수집기는 살아 있어야 한다. 다음 슬롯이 공백을 메운다.
                 _log(f"이번 슬롯 실패: {type(e).__name__}: {e}")
                 time.sleep(5)
+            boundary = advance(boundary + SLOT_MS, _now_ms())
 
 
 def main(argv=None):

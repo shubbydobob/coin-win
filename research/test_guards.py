@@ -117,6 +117,24 @@ def _():
     assert oi is None, f"이웃 격자를 끌어왔다: {oi}"
 
 
+@case("같은 슬롯 경계를 두 번 처리하지 않는다")
+def _():
+    import collect
+    slot = collect.SLOT_MS
+    boundary = collect.first_boundary(1_700_000_000_000)
+    # 경계 1초 전에 일을 마친 상황. 여기서 경계를 다시 계산하면 방금 그 경계가 또 나온다.
+    nxt = collect.advance(boundary + slot, boundary - 1000)
+    assert nxt == boundary + slot, f"같은 경계로 되돌아왔다: {nxt}"
+
+
+@case("한 슬롯보다 오래 걸리면 밀린 경계를 건너뛴다")
+def _():
+    import collect
+    slot = collect.SLOT_MS
+    boundary = collect.first_boundary(1_700_000_000_000)
+    assert collect.advance(boundary + slot, boundary + 2 * slot) > boundary + 2 * slot
+
+
 for name in PASSED:
     print(f"  통과  {name}")
 for name, why in FAILED:
