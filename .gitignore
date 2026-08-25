@@ -32,3 +32,7 @@ Desktop.ini
 .env
 *.key
 application-secret*.yml
+
+# 연구 파이프라인이 받은 데이터. 6년치라 크고, 언제든 다시 받을 수 있다.
+/research/data/
+/research/**/__pycache__/
