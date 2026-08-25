@@ -113,6 +113,9 @@ def capture_book(conn):
     slot = int(math.ceil(ts / SLOT_MS) * SLOT_MS)
     cols = list(values) + [f"{c}_ts" for c in values]
     params = [values[c] for c in values] + [ts] * len(values)
+    # `source` 는 조립된 칸이 어디서 왔는가를 말한다. 호가는 여기서만 오므로 그 칸을
+    # 건드리지 않는다 - 덮어쓰면 뒤이은 조립이 다시 덮어 'live' 가 남지 않고, 남더라도
+    # **호가가 아니라 나머지 칸의 출처를 잘못 말하게 된다.** 호가의 출처는 `book_*_ts` 다.
     conn.execute(
         f"INSERT INTO snapshot (slot_ts, collected_at, source, {', '.join(cols)}) "
         f"VALUES (?, ?, 'live', {', '.join('?' * len(cols))}) "
