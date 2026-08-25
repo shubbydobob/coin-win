@@ -148,6 +148,11 @@ function ZoneCell({ zone, 아래 = false }: { zone: Zone | null; 아래?: boolea
  * 읽히는데, 실제로는 정반대 — **지금 물린 물량 한가운데에 있고 어느 쪽으로 움직이든 그것을
  * 지나야 한다**는 뜻이다.
  *
+ * **품고 있는 구간은 낮은 값부터 적는다.** 서버가 내는 `near`/`far` 는 "먼저 닿는 쪽" 이지
+ * 위아래가 아니고, 가격을 품은 구간에서는 위 모서리가 언제나 가격보다 위라 `near` 가 곧 아래
+ * 모서리다. 그것을 모르고 `far ~ near` 로 적었더니 화면에 **79,139 ~ 78,666** 처럼 큰 값이
+ * 앞에 오는 구간이 떴다 — 값은 맞는데 사람이 오타로 읽는다. 브라우저에 처음 띄웠을 때 드러났다.
+ *
  * **이 수는 백테스트를 통과한 적이 없다.** 왼쪽 두 칸은 7년 15,110봉으로 검증됐고 이 칸은
  * 아니다. 아래 설명 줄에 그렇게 적어 둔다.
  */
@@ -157,7 +162,7 @@ function VolumeCell({ volume }: { volume: Volume }) {
       <td className="py-2 text-right tabular-nums">
         <span className="font-medium text-warn">지금 이 안</span>
         <span className="mt-0.5 block text-[10px] text-warn">
-          {price(volume.here.far)} ~ {price(volume.here.near)} · {percent(volume.here.sharePercent)}
+          {price(volume.here.near)} ~ {price(volume.here.far)} · {percent(volume.here.sharePercent)}
         </span>
       </td>
     );

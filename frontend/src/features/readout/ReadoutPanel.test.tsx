@@ -135,6 +135,8 @@ describe("지표 판독", () => {
     const 행 = screen.getByRole("row", { name: /15분/ });
     expect(within(행).getByText("지금 이 안")).toBeVisible();
     expect(within(행).queryByText("고르게 퍼짐")).not.toBeInTheDocument();
+    // 낮은 값이 앞이다. far ~ near 로 적으면 큰 값이 앞에 와 사람이 오타로 읽는다.
+    expect(within(행).getByText(/78,600\.00 ~ 79,100\.00/)).toBeVisible();
   });
 
   /** 두꺼운 칸이 하나도 없으면 매물대가 없는 것이고, 그것도 사실이다. */
