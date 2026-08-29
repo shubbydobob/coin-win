@@ -50,7 +50,21 @@ public final class MacroWatchlist {
         /** 무기한 선물. 열둘이 전부 여기다. */
         PERPETUAL,
         /** 현물. */
-        SPOT
+        SPOT,
+        /**
+         * 야후 파이낸스. <b>바이낸스 밖의 유일한 출처이고, 그것이 대가를 갖는다.</b>
+         *
+         * <p>지수 자체는 이 거래소에 없다 — 상장 목록을 값으로 훑어 2만~4만 구간에 있는 USDT
+         * 무기한이 <b>하나도 없음</b>을 확인했다. 나스닥은 ETF 셋(QQQ·TQQQ·SQQQ)뿐이고
+         * {@code SPXUSDT} 는 0.5달러짜리 코인이지 S&P 500 이 아니다.
+         *
+         * <p><b>시계가 다르다.</b> 지수는 미국 장 시간에만, 선물은 거의 24시간이지만 주말은
+         * 쉰다. 그래서 24시간 변동률의 뜻이 코인과 같지 않고, 화면이 그것을 말해야 한다.
+         *
+         * <p><b>문서화된 API 가 아니다.</b> 예고 없이 막히거나 모양이 바뀔 수 있다. 못 읽으면
+         * 그 줄만 빠지고 나머지는 그대로 나온다.
+         */
+        YAHOO
     }
 
     /** 무엇으로 묶는가. 순서가 화면 순서다. */
@@ -60,6 +74,7 @@ public final class MacroWatchlist {
         METAL("금속"),
         ENERGY("에너지"),
         RATES("국채"),
+        CURRENCY("통화"),
         FEAR("공포");
 
         private final String label;
@@ -95,7 +110,13 @@ public final class MacroWatchlist {
             new Asset("TMFUSDT", "미 장기국채 3배", Group.RATES, Venue.PERPETUAL),
             new Asset("TBTUSDT", "미 장기국채 인버스 2배", Group.RATES, Venue.PERPETUAL),
 
-            new Asset("UVXYUSDT", "변동성 1.5배", Group.FEAR, Venue.PERPETUAL));
+            new Asset("UVXYUSDT", "변동성 1.5배", Group.FEAR, Venue.PERPETUAL),
+
+            // 바이낸스에 없는 셋. 지수와 달러지수는 ETF 로 대신할 수 없다 — 값의 크기가
+            // 다르고(QQQ 711 대 NDX 29,199) 달러지수는 대리물조차 없다.
+            new Asset("NQ=F", "나스닥 선물", Group.EQUITY, Venue.YAHOO),
+            new Asset("^GSPC", "S&P 500 지수", Group.EQUITY, Venue.YAHOO),
+            new Asset("DX-Y.NYB", "달러지수", Group.CURRENCY, Venue.YAHOO));
 
     private MacroWatchlist() {
     }
@@ -105,8 +126,16 @@ public final class MacroWatchlist {
     }
 
     /** 화면 순서를 지킨 목록. */
-    public static List<Symbol> ordered() {
-        return ASSETS.stream().map(asset -> Symbol.of(asset.symbol())).toList();
+    public static List<MacroTicker> ordered() {
+        return ASSETS.stream().map(asset -> MacroTicker.of(asset.symbol())).toList();
+    }
+
+    /** 그 출처에서 읽어야 하는 것만. 어댑터가 자기 몫을 고르는 자리다. */
+    public static List<MacroTicker> orderedFrom(Venue venue) {
+        return ASSETS.stream()
+                .filter(asset -> asset.venue() == venue)
+                .map(asset -> MacroTicker.of(asset.symbol()))
+                .toList();
     }
 
     /** 몇 종목을 물었는가. <b>화면이 "몇 개를 못 읽었나" 를 셀 때 쓴다</b> — 상수를 복창하면 갈라진다. */
@@ -114,20 +143,20 @@ public final class MacroWatchlist {
         return ASSETS.size();
     }
 
-    public static String labelOf(Symbol symbol) {
-        return find(symbol).map(Asset::label).orElseGet(symbol::value);
+    public static String labelOf(MacroTicker ticker) {
+        return find(ticker).map(Asset::label).orElseGet(ticker::value);
     }
 
-    public static Group groupOf(Symbol symbol) {
-        return find(symbol).map(Asset::group).orElse(Group.EQUITY);
+    public static Group groupOf(MacroTicker ticker) {
+        return find(ticker).map(Asset::group).orElse(Group.EQUITY);
     }
 
-    /** 어느 시장에서 읽어야 하는가. 목록에 없으면 무기한이다 — 열둘 중 열둘이 그렇다. */
-    public static Venue venueOf(Symbol symbol) {
-        return find(symbol).map(Asset::venue).orElse(Venue.PERPETUAL);
+    /** 어느 시장에서 읽어야 하는가. 목록에 없으면 무기한이다. */
+    public static Venue venueOf(MacroTicker ticker) {
+        return find(ticker).map(Asset::venue).orElse(Venue.PERPETUAL);
     }
 
-    private static java.util.Optional<Asset> find(Symbol symbol) {
-        return ASSETS.stream().filter(asset -> asset.symbol().equals(symbol.value())).findFirst();
+    private static java.util.Optional<Asset> find(MacroTicker ticker) {
+        return ASSETS.stream().filter(asset -> asset.symbol().equals(ticker.value())).findFirst();
     }
 }

@@ -10,6 +10,7 @@ import com.coinwin.market.domain.CandleSeries;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.TimeRange;
 import com.coinwin.readout.domain.TimeframeReadout;
+import com.coinwin.readout.domain.TimeframeSeries;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -48,7 +49,11 @@ public class ReadoutService {
      * 1시간·4시간에서 확인한다. 순서를 여기서 정해 두면 화면이 다시 정렬하지 않는다.
      */
     private static final List<CandleInterval> INTERVALS = List.of(
-            CandleInterval.FIFTEEN_MINUTES, CandleInterval.ONE_HOUR, CandleInterval.FOUR_HOURS);
+            CandleInterval.FIFTEEN_MINUTES,
+            CandleInterval.ONE_HOUR,
+            CandleInterval.FOUR_HOURS,
+            CandleInterval.ONE_DAY,
+            CandleInterval.ONE_WEEK);
 
     /**
      * 몇 봉을 보는가.
@@ -58,6 +63,18 @@ public class ReadoutService {
      * 가격에서 한참 떨어진 옛 대만 늘어난다.
      */
     private static final int BARS = 300;
+
+    /**
+     * 곡선은 더 멀리 본다.
+     *
+     * <p><b>판독과 다른 수인 이유가 둘이다.</b> 하나는 300 이동평균인데, 300봉만 받으면 그
+     * 선의 점이 <b>하나</b>다. 다른 하나는 판독의 대 판정이 이 봉 수에 달려 있다는 것 —
+     * 여기서 300 을 바꾸면 지지·저항이 함께 바뀌고, 그것은 지표를 하나 더한 대가로 치르기에
+     * 너무 큰 변화다. 그래서 판독은 300 그대로 두고 곡선만 늘렸다.
+     *
+     * <p>마지막 봉은 둘이 같으므로 요약 줄과 차트가 어긋나지 않는다.
+     */
+    private static final int SERIES_BARS = 700;
 
     private final LoadMarketDataUseCase marketData;
 
@@ -70,6 +87,17 @@ public class ReadoutService {
         this.marketData = marketData;
         this.syncMarketData = syncMarketData;
         this.clock = clock;
+    }
+
+    /**
+     * 한 주기의 캔들과 지표 곡선. <b>판독과 같은 캔들을 본다.</b>
+     *
+     * <p>{@link #readAll} 과 채우는 방식이 같으므로 같은 봉 위에서 나온다 — 요약 줄의 값과
+     * 차트가 다른 시점을 말하면 안 된다.
+     */
+    public TimeframeSeries series(Symbol symbol, CandleInterval interval) {
+        return TimeframeSeries.over(
+                interval, fill(symbol, interval, clock.instant(), SERIES_BARS));
     }
 
     /** 세 주기를 <b>같은 시각 기준으로</b> 판독한다. */
@@ -93,11 +121,18 @@ public class ReadoutService {
      * 같은 구간을 채워도 새로 들어가는 것은 그 사이 생긴 봉뿐이다.
      */
     private TimeframeReadout read(Symbol symbol, CandleInterval interval, Instant now) {
-        TimeRange range = new TimeRange(now.minus(interval.length().multipliedBy(BARS)), now);
+        return TimeframeReadout.over(
+                interval,
+                fill(symbol, interval, now, BARS),
+                ZoneSettings.standard(),
+                VolumeProfileSettings.standard());
+    }
+
+    /** 거래소에서 채운 뒤 저장된 것을 읽는다. 판독과 곡선이 이 한 곳을 함께 쓴다. */
+    private CandleSeries fill(Symbol symbol, CandleInterval interval, Instant now, int bars) {
+        TimeRange range = new TimeRange(now.minus(interval.length().multipliedBy(bars)), now);
         CandleQuery query = new CandleQuery(symbol, interval, range);
         syncMarketData.sync(query);
-        CandleSeries series = marketData.candles(query);
-        return TimeframeReadout.over(
-                interval, series, ZoneSettings.standard(), VolumeProfileSettings.standard());
+        return marketData.candles(query);
     }
 }

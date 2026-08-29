@@ -86,7 +86,10 @@ class ResponseSchemaContractTest {
             "CompoundTargetResponse", List.of("won"),
             "TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci"),
             "VolumeProfileResponse", List.of("below", "above", "here"),
-            "OrderBookResponse", List.of("bidWall", "askWall"));
+            "OrderBookResponse", List.of("bidWall", "askWall"),
+            // 후행스팬은 뒤로 미는 값이라 최근 봉에는 밀 자리가 없다. 0 으로 채우면 차트
+            // 바닥에 없는 선이 생긴다 — 도메인이 Optional 로 들고 있는 것과 같은 이유다.
+            "IchimokuPointResponse", List.of("laggingSpan"));
 
     @Autowired
     private WebApplicationContext context;

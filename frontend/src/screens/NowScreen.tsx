@@ -142,7 +142,7 @@ export function NowScreen() {
         hint="15분 · 1시간 · 4시간에서 지금 가격이 어디에 서 있나. 무엇을 하라고는 말하지 않는다."
       >
         {readout.data ? (
-          <ReadoutPanel readouts={readout.data} />
+          <ReadoutPanel readouts={readout.data} symbol={SYMBOL} />
         ) : (
           <section
             aria-label="지표 판독"

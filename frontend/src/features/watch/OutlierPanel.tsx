@@ -1,7 +1,7 @@
 import { NOTHING, percent, price, quantity, ratio } from "../../format";
-import { PositionMeter, type Side } from "../../shared/Meter";
-import { BG_TONE, TEXT_TONE, type Tone } from "../../shared/tone";
-import { Sparkline } from "../../shared/Sparkline";
+import { LEVEL_TEXT, Light, LightLegend, type Level } from "../../shared/Light";
+import type { Side } from "../../shared/Meter";
+import { SideChip, type ChipSide } from "../../shared/SideChip";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -10,24 +10,31 @@ type Outliers = components["schemas"]["MetricOutliersResponse"];
 type Outlier = components["schemas"]["MetricOutlierResponse"];
 
 /**
- * 세 가지를 한 줄에 놓는다 — **지금 얼마인가 · 평소와 견줘 어디쯤인가 · 어느 쪽으로 가는가.**
+ * 지표마다 **신호등 하나 · 값 하나 · 화살표 하나 · 문장 하나.**
  *
- * 첫 판에는 가운데 하나뿐이었고, 그래서 **정지 화면**이었다. 계기가 된 사건(숏 스퀴즈)은
- * 미결제약정이 *급감*할 때 벌어지는데 위치만 보면 "높음" 에 머물러 있을 수도 있다.
+ * 앞판은 지표 한 줄에 그림이 둘이었다 — 스파크라인(최근 추세)과 눈금 막대(표본 안 위치).
+ * 둘 다 정확했지만 **읽히지 않았다.** 꼬불선은 모양이 이미 오른 것을 보여 주므로 색이 할 일이
+ * 없었고, 눈금 막대는 "상위 96.7%" 를 그림으로 한 번 더 말한 것이라 숫자와 겹쳤다.
+ * 다섯 지표 × 그림 둘 = 열 개의 그림을 훑어야 "지금 뭐가 이상한가" 하나에 닿았다.
  *
- * **가격을 맨 위에 기준선으로 놓는다.** 미결제약정 −3.2% 는 가격 +1.1% 옆에서만 뜻이 된다 —
- * 포지션이 줄면서 가격이 올랐다면 청산이고, 포지션이 줄면서 가격도 내렸다면 그냥 손을 턴 것이다.
+ * **남긴 것은 그 질문에 직접 답하는 것뿐이다.**
  *
- * **네 번째를 뒤늦게 더했다 — 어느 쪽 진영인가.** 화면이 "상위 96.7%" 까지만 말하고 그것이
- * 롱 쪽인지 숏 쪽인지를 말하지 않고 있었다. 지표 다섯 중 넷은 중립점(펀딩비 0, 비율 1)을
- * 기준으로 **부호가 곧 진영**인데 그 사실이 어디에도 그려져 있지 않았다.
+ * - 신호등 — 평소인가, 치우쳤나, 평소와 다른가
+ * - 값과 화살표 — 얼마이고 어느 쪽으로 갔나
+ * - 문장 — 그것이 그 지표의 말로 무슨 뜻인가
  *
- * **여기까지가 사실이고 그 다음은 아니다.** 펀딩비가 양수면 롱이 숏에게 낸다는 것은 정의다.
- * "그러니 숏이 유리하다" 는 정의가 아니라 예측이고, 이 저장소는 그 예측에 증거가 없다 —
- * `docs/adr/021` 이 같은 종류의 전제를 7년 15,110봉에서 반증했다. 그래서 붐비는 쪽은 세고
- * 우열은 내지 않는다.
+ * **화살표를 남긴 이유가 중요하다.** 위치만 있는 화면은 정지 화면이다 — 계기가 된 사건(숏
+ * 스퀴즈)은 미결제약정이 *급감*할 때 벌어지는데 위치만 보면 "높음" 에 머물러 있을 수도 있다.
+ * 그림을 걷어내면서 그 교훈까지 되돌리면 앞판의 실패를 다시 하는 것이다.
  *
- * **무엇을 하라고 말하지 않는다.** 상황 문장도 일어난 일까지만 적는다.
+ * **신호등 색은 등락과 아무 관계가 없다.** 회색 → 노랑 → 주황이고 빨강·초록을 쓰지 않는다.
+ * 그 둘은 이 저장소에서 이미 롱 쪽 / 숏 쪽을 뜻한다(`shared/tone.ts`).
+ *
+ * **진영은 딱지로 말한다.** 초록·빨강 글씨만으로는 구분이 안 왔다 — 이 화면에는 초록·빨강
+ * 글씨가 이미 많다(24시간 변동, 미실현, 다른 자산 열둘). 딱지는 모양·글자·색 셋을 겹치므로
+ * 그중 하나만 눈에 들어와도 읽힌다(`shared/SideChip`).
+ *
+ * **무엇을 하라고 말하지 않는다.** 문장도 일어난 일까지만 적는다.
  */
 export function OutlierPanel({ outliers }: { outliers: Outliers }) {
   const 유별난것 = outliers.metrics
@@ -49,74 +56,28 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
     <section aria-label="이상치" className="rounded-lg border border-line bg-surface p-3">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-medium text-ink">평소와 다른가</h2>
-        {/*
-          **이름을 댄다.** "평소와 다른 지표가 있다" 는 그 다음에 다섯 줄을 눈으로 훑으라는
-          뜻이고, 그 훑기가 이 패널을 읽는 데 드는 시간의 대부분이었다. 어느 것인지를 여기서
-          말하면 아래는 확인이지 탐색이 아니다.
-        */}
         {유별난것.length > 0 && (
-          <span className="text-xs font-medium text-warn">{유별난것.join(" · ")}</span>
+          <span className="text-xs font-medium text-alert">{유별난것.join(" · ")}</span>
         )}
       </div>
-      <p className="mt-0.5 text-xs leading-snug text-ink-3">
-        최근 표본에서 지금 값이 어디인가(<b>양 끝 5%</b> 면 표시), 어느 쪽으로 갔나, 그리고
-        <b> 어느 쪽이 붐비나</b>. 붐비는 쪽이지 유리한 쪽이 아니다.
-      </p>
 
-      {/*
-        **범례.** 색이 무슨 뜻인지가 어디에도 없었다. 첫 판은 글로 적었는데 그것도 틀렸다 —
-        "오르면 초록" 은 아무것도 말하지 않는다. 선의 모양이 이미 오른 것을 보여 주기 때문이다.
-
-        고친 것은 범례가 아니라 **색 자체**다. 지금은 색 하나가 뜻 하나를 갖고
-        (`shared/tone`), 범례는 그 넷을 점으로 보인다 — 읽는 것이 아니라 맞대어 보는 것이다.
-
-        **접어 둔다.** 색과 눈금의 뜻은 한 번 익히면 끝나는 것인데, 그것이 늘 펼쳐져 있어
-        패널에서 가장 먼저 눈에 닿는 자리를 차지하고 있었다. 매일 보는 사람에게 그 블록은
-        정보가 아니라 **지금 값에 도달하기까지 지나쳐야 하는 거리**다.
-
-        **`Term` 의 판단을 뒤집는 것이 아니다.** 그쪽이 반대한 것은 *툴팁* 이다 — 마우스를
-        올려야 나오고, 올리지 않으면 없는 것과 같다. 여기 것은 눌러서 펼치면 화면에 그대로
-        남고 접은 상태가 곧 "이미 안다" 는 뜻이다. 지표마다 붙는 설명은 그래서 손대지 않았다.
-      */}
-      <details className="group mt-2 rounded bg-surface-2 px-2 py-1.5">
-        <summary className="cursor-pointer list-none text-[11px] text-ink-4 marker:content-none">
-          색과 눈금 읽는 법
-          {/* 화살표는 접힘 상태를 눈으로 보이는 것뿐이다. 읽는 것은 `details` 가 이미 말한다. */}
-          <span aria-hidden="true" className="group-open:hidden">{" ▸"}</span>
-          <span aria-hidden="true" className="hidden group-open:inline">{" ▾"}</span>
-        </summary>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-          <span className="text-ink-4">색</span>
-          <Swatch tone="long" label="롱 쪽" />
-          <Swatch tone="short" label="숏 쪽" />
-          <Swatch tone="outlier" label="평소와 다름" />
-          <Swatch tone="none" label="방향 없음" />
-        </div>
-        {/* 눈금 읽는 법. 라벨을 막대 아래 제자리에 놓아 화살표 없이도 무엇을 가리키는지 보인다. */}
-        <div className="mt-2 max-w-72">
-          <PositionMeter ratio={0.68} outlier={false} neutral={0.42} side="LONG" label="눈금 읽는 법 예시" />
-          <div className="relative mt-0.5 h-3 text-[10px] text-ink-4">
-            <span className="absolute left-0">숏 쪽</span>
-            <span className="absolute -translate-x-1/2" style={{ left: "42%" }}>│중립</span>
-            <span className="absolute -translate-x-1/2" style={{ left: "68%" }}>●지금</span>
-            <span className="absolute right-0">롱 쪽</span>
-          </div>
-          <p className="mt-2 text-[10px] leading-snug text-ink-4">
-            칠해진 길이가 <b>중립에서 얼마나 치우쳤나</b>. 양 끝 옅은 띠는 평소와 다른 구간(각 5%).
-          </p>
-        </div>
-      </details>
+      <div className="mt-1.5">
+        <LightLegend note="드문 정도이지 좋고 나쁨이 아니다" />
+      </div>
 
       {/*
         붐비는 쪽 셈. **두 수를 하나로 합치지 않는다** — 합치려면 지표에 가중치를 줘야 하고
         그 가중치는 검증할 방법이 없다. 셋 대 하나라는 것은 사실이고, 그래서 어느 쪽이
         유리한가는 사실이 아니다.
       */}
-      <div className="mt-2 flex items-center gap-2 rounded bg-surface-2 px-2 py-1.5 text-xs">
+      <div
+        role="group"
+        aria-label="붐비는 쪽"
+        className="mt-2 flex items-center gap-2 rounded bg-surface-2 px-2 py-1.5 text-xs"
+      >
         <span className="text-ink-3">붐비는 쪽</span>
-        <span className="font-medium tabular-nums text-up">롱 {outliers.crowdedLong}</span>
-        <span className="text-ink-4">·</span>
-        <span className="font-medium tabular-nums text-down">숏 {outliers.crowdedShort}</span>
+        <SideChip side="LONG">{outliers.crowdedLong}</SideChip>
+        <SideChip side="SHORT">{outliers.crowdedShort}</SideChip>
         <span className="ml-auto text-[10px] text-ink-4">방향 있는 지표만 센다</span>
       </div>
 
@@ -151,20 +112,22 @@ export function OutlierPanel({ outliers }: { outliers: Outliers }) {
 }
 
 function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean }) {
-  const 위치 = 눈금위치(metric.topPercent);
-  const 진영 = metric.side as Side;
-  const 가운데 = 눈금위치(metric.neutralPercent) ?? undefined;
+  const 단계 = 신호단계(metric);
   const 변화 = metric.change ?? null;
   const 오름 = 변화 === null ? null : 변화 > 0;
-  const 흐름 = 흐름색(metric, 오름);
+  const 이름 = LABEL[metric.metric] ?? metric.metric;
 
   return (
     <div className="text-sm tabular-nums">
-      <div className="flex items-baseline justify-between gap-4">
-        <Term label={LABEL[metric.metric] ?? metric.metric} hint={HINT[metric.metric] ?? ""} />
-        <dd className="shrink-0 text-right">
+      <div className="flex items-baseline gap-2">
+        {/* 기준선(가격)에는 표본 위치가 뜻이 없으므로 신호등도 없다. */}
+        {!baseline && <Light level={단계} label={`${이름}: ${LEVEL_TEXT[단계]}`} />}
+        <Term label={이름} hint={HINT[metric.metric] ?? ""} />
+        <dd className="ml-auto shrink-0 text-right">
           <span className="text-ink">{현재값(metric)}</span>
-          <span className={`mt-0.5 block text-xs font-normal ${TEXT_TONE[흐름]}`}>
+          <span
+            className={`mt-0.5 block text-xs font-normal ${변화 === null ? "text-ink-4" : "text-ink-2"}`}
+          >
             {변화 === null ? "변화를 말할 수 없다" : `${오름 ? "▲" : "▼"} ${변화표기(metric)}`}
           </span>
         </dd>
@@ -175,90 +138,45 @@ function Row({ metric, baseline = false }: { metric: Outlier; baseline?: boolean
         정의이지 관측이 아니다. 기준선(가격)에는 축이 없으므로 뜨지 않는다.
       */}
       {!baseline && (
-        <p className={`mt-1 text-xs font-normal ${진영색(진영)}`}>{SIDE_TEXT[metric.metric]?.[진영] ?? ""}</p>
+        <p className="mt-1 flex flex-wrap items-baseline gap-1.5 pl-4 text-xs leading-snug text-ink-2">
+          {/*
+            **딱지를 문장 앞에 놓는다.** 문장만 있으면 "큰손은 롱 쪽에 실려 있다" 를 끝까지
+            읽어야 어느 쪽인지 알 수 있다. 다섯 줄이면 다섯 문장을 읽는 일이 된다.
+          */}
+          {CHIP[metric.side as Side] && <SideChip side={CHIP[metric.side as Side]!} />}
+          <span>{SIDE_TEXT[metric.metric]?.[metric.side as Side] ?? ""}</span>
+        </p>
       )}
 
-      <div className="mt-1.5 grid grid-cols-[1fr_auto] items-center gap-3">
-        <Sparkline
-          samples={metric.samples}
-          tone={흐름}
-          label={`${LABEL[metric.metric] ?? metric.metric} 최근 ${metric.sampleCount}개 추세`}
-        />
-        <span className="text-[10px] text-ink-4">최근 {metric.sampleCount}개</span>
-      </div>
-
-      {/* 위치는 기준선(가격)에는 뜻이 없다 — 가격이 최근 범위 어디인가는 24시간 막대가 답한다. */}
-      {!baseline && 위치 !== null && (
-        <div className="mt-1.5">
-          <PositionMeter
-            ratio={위치}
-            outlier={metric.outlier}
-            neutral={가운데}
-            side={진영}
-            label={`${LABEL[metric.metric] ?? metric.metric}: 상위 ${percent(metric.topPercent as number)}${
-              가운데 === undefined ? "" : `, ${SIDE_LABEL[진영]}`
-            }`}
-          />
-          <div className="mt-0.5 flex justify-between text-[10px] text-ink-4">
-            <span>{가운데 === undefined ? "낮음" : "숏 쪽"}</span>
-            <span className={metric.outlier ? "font-medium text-warn" : "text-ink-3"}>
-              상위 {percent(metric.topPercent as number)}
-            </span>
-            <span>{가운데 === undefined ? "높음" : "롱 쪽"}</span>
-          </div>
-        </div>
-      )}
-      {!baseline && 위치 === null && (
-        <p className="mt-1 text-[10px] text-ink-4">
-          표본 {metric.sampleCount}개 — 위치를 아직 말할 수 없다
+      {!baseline && (
+        <p className="mt-0.5 pl-4 text-[11px] text-ink-4">
+          {metric.topPercent === null || metric.topPercent === undefined
+            ? `표본 ${metric.sampleCount}개 — 위치를 아직 말할 수 없다`
+            : `${LEVEL_TEXT[단계]} · 최근 ${metric.sampleCount}개 중 상위 ${percent(metric.topPercent)}`}
         </p>
       )}
     </div>
   );
 }
 
-/** 색 견본 하나. 글로 설명하는 대신 실제 색을 옆에 놓는다. */
-function Swatch({ tone, label }: { tone: Tone; label: string }) {
-  return (
-    <span className="flex items-center gap-1 text-ink-3">
-      <span className={`size-2 rounded-full ${BG_TONE[tone]}`} aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
-
 /**
- * 변화가 **어느 쪽으로 간 것인가**. 화살표와 스파크라인이 이 색을 쓴다.
+ * 세 단계의 경계. **서버가 판정한 이상치가 가장 세다.**
  *
- * **"올랐다" 가 아니라 "롱 쪽으로 갔다" 를 뜻한다.** 네 지표는 전부 값이 클수록 롱 쪽이므로
- * (펀딩비 0 초과 · 비율 1 초과) 오름은 곧 롱 쪽으로 간 것이다. 가격도 같다 — 오르면 롱 쪽으로
- * 움직인 것이다.
+ * 가운데 단계(치우침)는 화면이 정한다 — 양 끝 20% 다. 서버의 이상치 기준(양 끝 5%)에 닿지는
+ * 않지만 평소라고 하기도 어려운 구간이 있고, 그 구간을 회색으로 칠하면 **경계 직전이 아무 일도
+ * 아닌 것처럼 보인다.**
  *
- * **미결제약정만 회색이다.** 축이 없어서 늘든 줄든 어느 편도 아니다. 여기에 초록·빨강을 쓰면
- * "포지션이 쌓이는 것은 좋은 일" 이라는 뜻이 없는 말이 색으로 생긴다.
- *
- * 이상치는 진영보다 앞선다 — 드문 쪽이 흔한 쪽에 덮이면 경고가 사라진다.
+ * 이 20% 는 근거 있는 수가 아니라 자리표시자다 — 슬리피지 기본값과 같은 자리다.
  */
-function 흐름색(metric: Outlier, 오름: boolean | null): Tone {
+function 신호단계(metric: Outlier): Level {
   if (metric.outlier) {
-    return "outlier";
+    return "unusual";
   }
-  if (오름 === null || metric.metric === "OPEN_INTEREST") {
-    return "none";
+  const 상위 = metric.topPercent;
+  if (상위 === null || 상위 === undefined) {
+    return "usual";
   }
-  return 오름 ? "long" : "short";
-}
-
-/** 위쪽으로부터의 비율(%)을 왼쪽부터의 눈금 위치(0~1)로. 없으면 없다. */
-function 눈금위치(topPercent: number | null | undefined): number | null {
-  return topPercent === null || topPercent === undefined ? null : 1 - topPercent / 100;
-}
-
-function 진영색(side: Side): string {
-  if (side === "LONG") {
-    return "text-up";
-  }
-  return side === "SHORT" ? "text-down" : "text-ink-4";
+  return 상위 <= 20 || 상위 >= 80 ? "leaning" : "usual";
 }
 
 /**
@@ -294,6 +212,18 @@ function 변화표기(metric: Outlier): string {
   return metric.metric === "FUNDING_RATE" ? `${percent(값)}p` : percent(값 * 100);
 }
 
+/**
+ * 진영을 딱지로. **`BALANCED` 와 `NONE` 에는 딱지가 없다.**
+ *
+ * 「중립」 딱지를 붙이면 다섯 줄 중 셋이 딱지를 갖게 되고, 그러면 딱지가 "어느 쪽인가" 가
+ * 아니라 "줄이 있다" 를 뜻하게 된다. **양쪽이 같은 것과 축이 없는 것은 문장이 말한다** —
+ * 그 둘은 서로 다른 사실이고 딱지 하나로는 구별되지 않는다.
+ */
+const CHIP: Partial<Record<Side, ChipSide>> = {
+  LONG: "LONG",
+  SHORT: "SHORT",
+};
+
 const LABEL: Record<string, string> = {
   PRICE: "가격 (기준)",
   FUNDING_RATE: "펀딩비",
@@ -310,13 +240,6 @@ const HINT: Record<string, string> = {
   LONG_SHORT_RATIO: "롱 계정 수 ÷ 숏 계정 수. 1계정 1표다.",
   TAKER_RATIO: "시장가 매수량 ÷ 매도량. 계정 수가 아니라 실제 체결량이라 취소가 없다.",
   TOP_POSITION_RATIO: "상위 계정의 롱숏비. 계정 수가 아니라 포지션 크기 기준이다.",
-};
-
-const SIDE_LABEL: Record<Side, string> = {
-  LONG: "롱 쪽",
-  SHORT: "숏 쪽",
-  BALANCED: "양쪽이 같다",
-  NONE: "축 없음",
 };
 
 /**

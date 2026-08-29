@@ -28,6 +28,7 @@ public class InMemoryMacroQuoteAdapter implements LoadMacroQuotesPort {
                     symbol,
                     MacroWatchlist.labelOf(symbol),
                     MacroWatchlist.groupOf(symbol),
+                    MacroWatchlist.venueOf(symbol),
                     Price.of(BigDecimal.valueOf(100 + index * 37L)),
                     changes[index % changes.length]));
             index++;

@@ -1,7 +1,7 @@
 import { instant, money, percent, price, quantity } from "../../format";
-import { RangeMeter } from "../../shared/Meter";
-import { DIRECTION } from "../../shared/labels";
+import { Light, type Level } from "../../shared/Light";
 import { SmallButton } from "../../shared/SmallButton";
+import { SideChip } from "../../shared/SideChip";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
@@ -102,7 +102,7 @@ function RecordedOnly({ match }: { match: Match }) {
     <div className="rounded-lg border border-warn/50 bg-warn/5 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-base font-medium">
-          <span className={방향 === "LONG" ? "text-up" : "text-down"}>{DIRECTION[방향]}</span>{" "}
+          <SideChip side={방향} />{" "}
           <span className="tabular-nums">{quantity(기록.quantity)}</span>{" "}
           <span className="text-xs text-ink-3">BTC</span>
         </span>
@@ -139,7 +139,7 @@ function Open({ match, outliers }: { match: Match; outliers?: Outliers }) {
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-base font-medium">
-          <span className={방향 === "LONG" ? "text-up" : "text-down"}>{DIRECTION[방향]}</span>{" "}
+          <SideChip side={방향} />{" "}
           <span className="tabular-nums">{quantity(포지션.quantity)}</span>{" "}
           <span className="text-xs text-ink-3">BTC</span>
         </span>
@@ -199,22 +199,33 @@ function Liquidation({ 포지션 }: { 포지션: NonNullable<Match["actual"]> })
         <span className="text-ink-2">
           청산 <span className="tabular-nums text-ink">{price(청산)}</span>
         </span>
-        <span className="tabular-nums font-medium text-warn">
-          {percent(포지션.liquidationDistancePercent)} 남았다
+        <span className="flex items-baseline gap-1.5">
+          <Light
+            level={청산단계(포지션.liquidationDistancePercent)}
+            label={`청산까지: ${청산말(포지션.liquidationDistancePercent)}`}
+          />
+          <span className="tabular-nums font-medium text-ink">
+            {percent(포지션.liquidationDistancePercent)} 남았다
+          </span>
+          <span className="text-xs text-ink-3">{청산말(포지션.liquidationDistancePercent)}</span>
         </span>
       </div>
-      <div className="mt-1.5">
-        <RangeMeter
-          low={Math.min(평단, 청산)}
-          high={Math.max(평단, 청산)}
-          current={포지션.markPrice}
-          label={`평단 ${price(평단)} 에서 청산 ${price(청산)} 까지 중 지금은 ${price(포지션.markPrice)}`}
-        />
-        <div className="mt-0.5 flex justify-between text-[10px] text-ink-4">
-          <span>{평단 < 청산 ? "평단" : "청산"}</span>
-          <span>{평단 < 청산 ? "청산" : "평단"}</span>
-        </div>
-      </div>
+      {/*
+        **막대를 걷어내고 세 수를 한 줄에 놓았다.** 앞판은 평단에서 청산까지를 눈금으로 그리고
+        지금 값을 그 위에 점으로 찍었다. 그런데 사람이 이 자리에서 묻는 것은 "얼마나 남았나"
+        하나이고, 그 답은 바로 위에 퍼센트로 이미 있었다 — **막대는 같은 사실을 한 번 더
+        그린 것**이었다.
+
+        대신 세 수를 진행 순서대로 적는다. 평단에서 시작해 지금을 지나 청산으로 간다는 것이
+        화살표만으로 읽히고, 숏이면 값이 커지고 롱이면 작아지는 것도 숫자에 그대로 보인다.
+      */}
+      <p className="mt-1 flex flex-wrap items-baseline gap-1.5 text-xs tabular-nums text-ink-3">
+        <span>평단 {price(평단)}</span>
+        <span aria-hidden="true">→</span>
+        <span className="text-ink">지금 {price(포지션.markPrice)}</span>
+        <span aria-hidden="true">→</span>
+        <span>청산 {price(청산)}</span>
+      </p>
     </div>
   );
 }
@@ -235,14 +246,11 @@ function Crowd({ 방향, outliers }: { 방향: Direction; outliers?: Outliers })
     <div className="mt-3 space-y-1 border-t border-line-soft pt-2 text-xs">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-ink-3">내 방향</span>
-        <span className={`font-medium ${방향 === "LONG" ? "text-up" : "text-down"}`}>
-          {DIRECTION[방향]}
-        </span>
+        <SideChip side={방향} />
         <span className="text-ink-4">·</span>
         <span className="text-ink-3">붐비는 쪽</span>
-        <span className="tabular-nums font-medium text-up">롱 {outliers.crowdedLong}</span>
-        <span className="text-ink-4">·</span>
-        <span className="tabular-nums font-medium text-down">숏 {outliers.crowdedShort}</span>
+        <SideChip side="LONG">{outliers.crowdedLong}</SideChip>
+        <SideChip side="SHORT">{outliers.crowdedShort}</SideChip>
       </div>
       {펀딩 && (
         <p className="text-ink-2">
@@ -252,6 +260,31 @@ function Crowd({ 방향, outliers }: { 방향: Direction; outliers?: Outliers })
       )}
     </div>
   );
+}
+
+/**
+ * 청산까지의 거리를 세 단계로.
+ *
+ * **경계 둘(20% · 10%)은 자리표시자다.** 실제로 얼마나 남아야 위험한지는 레버리지와 변동성이
+ * 정하고, 이 저장소는 그것을 잰 적이 없다. 슬리피지 기본값과 같은 자리다.
+ *
+ * **그럼에도 회색 하나로 두지 않는 이유**는, 6.87% 라는 수를 눈으로 읽고 "가까운 편인가" 를
+ * 매번 다시 판단하게 되기 때문이다. 그 판단이 사람마다·때마다 달라지는 것보다 한 번 정해
+ * 적어 두는 쪽이 낫다 — 틀렸으면 이 함수 하나만 고치면 된다.
+ */
+function 청산단계(남은퍼센트: number): Level {
+  if (남은퍼센트 < 10) {
+    return "unusual";
+  }
+  return 남은퍼센트 < 20 ? "leaning" : "usual";
+}
+
+function 청산말(남은퍼센트: number): string {
+  const 단계 = 청산단계(남은퍼센트);
+  if (단계 === "unusual") {
+    return "매우 가깝다";
+  }
+  return 단계 === "leaning" ? "가깝다" : "여유 있다";
 }
 
 /**

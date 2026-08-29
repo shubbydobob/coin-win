@@ -131,4 +131,14 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!--
+    야후 어댑터도 같다. RestClient 는 스프링이 만들어 주는 공용 빈이고, 복사할 수도 없으며
+    복사한다 해도 뜻이 없다 — 우리가 들고 있는 것이 곧 그 빈이다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.yahoo.YahooMacroQuoteAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>
