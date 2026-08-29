@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 import dumps
+import labels
 import snapshots
 import store
 
@@ -134,6 +135,75 @@ def _():
     boundary = collect.first_boundary(1_700_000_000_000)
     assert collect.advance(boundary + slot, boundary + 2 * slot) > boundary + 2 * slot
 
+
+
+# ── 라벨 (Phase 2) ──────────────────────────────────────────────────────────
+
+def _slot0():
+    return 1_700_000_000_000 // store.SLOT_MS * store.SLOT_MS
+
+
+def _minutes(conn, start_ms, bars):
+    """`(고가, 저가, 종가)` 목록을 1분봉으로 넣는다."""
+    rows = [
+        [start_ms + i * 60_000, c, h, lo, c, 1.0, start_ms + i * 60_000 + 59_999,
+         0.0, 1, 0.0]
+        for i, (h, lo, c) in enumerate(bars)
+    ]
+    store.upsert_klines(conn, "perp", "1m", rows)
+
+
+@case("라벨은 슬롯 이전 봉을 보지 않는다")
+def _():
+    conn = _fresh()
+    slot = _slot0()
+    # 슬롯 직전 봉에 창 안의 어떤 값보다 높은 고가를 둔다. 창이 그것을 물면 MFE 가 부풀어 오른다.
+    _minutes(conn, slot - 60_000, [(999.0, 100.0, 100.0)] + [(101.0, 99.0, 100.0)] * 60)
+    store.upsert_snapshot(conn, slot, slot, "test", {"perp_price": (100.0, slot - 1)})
+    labels.build(conn, horizons=(1,))
+    mfe = conn.execute("SELECT mfe FROM label WHERE slot_ts=?", (slot,)).fetchone()[0]
+    assert abs(mfe - 0.01) < 1e-9, f"슬롯 이전 봉을 창에 넣었다: {mfe}"
+
+
+@case("창이 덜 찼으면 라벨을 만들지 않는다")
+def _():
+    conn = _fresh()
+    slot = _slot0()
+    _minutes(conn, slot, [(101.0, 99.0, 100.0)] * 59)          # 한 봉 모자란다
+    store.upsert_snapshot(conn, slot, slot, "test", {"perp_price": (100.0, slot - 1)})
+    labels.build(conn, horizons=(1,))
+    assert conn.execute("SELECT COUNT(*) FROM label").fetchone()[0] == 0, "덜 찬 창으로 라벨을 냈다"
+
+
+@case("창 가운데가 비어도 라벨을 만들지 않는다")
+def _():
+    conn = _fresh()
+    slot = _slot0()
+    _minutes(conn, slot, [(101.0, 99.0, 100.0)] * 30)
+    _minutes(conn, slot + 31 * 60_000, [(101.0, 99.0, 100.0)] * 30)   # 31번째 분이 없다
+    store.upsert_snapshot(conn, slot, slot, "test", {"perp_price": (100.0, slot - 1)})
+    labels.build(conn, horizons=(1,))
+    assert conn.execute("SELECT COUNT(*) FROM label").fetchone()[0] == 0, "구멍 난 창으로 라벨을 냈다"
+
+
+@case("MAE ≤ 수익률 ≤ MFE 를 어기면 검사가 잡는다")
+def _():
+    conn = _fresh()
+    slot = _slot0()
+    conn.execute(
+        "INSERT INTO label (slot_ts, horizon_h, base_price, ret, mfe, mae, computed_at) "
+        "VALUES (?,1,100.0,0.05,0.01,-0.01,0)", (slot,))
+    try:
+        labels.assert_ordered(conn)
+    except ValueError:
+        return
+    raise AssertionError("어긋난 라벨을 통과시켰다")
+
+
+@case("숏은 롱의 거울이다")
+def _():
+    ret, mfe, mae = 0.02, 0.05, -0.03
+    assert labels.short_view(ret, mfe, mae) == (-0.02, 0.03, -0.05)
 
 for name in PASSED:
     print(f"  통과  {name}")

@@ -79,6 +79,19 @@ CREATE TABLE IF NOT EXISTS funding (
     funding_rate REAL NOT NULL
 );
 
+-- 슬롯 뒤에 실제로 무슨 일이 있었나. **스냅샷과 다른 표에 둔다** - 한 행에 섞으면 어느
+-- 칸이 미래를 보고 있는지가 칼럼 이름에만 남고, 그것은 룩어헤드를 막는 근거가 못 된다.
+CREATE TABLE IF NOT EXISTS label (
+    slot_ts     INTEGER NOT NULL,
+    horizon_h   INTEGER NOT NULL,
+    base_price  REAL    NOT NULL,
+    ret         REAL    NOT NULL,
+    mfe         REAL    NOT NULL,
+    mae         REAL    NOT NULL,
+    computed_at INTEGER NOT NULL,
+    PRIMARY KEY (slot_ts, horizon_h)
+);
+
 -- 무엇을 언제 어디서 받았는지. 백필이 중간에 죽어도 이어서 돌 수 있는 근거다.
 CREATE TABLE IF NOT EXISTS ingest_log (
     kind      TEXT    NOT NULL,
