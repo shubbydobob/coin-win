@@ -73,7 +73,7 @@ class PositionReconciliationServiceTest {
         ExchangePosition other = new ExchangePosition(
                 new Symbol("ETHUSDT"), Direction.LONG, Quantity.of("1"),
                 Price.of("3000"), Price.of("3000"), Optional.of(Price.of("2500")),
-                Money.of("0"), OBSERVED);
+                Money.of("0"), Optional.of(Money.of("300")), OBSERVED);
 
         PositionReconciliation result = reconcile(List.of(JournalFixtures.open()), other);
 

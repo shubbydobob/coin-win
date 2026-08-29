@@ -36,7 +36,8 @@ record BinancePositionRisk(
         @JsonProperty("entryPrice") String entryPrice,
         @JsonProperty("markPrice") String markPrice,
         @JsonProperty("liquidationPrice") String liquidationPrice,
-        @JsonProperty("unRealizedProfit") String unrealizedProfit) {
+        @JsonProperty("unRealizedProfit") String unrealizedProfit,
+        @JsonProperty("initialMargin") String initialMargin) {
 
     /**
      * 열려 있는 포지션인가.
@@ -58,7 +59,20 @@ record BinancePositionRisk(
                 Price.of(markPrice),
                 liquidationPriceOrNone(),
                 Money.of(unrealizedProfit),
+                marginOrNone(),
                 observedAt);
+    }
+
+    /**
+     * 개시증거금. <b>{@code v3} 에는 {@code leverage} 필드가 없다</b>({@code v2} 에는 있었다) —
+     * 배수는 이 값에서 되얻는다. 없거나 0 이면 배수를 말할 수 없고, 그때 0 을 담으면 배수가
+     * 무한대가 된다. 청산가와 같은 규칙이다.
+     */
+    private Optional<Money> marginOrNone() {
+        if (initialMargin == null || new BigDecimal(initialMargin).signum() <= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(Money.of(initialMargin));
     }
 
     /**

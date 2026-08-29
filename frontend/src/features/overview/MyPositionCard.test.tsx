@@ -18,6 +18,10 @@ const 거래소: Actual = {
   liquidationDistancePercent: 8.6559,
   notional: 10082.8,
   unrealizedPnl: -68.8,
+  margin: 229.15,
+  leverage: 44.0,
+  lossToLiquidation: 872.99,
+  marginAtRiskPercent: 381.0,
 };
 
 /**
@@ -184,5 +188,62 @@ describe("내 자리", () => {
 
     expect(screen.getByText("10,082.80")).toBeVisible();
     expect(screen.queryByText(/붐비는 쪽/)).toBeNull();
+  });
+
+  /**
+   * **배수는 거래소가 주지 않는다** — `/fapi/v3/positionRisk` 에 leverage 필드가 없어 명목을
+   * 개시증거금으로 나눈 값이다. 셋을 나란히 놓아야 사람이 그 나눗셈을 눈으로 검산할 수 있다.
+   */
+  it("명목과 증거금과 배수를 함께 적는다", () => {
+    render(<MyPositionCard reconciliation={숏()} outliers={시장("LONG")} />);
+
+    expect(screen.getByText("증거금")).toBeInTheDocument();
+    expect(screen.getByText("229.15")).toBeInTheDocument();
+    expect(screen.getByText("44배")).toBeInTheDocument();
+  });
+
+  /**
+   * 증거금을 말할 수 없으면 배수도 없다. **0 이나 1배로 채우면 위험이 없다는 뜻으로 읽힌다** —
+   * 이 두 칸이 가리키는 것이 정확히 위험의 크기이므로 가장 나쁜 거짓말이다.
+   */
+  it("증거금이 없으면 배수 자리도 비운다", () => {
+    render(
+      <MyPositionCard
+        reconciliation={숏({ margin: null, leverage: null })}
+        outliers={시장("LONG")}
+      />,
+    );
+
+    expect(screen.getAllByText("알 수 없다")).toHaveLength(2);
+  });
+
+  /**
+   * **가격 거리만으로는 위험이 읽히지 않는다.** 이 픽스처의 청산 거리는 8.66% 인데 44배라
+   * 그 사이에 사라지는 돈이 증거금의 381% 다 — 청산 전에 증거금이 먼저 바닥난다는 뜻이고,
+   * 그것을 100% 로 눌러 적으면 "딱 맞게 버틴다" 로 읽힌다.
+   */
+  it("청산까지의 거리를 돈으로도 적는다", () => {
+    render(<MyPositionCard reconciliation={숏()} outliers={시장("LONG")} />);
+    const 카드 = screen.getByRole("region", { name: "내 자리" });
+
+    expect(카드).toHaveTextContent("여기까지 가면 −872.99 USDT");
+    expect(카드).toHaveTextContent("381.00%");
+  });
+
+  /** 청산가를 말할 수 없으면 사라질 돈도 적지 않는다. */
+  it("청산가가 없으면 돈 눈금도 적지 않는다", () => {
+    render(
+      <MyPositionCard
+        reconciliation={숏({
+          liquidationPrice: null,
+          liquidationDistancePercent: null,
+          lossToLiquidation: null,
+          marginAtRiskPercent: null,
+        })}
+        outliers={시장("LONG")}
+      />,
+    );
+
+    expect(screen.queryByText(/여기까지 가면/)).not.toBeInTheDocument();
   });
 });

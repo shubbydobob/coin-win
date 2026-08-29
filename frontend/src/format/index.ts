@@ -23,6 +23,16 @@ const MONEY_SCALE = 2;
 const PERCENT_SCALE = 4;
 
 /**
+ * 증거금 대비 위험의 스케일. **넷이 아니라 둘인 것이 요점이다** — 이 값은 도메인이 이미 소수
+ * 둘로 깎아서 내려보낸다(`ExchangePosition.MARGIN_RISK_SCALE`). 넷으로 적으면 서버가 없앤
+ * 자리를 화면이 `00` 으로 되살려, 재지 않은 정밀도가 있는 것처럼 보이게 한다.
+ *
+ * **이것은 위 § "스케일을 줄여서 표시하지 않는다" 를 어기는 것이 아니다.** 줄이는 일은 서버가
+ * 했고 여기는 그 자릿수를 그대로 되살릴 뿐이다 — `WON_SCALE` 이 0 인 것과 같은 이유다.
+ */
+const MARGIN_RISK_SCALE = 2;
+
+/**
  * 원화의 스케일. **0 인 것이 요점이다** — 원에는 그 아래 단위가 없고, `Won` 값 객체가 이미
  * 소수점 없이 내려보낸다. 여기서 자릿수를 늘리면 서버가 반올림해 없앤 자리를 화면이
  * `.00` 으로 되살려, 원화에 소수점이 있는 것처럼 보이게 한다.
@@ -73,7 +83,15 @@ const MONEY = formatter(MONEY_SCALE, true);
 
 const PERCENT = formatter(PERCENT_SCALE, false);
 
+const MARGIN_RISK = formatter(MARGIN_RISK_SCALE, false);
+
 const RATIO = formatter(RATIO_SCALE, false);
+
+/** 배수 표시. 자릿수 상한은 손익비와 같고 하한만 0 이다 — 끝의 0 이 지워진다. */
+const MULTIPLE = new Intl.NumberFormat("ko-KR", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: RATIO_SCALE,
+});
 
 /** 원화도 금액 크기의 수다. 백만 단위가 예사라 구분이 없으면 자릿수를 눈으로 세게 된다. */
 const WON = formatter(WON_SCALE, true);
@@ -94,8 +112,25 @@ export function percent(value: number): string {
   return `${PERCENT.format(signed(value))}%`;
 }
 
+/** 증거금 대비 위험(%). 도메인이 소수 둘로 낸 값을 그 자릿수 그대로 적는다. */
+export function riskPercent(value: number): string {
+  return `${MARGIN_RISK.format(signed(value))}%`;
+}
+
 export function ratio(value: number): string {
   return RATIO.format(signed(value));
+}
+
+/**
+ * 레버리지 같은 배수. **끝의 0 을 지운다** — `44.00배` 는 소수 두 자리가 의미를 갖는 수처럼
+ * 보이는데 이 값은 그렇지 않다. `44배` 로 적고, 실제로 소수가 있으면(`44.35`) 그대로 남긴다.
+ *
+ * **반올림을 새로 하지 않는다.** 최대 자릿수는 손익비와 같은 둘이고 최소만 0 으로 내린 것이라,
+ * 서버가 낸 수에서 사라지는 정보가 없다 — `docs/adr/020` 이 금지한 "프론트가 숫자를 만드는 것"
+ * 에 걸리지 않는다.
+ */
+export function multiple(value: number): string {
+  return MULTIPLE.format(signed(value));
 }
 
 /** 원화 금액. 단위를 붙여 낸다 — USDT 와 나란히 놓이므로 어느 쪽인지가 수에 붙어 있어야 한다. */

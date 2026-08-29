@@ -1,4 +1,4 @@
-import { instant, money, percent, price, quantity } from "../../format";
+import { instant, money, multiple, percent, price, quantity, riskPercent } from "../../format";
 import { Light, type Level } from "../../shared/Light";
 import { SmallButton } from "../../shared/SmallButton";
 import { SideChip } from "../../shared/SideChip";
@@ -148,7 +148,7 @@ function Open({ match, outliers }: { match: Match; outliers?: Outliers }) {
         )}
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm tabular-nums sm:grid-cols-4">
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm tabular-nums sm:grid-cols-3">
         <Cell label="평단" hint="거래소가 계산한 평균 진입가." value={price(포지션.entryPrice)} />
         <Cell
           label="지금 (표시가)"
@@ -165,6 +165,16 @@ function Open({ match, outliers }: { match: Match; outliers?: Outliers }) {
           label="명목"
           hint="표시가 × 수량. 수량이 아니라 이것이 위험의 크기다."
           value={money(포지션.notional)}
+        />
+        <Cell
+          label="증거금"
+          hint="이 포지션에 묶여 있는 내 돈. 명목을 이것으로 나눈 것이 레버리지다."
+          value={포지션.margin === null ? "알 수 없다" : money(포지션.margin)}
+        />
+        <Cell
+          label="레버리지"
+          hint="명목 ÷ 증거금. 거래소가 배수를 주지 않아 나눠서 얻는 값이다."
+          value={포지션.leverage === null ? "알 수 없다" : `${multiple(포지션.leverage)}배`}
         />
       </dl>
 
@@ -226,6 +236,27 @@ function Liquidation({ 포지션 }: { 포지션: NonNullable<Match["actual"]> })
         <span aria-hidden="true">→</span>
         <span>청산 {price(청산)}</span>
       </p>
+      {/*
+        **가격 거리 옆에 돈 눈금을 함께 놓는다.** "1.94% 남았다" 는 작게 읽히는데 44배에서
+        그 1.94% 는 증거금의 85% 다 — 같은 사실이 두 눈금에서 전혀 다른 크기로 보이고,
+        사람이 위험을 재는 눈금은 가격이 아니라 돈이다.
+
+        **구간을 위의 퍼센트와 맞춘다** — 둘 다 표시가에서 청산가까지다. 평단에서 재면
+        미실현 손익만큼 어긋나 한 줄 안의 두 수가 다른 구간을 말하게 된다. 서버가 두 값을
+        같은 식으로 내므로 화면은 고르기만 한다.
+      */}
+      {포지션.lossToLiquidation !== null && (
+        <p className="mt-1 text-xs tabular-nums text-ink-3">
+          여기까지 가면 <span className="text-ink">−{money(포지션.lossToLiquidation)}</span> USDT
+          {포지션.marginAtRiskPercent !== null && 포지션.margin !== null && (
+            <>
+              {" · 증거금 "}
+              {money(포지션.margin)} 의{" "}
+              <span className="text-ink">{riskPercent(포지션.marginAtRiskPercent)}</span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
