@@ -25,6 +25,14 @@ type AnySeries = ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | ISeriesApi<"Hi
 const 초 = (iso: string) => (Date.parse(iso) / 1000) as UTCTimestamp;
 
 /**
+ * 처음 띄울 때 화면에 보여 줄 봉 수.
+ *
+ * 받는 것은 700봉이고 그중 이만큼만 창에 넣는다. 15분이면 하루 반, 4시간이면 스물닷새,
+ * 주봉이면 3년이다. 나머지는 지워지는 것이 아니라 왼쪽에 있다 — 끌거나 휠로 간다.
+ */
+const 보여줄봉 = 150;
+
+/**
  * 캔들 차트와 지표 곡선.
  *
  * **수평선이던 것이 곡선이 됐다.** 앞판은 구름과 밴드를 지금 봉의 값으로 가로선을 그었다 —
@@ -49,6 +57,8 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
   const 창 = useRef<HTMLDivElement>(null);
   const 차트 = useRef<IChartApi | null>(null);
   const 그린것 = useRef<AnySeries[]>([]);
+  const 맞춘주기 = useRef<string | null>(null);
+  const 이전봉수 = useRef(0);
   const [켠것, 켜기] = useState<Record<Overlay, boolean>>({
     ichimoku: true,
     bollinger: false,
@@ -185,7 +195,27 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
     panes[0]?.setStretchFactor(3);
     panes[1]?.setStretchFactor(1);
     panes[2]?.setStretchFactor(1);
-    chart.timeScale().fitContent();
+    /*
+      **전부 한 폭에 밀어 넣지 않는다.** 700봉을 900px 에 그리면 봉 하나가 1.3px 이라 몸통과
+      꼬리가 구별되지 않는다 — 그것이 캔들로 바꾼 이유를 지운다. 지표에는 700봉이 다 필요하지만
+      (이동평균 300 은 300봉을 먹고서야 첫 값을 낸다) **계산에 필요한 봉 수와 눈에 보여 줄 봉
+      수는 다른 것이다.** 최근 구간만 띄우고 나머지는 끌어서 본다.
+
+      **한 번만 맞춘다.** 15초마다 다시 맞추면 사람이 옮겨 둔 축이 매번 되돌아간다. 다만 축을
+      건드리지 않은 채 오른끝을 보고 있었다면 새 봉을 따라 붙는다 — 그러지 않으면 방금 그려진
+      봉이 화면 밖으로 밀려난다.
+    */
+    const 봉수 = data.candles.length;
+    const 범위 = chart.timeScale().getVisibleLogicalRange();
+    const 오른끝을보고있다 = 범위 === null || 범위.to >= 이전봉수.current - 1;
+    if (맞춘주기.current !== readout.interval || 오른끝을보고있다) {
+      맞춘주기.current = readout.interval;
+      chart.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, 봉수 - 보여줄봉),
+        to: 봉수 + 4,
+      });
+    }
+    이전봉수.current = 봉수;
   }, [series.data, readout, 켠것]);
 
   return (
@@ -212,7 +242,13 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
         ))}
       </div>
 
-      <div ref={창} className="h-[440px] w-full" />
+      {/*
+        **높이를 화면에 맞춰 키운다.** 칸이 셋(가격 3 : RSI 1 : MACD 1)이라 440px 에서는 가격
+        칸이 264px 밖에 안 되고, 그 안에 캔들·구름·밴드·이동평균 다섯이 겹쳐 앉는다. 위아래의
+        글이 한 화면에 남아 있어야 하므로 뷰포트의 70% 로 두고, 낮은 화면과 아주 긴 화면
+        양쪽을 30rem~58rem 으로 막는다. 폭은 본문 폭(max-w-6xl)을 그대로 따른다.
+      */}
+      <div ref={창} className="h-[clamp(30rem,70vh,58rem)] w-full" />
 
       {/*
         **판 이름을 캔버스 밖에 적는다.** 그림 안에 글자를 넣으면 축과 겹치고, 무엇보다
@@ -237,7 +273,7 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
         {series.isError
           ? "지표를 가져오지 못했다"
           : series.data
-            ? `${series.data.count}봉 · 마지막 ${price(readout.close)}${빈것(series.data)}`
+            ? `${series.data.count}봉을 계산해 최근 ${보여줄봉}봉을 띄운다 · 끌거나 휠로 과거로 · 마지막 ${price(readout.close)}${빈것(series.data)}`
             : "지표를 가져오는 중"}
       </p>
 
