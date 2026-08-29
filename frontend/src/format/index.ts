@@ -23,6 +23,13 @@ const MONEY_SCALE = 2;
 const PERCENT_SCALE = 4;
 
 /**
+ * 원화의 스케일. **0 인 것이 요점이다** — 원에는 그 아래 단위가 없고, `Won` 값 객체가 이미
+ * 소수점 없이 내려보낸다. 여기서 자릿수를 늘리면 서버가 반올림해 없앤 자리를 화면이
+ * `.00` 으로 되살려, 원화에 소수점이 있는 것처럼 보이게 한다.
+ */
+const WON_SCALE = 0;
+
+/**
  * 손익비처럼 단위가 없는 배수. 값 객체가 아니라 도메인이 직접 정한 자릿수다
  * (`PositionPlan.RATIO_SCALE`, `JournalSummary` 의 손익비도 같다).
  */
@@ -43,21 +50,33 @@ function formatter(scale: number, useGrouping: boolean): Intl.NumberFormat {
 }
 
 /**
- * 천단위 구분은 **금액 크기의 수**에만 붙인다.
+ * 천단위 구분은 **자릿수를 눈으로 세게 되는 수**에 붙인다.
  *
  * 가격과 금액은 같은 표 안에 나란히 놓이고 다섯 자리를 넘는다 — 구분이 없으면 자릿수를 눈으로
- * 세게 된다. 수량(BTC)은 이 프로젝트의 증거금 규모에서 언제나 1 미만이고, 비율은 0~100 이라
- * 붙일 자리가 없다.
+ * 세게 된다. 비율은 0~100 이라 붙일 자리가 없다.
+ *
+ * **수량에도 붙인다. 처음에는 붙이지 않았고 그 근거가 틀렸다** — 원래 주석은 "수량(BTC)은 이
+ * 프로젝트의 증거금 규모에서 언제나 1 미만" 이라고 적고 있었다. 내 포지션은 그렇지만
+ * **미결제약정은 10만 BTC 대**다. 감시 화면에 `107554.86600000` 이 구분 기호 하나 없이
+ * 떴고, 그것을 읽으려면 자릿수를 정확히 눈으로 세야 한다. 전제가 참인 자리(0.115)에서는
+ * 구분이 붙을 곳이 없으므로 아무것도 달라지지 않는다.
+ *
+ * **이것은 스케일을 건드리지 않는다.** 구분 기호는 자릿수를 바꾸지 않고 반올림도 하지
+ * 않으므로 위 § "스케일을 줄여서 표시하지 않는다" 에 걸리지 않는다. 소수점 아래 여덟 자리는
+ * 그대로 남아 있고, 그 자릿수가 미결제약정에 맞는가는 **도메인이 답할 질문**이다.
  */
 const PRICE = formatter(PRICE_SCALE, true);
 
-const QUANTITY = formatter(QUANTITY_SCALE, false);
+const QUANTITY = formatter(QUANTITY_SCALE, true);
 
 const MONEY = formatter(MONEY_SCALE, true);
 
 const PERCENT = formatter(PERCENT_SCALE, false);
 
 const RATIO = formatter(RATIO_SCALE, false);
+
+/** 원화도 금액 크기의 수다. 백만 단위가 예사라 구분이 없으면 자릿수를 눈으로 세게 된다. */
+const WON = formatter(WON_SCALE, true);
 
 export function price(value: number): string {
   return PRICE.format(signed(value));
@@ -77,6 +96,11 @@ export function percent(value: number): string {
 
 export function ratio(value: number): string {
   return RATIO.format(signed(value));
+}
+
+/** 원화 금액. 단위를 붙여 낸다 — USDT 와 나란히 놓이므로 어느 쪽인지가 수에 붙어 있어야 한다. */
+export function won(value: number): string {
+  return `${WON.format(signed(value))}원`;
 }
 
 /** 값이 없다는 표시. **0 과 다른 사실이다** — "손익비가 0" 과 "손익비를 말할 수 없다"는 다르다. */
@@ -122,6 +146,31 @@ export function instant(iso: string): string {
   }
   const seoul = new Date(at.getTime() + KST_OFFSET_MINUTES * MS_PER_MINUTE).toISOString();
   return `${seoul.slice(0, 10)} ${seoul.slice(11, 16)}`;
+}
+
+/**
+ * 남은 날짜. `PT456H13M` 을 `D-19` 로 옮긴다.
+ *
+ * **`duration` 과 다른 질문에 답한다.** 그쪽은 "얼마나 걸렸나"(보유 기간·거래 간격)이고
+ * 이쪽은 "며칠 남았나" 다. 열아홉 날 남은 것을 `19일 0시간 13분` 으로 읽으면 사람이 앞의
+ * 숫자만 떼어 다시 세게 되고, 그 세기는 남은 시간이 24시간 아래로 내려가는 순간 틀린다.
+ *
+ * **하루 미만은 `D-0` 이 아니라 시분으로 말한다.** 오늘 안에 벌어질 일에 `D-0` 만 띄우면
+ * 세 시간 뒤인지 이십 분 뒤인지가 사라지는데, 그 구분이 필요해지는 유일한 날이 바로 그날이다.
+ *
+ * 지난 것은 `지남` 이다. 음수 날짜(`D+3`)는 카운트다운처럼 읽히므로 쓰지 않는다.
+ */
+export function dday(iso: string): string {
+  const parts = ISO_DURATION.exec(iso);
+  if (!parts) {
+    return iso;
+  }
+  const hours = amount(parts[1]);
+  const days = Math.floor(hours / HOURS_PER_DAY);
+  if (days > 0) {
+    return `D-${days}`;
+  }
+  return duration(iso);
 }
 
 const ISO_DURATION = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.\d+)?S)?$/;

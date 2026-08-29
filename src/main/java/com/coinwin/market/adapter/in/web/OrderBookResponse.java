@@ -1,11 +1,13 @@
 package com.coinwin.market.adapter.in.web;
 
 import com.coinwin.market.domain.OrderBook;
+import com.coinwin.market.domain.OrderWall;
 import com.coinwin.market.domain.Ticker;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 지금 얼마이고, 그 값에 얼마나 두껍게 쌓여 있나.
@@ -69,7 +71,16 @@ public record OrderBookResponse(
         List<PriceLevelResponse> bids,
 
         @Schema(description = "매도 호가. 낮은 값부터")
-        List<PriceLevelResponse> asks) {
+        List<PriceLevelResponse> asks,
+
+        @Schema(description = """
+                매수 쪽에서 가장 두꺼운 단. **평소보다 두꺼울 때만 있다** — 언제나 최댓값을
+                내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.
+                조건을 못 넘으면 null 이다.""", nullable = true)
+        OrderWallResponse bidWall,
+
+        @Schema(description = "매도 쪽에서 가장 두꺼운 단. **없을 수 있다**", nullable = true)
+        OrderWallResponse askWall) {
 
     public OrderBookResponse {
         bids = List.copyOf(bids);
@@ -93,6 +104,12 @@ public record OrderBookResponse(
                 book.askVolume().value(),
                 book.imbalance(),
                 PriceLevelResponse.from(book.bids()),
-                PriceLevelResponse.from(book.asks()));
+                PriceLevelResponse.from(book.asks()),
+                wall(book.biggestBid()), wall(book.biggestAsk()));
+    }
+
+    /** 기준을 못 넘은 쪽은 {@code null} 이다. 0 으로 채우면 화면에 없는 벽이 생긴다. */
+    private static OrderWallResponse wall(Optional<OrderWall> found) {
+        return found.map(OrderWallResponse::from).orElse(null);
     }
 }

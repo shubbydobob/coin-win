@@ -1,10 +1,12 @@
 package com.coinwin.market.application.service;
 
+import com.coinwin.common.domain.ExternalDataUnavailableException;
 import com.coinwin.market.application.port.in.LoadOutliersUseCase;
 import com.coinwin.market.application.port.out.LoadMarketMetricsPort;
 import com.coinwin.market.application.port.out.LoadMetricHistoryPort;
 import com.coinwin.market.domain.MarketMetrics;
 import com.coinwin.market.domain.MarketOutliers;
+import com.coinwin.market.domain.MetricHistory;
 import com.coinwin.market.domain.MetricKind;
 import com.coinwin.market.domain.MetricOutlier;
 import com.coinwin.market.domain.Symbol;
@@ -35,13 +37,16 @@ public class OutlierService implements LoadOutliersUseCase {
     @Override
     public MarketOutliers outliers(Symbol symbol) {
         MarketMetrics now = metricsPort.metricsFor(symbol);
-        return new MarketOutliers(
+        return MarketOutliers.of(
                 symbol,
                 now.at(),
                 List.of(
                         funding(symbol, now),
                         openInterest(symbol, now),
-                        longShort(symbol, now)));
+                        longShort(symbol, now),
+                        taker(symbol),
+                        topPosition(symbol)),
+                price(symbol));
     }
 
     private MetricOutlier funding(Symbol symbol, MarketMetrics now) {
@@ -66,5 +71,34 @@ public class OutlierService implements LoadOutliersUseCase {
                 kind,
                 now.longShortRatio(),
                 historyPort.longShortRatios(symbol, kind.sampleSize()));
+    }
+
+    /**
+     * 현재값을 이력의 마지막에서 가져온다.
+     *
+     * <p>{@code MarketMetrics} 에 이 셋이 없기 때문인데, 그것이 오히려 맞다 — 그 타입은 <b>한
+     * 시점의 세 값</b>을 묶는 약속이고, 여기 넷을 더하면 그 묶음의 뜻이 흐려진다.
+     */
+    private MetricOutlier taker(Symbol symbol) {
+        MetricKind kind = MetricKind.TAKER_RATIO;
+        return fromHistory(kind, historyPort.takerRatios(symbol, kind.sampleSize()));
+    }
+
+    private MetricOutlier topPosition(Symbol symbol) {
+        MetricKind kind = MetricKind.TOP_POSITION_RATIO;
+        return fromHistory(kind, historyPort.topPositionRatios(symbol, kind.sampleSize()));
+    }
+
+    private MetricOutlier price(Symbol symbol) {
+        MetricKind kind = MetricKind.PRICE;
+        return fromHistory(kind, historyPort.prices(symbol, kind.sampleSize()));
+    }
+
+    private static MetricOutlier fromHistory(MetricKind kind, MetricHistory history) {
+        return MetricOutlier.of(
+                kind,
+                history.latest().orElseThrow(() -> new ExternalDataUnavailableException(
+                        kind + " 이력이 비어 있다", null)),
+                history);
     }
 }

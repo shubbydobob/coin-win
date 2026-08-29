@@ -21,13 +21,13 @@ export type Action = { readonly id: string; readonly kind: "fills" | "closure" }
  */
 export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAct?: (action: Action) => void }) {
   if (trades.length === 0) {
-    return <p className="text-sm text-slate-500">진행 중인 거래가 없다</p>;
+    return <p className="text-sm text-ink-2">진행 중인 거래가 없다</p>;
   }
 
   return (
     <table className="w-full text-right text-sm tabular-nums">
-      <caption className="mb-2 text-left text-sm font-medium text-slate-700">진행 중인 거래</caption>
-      <thead className="border-b border-slate-300 text-xs text-slate-500">
+      <caption className="mb-2 text-left text-sm font-medium text-ink">진행 중인 거래</caption>
+      <thead className="border-b border-line text-xs text-ink-2">
         <tr>
           <th scope="col" className="py-1 text-left">계획 시각</th>
           <th scope="col" className="py-1">상태</th>
@@ -39,7 +39,7 @@ export function ActiveTrades({ trades, onAct }: { trades: readonly Trade[]; onAc
       </thead>
       <tbody>
         {trades.map((trade) => (
-          <tr key={trade.id} className="border-b border-slate-100">
+          <tr key={trade.id} className="border-b border-line-soft">
             <th scope="row" className="py-1 text-left font-normal">{instant(trade.plannedAt)}</th>
             <td className="py-1">{trade.state}</td>
             <td className="py-1">{DIRECTION[trade.plan.direction]}</td>

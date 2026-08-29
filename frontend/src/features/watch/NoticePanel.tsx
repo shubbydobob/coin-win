@@ -14,30 +14,30 @@ type Notices = components["schemas"]["NoticeListResponse"];
  */
 export function NoticePanel({ notices }: { notices: Notices }) {
   return (
-    <section aria-label="거래소 공지" className="rounded border border-slate-200 p-3">
+    <section aria-label="거래소 공지" className="rounded-lg border border-line bg-surface p-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-medium text-slate-700">거래소 공지</h2>
-        <span className="text-xs text-slate-500">받은 시각 {instant(notices.at)}</span>
+        <h2 className="text-sm font-medium text-ink">거래소 공지</h2>
+        <span className="text-xs text-ink-2">받은 시각 {instant(notices.at)}</span>
       </div>
-      <p className="mt-0.5 text-xs leading-snug text-slate-400">
+      <p className="mt-0.5 text-xs leading-snug text-ink-3">
         상장·상장폐지·점검 같은 <b>거래소 자체 소식</b>이다. 매크로 뉴스는 여기 오지 않는다 —
         그쪽은 위의 예정 이벤트가 담당한다.
       </p>
 
       {notices.notices.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-500">최근 공지가 없다</p>
+        <p className="mt-2 text-sm text-ink-2">최근 공지가 없다</p>
       ) : (
         <ul className="mt-3 space-y-1">
           {notices.notices.map((notice) => (
             <li key={notice.url} className="flex items-baseline gap-3 text-sm">
-              <span className="w-32 shrink-0 tabular-nums text-slate-500">
+              <span className="w-32 shrink-0 tabular-nums text-ink-2">
                 {instant(notice.at)}
               </span>
               <a
                 href={notice.url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 text-slate-700 underline decoration-slate-300 underline-offset-2"
+                className="flex-1 text-ink underline decoration-slate-300 underline-offset-2"
               >
                 {notice.title}
               </a>

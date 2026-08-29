@@ -13,13 +13,13 @@ type Trade = components["schemas"]["TradeResponse"];
  */
 export function ClosedTradeTable({ trades }: { trades: readonly Trade[] }) {
   if (trades.length === 0) {
-    return <p className="text-sm text-slate-500">조건에 드는 거래가 없다</p>;
+    return <p className="text-sm text-ink-2">조건에 드는 거래가 없다</p>;
   }
 
   return (
     <table className="w-full text-right text-sm tabular-nums">
-      <caption className="mb-2 text-left text-sm font-medium text-slate-700">끝난 거래</caption>
-      <thead className="border-b border-slate-300 text-xs text-slate-500">
+      <caption className="mb-2 text-left text-sm font-medium text-ink">끝난 거래</caption>
+      <thead className="border-b border-line text-xs text-ink-2">
         <tr>
           <th scope="col" className="py-1 text-left">진입</th>
           <th scope="col" className="py-1">방향</th>
@@ -33,7 +33,7 @@ export function ClosedTradeTable({ trades }: { trades: readonly Trade[] }) {
       </thead>
       <tbody>
         {trades.map((trade) => (
-          <tr key={trade.id} id={`trade-${trade.id}`} className="border-b border-slate-100">
+          <tr key={trade.id} id={`trade-${trade.id}`} className="border-b border-line-soft">
             <th scope="row" className="py-1 text-left font-normal">
               {orNothing(trade.entry, (entry) => instant(entry.openedAt))}
             </th>

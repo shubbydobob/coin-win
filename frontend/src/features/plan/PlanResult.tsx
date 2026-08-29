@@ -19,13 +19,13 @@ export function PlanResult({ analysis }: { analysis: Analysis }) {
       <FillStateTable states={analysis.fillStates} />
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm tabular-nums">
-        <dt className="text-slate-500">필요 증거금</dt>
+        <dt className="text-ink-2">필요 증거금</dt>
         <dd className="text-right">{money(analysis.requiredMargin)}</dd>
-        <dt className="text-slate-500">손익비</dt>
+        <dt className="text-ink-2">손익비</dt>
         <dd className="text-right">{ratio(analysis.riskRewardRatio)}</dd>
       </dl>
 
-      <ul className="space-y-1 text-sm text-amber-700 empty:hidden">
+      <ul className="space-y-1 text-sm text-warn empty:hidden">
         {analysis.weakRiskReward && <li>손익비가 기준에 못 미친다</li>}
         {analysis.marginExceedsBalance && <li>필요 증거금이 잔고를 넘는다</li>}
       </ul>

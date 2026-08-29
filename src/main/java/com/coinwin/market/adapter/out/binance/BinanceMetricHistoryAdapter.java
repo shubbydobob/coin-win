@@ -29,6 +29,11 @@ public class BinanceMetricHistoryAdapter implements LoadMetricHistoryPort {
     /** 이력의 기간. 가장 짧은 5분이 "지금" 에 가장 가깝다. 펀딩비는 주기가 고정이라 안 쓴다. */
     private static final String PERIOD = "5m";
 
+    private static final String KLINES = "/fapi/v1/klines";
+
+    /** 캔들 배열에서 종가의 자리. */
+    private static final int CLOSE = 4;
+
     private static final MetricSource<BinanceFundingRate> FUNDING = new MetricSource<>(
             BinanceFundingRate[].class,
             "/fapi/v1/fundingRate",
@@ -45,6 +50,18 @@ public class BinanceMetricHistoryAdapter implements LoadMetricHistoryPort {
     private static final MetricSource<LongShortRatio> LONG_SHORT = new MetricSource<>(
             LongShortRatio[].class,
             "/futures/data/globalLongShortAccountRatio",
+            true,
+            ratio -> new BigDecimal(ratio.longShortRatio()));
+
+    private static final MetricSource<BinanceTakerRatio> TAKER = new MetricSource<>(
+            BinanceTakerRatio[].class,
+            "/futures/data/takerlongshortRatio",
+            true,
+            ratio -> new BigDecimal(ratio.buySellRatio()));
+
+    private static final MetricSource<LongShortRatio> TOP_POSITION = new MetricSource<>(
+            LongShortRatio[].class,
+            "/futures/data/topLongShortPositionRatio",
             true,
             ratio -> new BigDecimal(ratio.longShortRatio()));
 
@@ -67,6 +84,47 @@ public class BinanceMetricHistoryAdapter implements LoadMetricHistoryPort {
     @Override
     public MetricHistory longShortRatios(Symbol symbol, int limit) {
         return history(LONG_SHORT, symbol, limit);
+    }
+
+    @Override
+    public MetricHistory takerRatios(Symbol symbol, int limit) {
+        return history(TAKER, symbol, limit);
+    }
+
+    @Override
+    public MetricHistory topPositionRatios(Symbol symbol, int limit) {
+        return history(TOP_POSITION, symbol, limit);
+    }
+
+    /**
+     * 5분봉 종가. 다른 지표와 <b>같은 주기</b>여야 같은 창으로 변화를 잴 수 있다.
+     *
+     * <p>캔들 응답은 배열의 배열이고 종가가 다섯 번째다. 그 순서를 여기서 한 번만 읽는다.
+     */
+    @Override
+    public MetricHistory prices(Symbol symbol, int limit) {
+        String[][] klines = fetchKlines(symbol, limit);
+        if (klines == null || klines.length == 0) {
+            throw new BinanceResponseException("가격 이력이 비어 있다: " + symbol.value());
+        }
+        return new MetricHistory(
+                Arrays.stream(klines).map(kline -> new BigDecimal(kline[CLOSE])).toList());
+    }
+
+    private String[][] fetchKlines(Symbol symbol, int limit) {
+        try {
+            return client.get()
+                    .uri(uri -> uri.path(KLINES)
+                            .queryParam("symbol", symbol.value())
+                            .queryParam("interval", PERIOD)
+                            .queryParam("limit", limit)
+                            .build())
+                    .retrieve()
+                    .body(String[][].class);
+        } catch (RestClientException e) {
+            throw new ExternalDataUnavailableException(
+                    "바이낸스 %s 를 가져오지 못했다: %s".formatted(KLINES, symbol.value()), e);
+        }
     }
 
     private <T> MetricHistory history(MetricSource<T> source, Symbol symbol, int limit) {

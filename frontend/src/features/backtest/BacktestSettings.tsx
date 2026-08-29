@@ -16,22 +16,22 @@ export function BacktestSettings({ form, onChange }: Props) {
       <div className="grid grid-cols-4 gap-2">
         <Field label="종목" type="text" value={form.symbol} onChange={(v) => field("symbol", v)} />
         <Field label="주기" type="text" value={form.interval} onChange={(v) => field("interval", v)} />
-        <label className="block text-xs text-slate-500">
+        <label className="block text-xs text-ink-2">
           구간 시작
           <input
             type="date"
             value={form.from}
             onChange={(event) => field("from", event.target.value)}
-            className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
           />
         </label>
-        <label className="block text-xs text-slate-500">
+        <label className="block text-xs text-ink-2">
           구간 끝
           <input
             type="date"
             value={form.to}
             onChange={(event) => field("to", event.target.value)}
-            className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
           />
         </label>
       </div>
@@ -52,18 +52,18 @@ export function BacktestSettings({ form, onChange }: Props) {
 
       <div className="grid grid-cols-4 items-end gap-2">
         <Field label="백테스트 레버리지" value={form.leverage} onChange={(v) => field("leverage", v)} />
-        <label className="block text-xs text-slate-500">
+        <label className="block text-xs text-ink-2">
           자본 방식
           <select
             value={form.capitalMode}
             onChange={(event) => field("capitalMode", event.target.value as BacktestForm["capitalMode"])}
-            className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
           >
             <option value="FIXED">고정</option>
             <option value="COMPOUND">복리</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-xs text-slate-500">
+        <label className="flex items-center gap-2 text-xs text-ink-2">
           <input
             type="checkbox"
             checked={form.indicatorFilter}

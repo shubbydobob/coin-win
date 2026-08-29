@@ -55,11 +55,7 @@ public class InMemoryOrderBookAdapter implements LoadOrderBookPort {
         if (book == null) {
             throw new ExternalDataUnavailableException("호가가 없다: " + symbol.value());
         }
-        return new OrderBook(
-                symbol,
-                take(book.bids(), depth.levels()),
-                take(book.asks(), depth.levels()),
-                book.at());
+        return book.truncatedTo(depth);
     }
 
     @Override
@@ -69,10 +65,6 @@ public class InMemoryOrderBookAdapter implements LoadOrderBookPort {
             throw new ExternalDataUnavailableException("시세가 없다: " + symbol.value());
         }
         return ticker;
-    }
-
-    private static List<PriceLevel> take(List<PriceLevel> levels, int depth) {
-        return levels.subList(0, Math.min(depth, levels.size()));
     }
 
     private static OrderBook sampleBook(Symbol symbol, Instant at) {

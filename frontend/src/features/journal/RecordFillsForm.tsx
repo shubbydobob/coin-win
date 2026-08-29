@@ -54,7 +54,7 @@ export function RecordFillsForm({ onSubmit, pending }: { onSubmit: (request: Req
         });
       }}
     >
-      <h3 className="text-sm font-medium text-slate-700">체결 기록</h3>
+      <h3 className="text-sm font-medium text-ink">체결 기록</h3>
 
       {fills.map((fill, index) => (
         <div key={index} className="grid grid-cols-3 gap-2">
@@ -64,7 +64,7 @@ export function RecordFillsForm({ onSubmit, pending }: { onSubmit: (request: Req
         </div>
       ))}
 
-      <button type="button" onClick={() => setFills([...fills, EMPTY_FILL])} className="rounded border border-slate-300 px-2 py-1 text-sm">
+      <button type="button" onClick={() => setFills([...fills, EMPTY_FILL])} className="rounded border border-line px-2 py-1 text-sm">
         체결 추가
       </button>
 
@@ -74,17 +74,17 @@ export function RecordFillsForm({ onSubmit, pending }: { onSubmit: (request: Req
         <BandField label="볼린저 밴드 대비" value={bollinger} onChange={setBollinger} />
       </div>
 
-      <label className="block text-xs text-slate-500">
+      <label className="block text-xs text-ink-2">
         진입 근거
         <textarea
           value={rationale}
           onChange={(event) => setRationale(event.target.value)}
           rows={2}
-          className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
         />
       </label>
 
-      <button type="submit" disabled={pending} className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50">
+      <button type="submit" disabled={pending} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-50">
         체결 저장
       </button>
     </form>
@@ -93,12 +93,12 @@ export function RecordFillsForm({ onSubmit, pending }: { onSubmit: (request: Req
 
 function BandField({ label, value, onChange }: { label: string; value: BandPosition; onChange: (value: BandPosition) => void }) {
   return (
-    <label className="block text-xs text-slate-500">
+    <label className="block text-xs text-ink-2">
       {label}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as BandPosition)}
-        className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
       >
         {Object.entries(BAND_POSITION).map(([option, text]) => (
           <option key={option} value={option}>{text}</option>

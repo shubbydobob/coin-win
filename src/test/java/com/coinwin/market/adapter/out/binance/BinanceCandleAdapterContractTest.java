@@ -41,7 +41,9 @@ class BinanceCandleAdapterContractTest extends LoadCandlesPortContract {
     }
 
     private static BinanceProperties properties(FakeBinanceServer exchange) {
-        return new BinanceProperties(exchange.baseUrl(), PAGE_SIZE,
+        // 캔들은 현물을 쓰지 않는다. 그래도 같은 페이크 서버를 준다 — 닿지 않는 주소를 넣으면
+        // 이 테스트가 무엇을 검증하는지와 무관한 이유로 깨질 자리가 생긴다.
+        return new BinanceProperties(exchange.baseUrl(), exchange.baseUrl(), PAGE_SIZE,
                 Duration.ofSeconds(1), Duration.ofSeconds(2));
     }
 

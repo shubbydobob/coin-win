@@ -111,6 +111,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projections/compound-target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 월 목표 수익률을 지키려면 거래 한 건이 무엇을 해야 하는가
+         * @description 목표를 정해 놓고 거꾸로 푼다. 월 목표를 월 거래 수로 쪼개고,
+         *     거기에 레버리지가 키운 수수료·슬리피지를 더해 필요한 가격 변동을 낸다.
+         *
+         *     지는 거래를 세지 않는다. 모든 거래가 목표대로 끝난다는 가정 위의
+         *     산수이므로, 나온 수는 최선의 경우에 필요한 최소치다.
+         */
+        post: operations["compoundTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/position-plans/analysis": {
         parameters: {
             query?: never;
@@ -431,6 +455,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/readout/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 다중 주기 판독
+         * @description 15분 · 1시간 · 4시간에서 지금 가격이 일목 구름과 볼린저 밴드의 어디에 있고
+         *     가장 가까운 지지·저항이 어디인가.
+         *
+         *     **셋을 한 응답으로 낸다.** 따로 부르면 세 응답이 서로 다른 순간의 사실이
+         *     되는데 화면은 그것을 나란히 놓는다 — 주기가 다른 것과 시점이 다른 것은
+         *     전혀 다른 문제다.
+         *
+         *     **무엇을 하라고 말하지 않는다.** 여기 있는 것은 전부 관측이다.
+         */
+        get: operations["read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/readout/{symbol}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 한 주기의 캔들과 지표 곡선
+         * @description 위 판독이 "지금 어디에 서 있나" 라면 이쪽은 **"어떻게 여기까지 왔나"** 다.
+         *
+         *     구름과 밴드는 시간에 따라 움직이고, 이동평균선은 곡선이 아니면 뜻이 없으며,
+         *     RSI 는 0~100 축이라 아예 다른 칸이 필요하다. 판독 응답은 봉 하나의 값만
+         *     주므로 화면이 그것들을 수평선으로 그리고 있었다.
+         *
+         *     **캔들까지 한 응답에 담는다.** 따로 부르면 캔들과 지표가 서로 다른 순간의
+         *     것이 되고, 그러면 마지막 봉 위의 점이 그 봉의 값이 아니게 된다.
+         *
+         *     **지표마다 길이가 다르고 빈 목록도 정상이다.** 200 이동평균은 200봉째부터
+         *     값을 갖는다 — 앞을 채우면 없는 값이 지표처럼 보인다.
+         *
+         *     **무엇을 하라고 말하지 않는다.** 여기 있는 것은 전부 관측이다.
+         */
+        get: operations["series"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/markets/{symbol}/outliers": {
         parameters: {
             query?: never;
@@ -512,6 +595,32 @@ export interface paths {
          *     구간은 반열림 [from, to) 이라 연속 조회에서 경계 캔들이 겹치지 않는다.
          */
         get: operations["candles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/markets/macro": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 거시 자산 시세
+         * @description 나스닥 · 금 · 원유 · 국채 · 변동성. 전부 바이낸스에 상장된 TradFi
+         *     무기한이라 BTC 와 **같은 시계 · 같은 형식**이다.
+         *
+         *     **상관관계를 계산하지 않는다.** "나스닥이 오르니 BTC 도 오른다" 는 예측이고
+         *     이 프로젝트가 답하지 않기로 한 질문이다. 나란히 놓는 데까지만 한다.
+         *
+         *     못 읽은 종목은 목록에서 빠진다 — 하나가 나머지를 막지 않는다.
+         */
+        get: operations["macro"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1092,6 +1201,217 @@ export interface components {
              * @example 2.0002
              */
             maxDrawdown: number;
+        };
+        /**
+         * @description 목표 복리 계산 조건
+         * @example {
+         *       "startingCapital": 800,
+         *       "monthlyTarget": 5,
+         *       "months": 12,
+         *       "leverage": 10,
+         *       "marginUsage": 20,
+         *       "feeRate": 0.05,
+         *       "slippage": 0.02,
+         *       "tradesPerMonth": 20
+         *     }
+         */
+        CompoundTargetRequest: {
+            /**
+             * @description 시작 자산 (USDT)
+             * @example 800
+             */
+            startingCapital?: number;
+            /**
+             * @description 월 목표 수익률. 명목이 아니라 자산(증거금) 기준이다 — 5 는 800 이 840 이 된다는 뜻이지 명목의 5% 가 아니다. 비용을 낸 뒤에 남는 수익이며, 레버리지를 올려도 이 값은 달라지지 않는다
+             * @example 5
+             */
+            monthlyTarget?: number;
+            /**
+             * Format: int32
+             * @description 기간 (개월)
+             * @example 12
+             */
+            months?: number;
+            /**
+             * @description 레버리지 배수. 거래당 투입 비율과 곱해져 명목을 정한다
+             * @example 10
+             */
+            leverage?: number;
+            /**
+             * @description 거래당 투입 비율 (%). 자산의 몇 %를 증거금으로 넣는가. 명목 = 자산 × 이 값 × 레버리지 — 100 이면 매 거래에 전액을 넣는다는 뜻이고, 그것이 실제 매매와 가장 크게 갈리는 전제다
+             * @example 20
+             */
+            marginUsage?: number;
+            /**
+             * @description 거래 한 쪽의 수수료율 (%). 바이낸스 USDⓈ-M 무기한의 일반 사용자는 테이커 0.05 · 메이커 0.02 다
+             * @example 0.05
+             */
+            feeRate?: number;
+            /**
+             * @description 거래 한 쪽의 슬리피지 (%). 호가를 밀고 들어간 만큼
+             * @example 0.02
+             */
+            slippage?: number;
+            /**
+             * Format: int32
+             * @description 월 거래 수. <b>진입과 청산 한 쌍이 1건</b>이다 — 20 이면 주문은 40번이고 수수료도 40번 낸다. 목표를 이 횟수로 쪼갠다
+             * @example 20
+             */
+            tradesPerMonth?: number;
+        };
+        /**
+         * @description 목표 복리 계산 결과
+         * @example {
+         *       "equity": [
+         *         800,
+         *         840,
+         *         882,
+         *         926.1,
+         *         972.41,
+         *         1021.03,
+         *         1072.08,
+         *         1125.68,
+         *         1181.96,
+         *         1241.06,
+         *         1303.12,
+         *         1368.27,
+         *         1436.69
+         *       ],
+         *       "finalEquity": 1436.69,
+         *       "grossProfit": 1366.57,
+         *       "totalProfit": 636.69,
+         *       "months": 12,
+         *       "totalReturn": 79.5856,
+         *       "totalCost": 729.88,
+         *       "notional": 1600,
+         *       "effectiveLeverage": 2,
+         *       "totalTrades": 240,
+         *       "netPerTrade": 0.2442,
+         *       "costPerTrade": 0.28,
+         *       "grossPerTrade": 0.5242,
+         *       "priceMovePerTrade": 0.2621,
+         *       "costShare": 53.4147,
+         *       "won": {
+         *         "wonPerUsdt": 1370,
+         *         "observedAt": "2026-08-23T15:04:04Z",
+         *         "finalEquity": 1968265,
+         *         "totalProfit": 872265,
+         *         "totalCost": 999936,
+         *         "notional": 2192000
+         *       }
+         *     }
+         */
+        CompoundTargetResponse: {
+            /** @description 월말마다의 자산. 첫 값은 거래 이전의 시작 자산이다 */
+            equity: number[];
+            /**
+             * @description 기간이 끝났을 때의 자산 (USDT)
+             * @example 1436.69
+             */
+            finalEquity: number;
+            /**
+             * @description 비용을 내기 전에 번 금액 (USDT). 순이익 + 총 비용
+             * @example 1366.57
+             */
+            grossProfit: number;
+            /**
+             * @description 기간 동안 늘어난 금액 (USDT). 번 돈에서 비용을 내고 남는 것
+             * @example 636.69
+             */
+            totalProfit: number;
+            /**
+             * Format: int32
+             * @description 기간 (개월). 요청에 실린 값을 그대로 되돌려준다 — 화면이 점의 수를 세어 기간을 짐작하지 않게 한다
+             * @example 12
+             */
+            months: number;
+            /**
+             * @description 기간 전체 수익률 (%). 월 목표 × 개월 이 아니라 복리다
+             * @example 79.5856
+             */
+            totalReturn: number;
+            /**
+             * @description 기간 동안 수수료와 슬리피지로 나가는 총액 (USDT). 시작 자산을 넘는 것은 흔한 일이다
+             * @example 729.88
+             */
+            totalCost: number;
+            /**
+             * @description 시작 시점에 시장에 나가는 크기 (USDT). 수수료는 이쪽에 붙는다
+             * @example 1600
+             */
+            notional: number;
+            /**
+             * @description 명목이 자산의 몇 배인가. 투입 비율 × 레버리지. 비용과 필요 가격 변동은 전부 이 하나로 결정된다
+             * @example 2
+             */
+            effectiveLeverage: number;
+            /**
+             * Format: int32
+             * @description 기간 전체의 거래 수
+             * @example 240
+             */
+            totalTrades: number;
+            /**
+             * @description 거래당 필요 순수익 (%). 자산 기준이며 비용을 낸 뒤에 남아야 하는 몫
+             * @example 0.2442
+             */
+            netPerTrade: number;
+            /**
+             * @description 거래당 비용 (%). 자산 기준. 레버리지 × (수수료 + 슬리피지) × 왕복
+             * @example 0.28
+             */
+            costPerTrade: number;
+            /**
+             * @description 거래당 필요 총수익 (%). 순수익 + 비용
+             * @example 0.5242
+             */
+            grossPerTrade: number;
+            /**
+             * @description 거래당 필요 가격 변동 (%). 차트에서 재는 폭은 이 수다
+             * @example 0.2621
+             */
+            priceMovePerTrade: number;
+            /**
+             * @description 필요 총수익 중 비용이 가져가는 몫 (%). 레버리지를 올리면 필요한 가격 변동은 작아지지만 이 몫은 커진다
+             * @example 53.4147
+             */
+            costShare: number;
+            /** @description 같은 금액들을 원화로 옮긴 것. 환율을 얻지 못하면 null 이다 — 옛 환율이나 0 원으로 채우지 않는다 */
+            won: components["schemas"]["WonAmountsResponse"] | null;
+        };
+        /** @description 업비트 원화 시세로 환산한 금액 */
+        WonAmountsResponse: {
+            /**
+             * @description USDT 하나가 몇 원인가
+             * @example 1370
+             */
+            wonPerUsdt: number;
+            /**
+             * Format: date-time
+             * @description 환율을 잰 시각
+             * @example 2026-08-23T15:04:04Z
+             */
+            observedAt: string;
+            /**
+             * @description 기간이 끝났을 때의 자산 (원)
+             * @example 1968265
+             */
+            finalEquity: number;
+            /**
+             * @description 기간 동안 늘어난 금액 (원)
+             * @example 872265
+             */
+            totalProfit: number;
+            /**
+             * @description 기간 동안 수수료와 슬리피지로 나가는 총액 (원)
+             * @example 999936
+             */
+            totalCost: number;
+            /**
+             * @description 시작 시점에 시장에 나가는 크기 (원)
+             * @example 2192000
+             */
+            notional: number;
         };
         /**
          * @description 분할 진입 계획과 계좌 상태
@@ -1835,6 +2155,422 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 되돌림 레벨 하나 */
+        FibonacciLevelResponse: {
+            /**
+             * @description 되돌림 비율
+             * @example 0.618
+             */
+            ratio: number;
+            /**
+             * @description 그 비율의 가격
+             * @example 70074.2
+             */
+            price: number;
+        };
+        /** @description 최근 스윙의 피보나치 되돌림 레벨 */
+        FibonacciResponse: {
+            /**
+             * @description 스윙 저점
+             * @example 64000
+             */
+            low: number;
+            /**
+             * @description 스윙 고점
+             * @example 79900
+             */
+            high: number;
+            /**
+             * @description 저점에서 고점으로 간 스윙인가. **되돌림을 어느 쪽에서 재는지가 이 값으로
+             *     정해진다** — 오른 스윙은 고점에서 아래로, 내린 스윙은 저점에서 위로 잰다.
+             * @example true
+             */
+            upward: boolean;
+            /**
+             * @description 비율과 그 자리의 가격. 0.236 · 0.382 · 0.5 · 0.618 · 0.65 · 0.786 순이다.
+             *     **0.618 과 0.65 가 골든 포켓의 두 끝**이고, 그 사이는 점이 아니라 띠다.
+             */
+            levels: components["schemas"]["FibonacciLevelResponse"][];
+            /**
+             * @description 지금 가격이 골든 포켓(0.618~0.65) 안인가. **사실 하나이며 그 다음은 이 응답이
+             *     말하지 않는다.**
+             * @example false
+             */
+            inGoldenPocket: boolean;
+        };
+        /** @description 한 주기의 지표·지지저항 판독 */
+        TimeframeReadoutResponse: {
+            /**
+             * @description 캔들 주기
+             * @example 15m
+             * @enum {string}
+             */
+            interval: "15m" | "1h" | "4h" | "1d" | "1w";
+            /**
+             * Format: date-time
+             * @description 판독 기준이 된 봉의 시각(UTC). **아직 닫히지 않은 봉일 수 있다**
+             * @example 2026-08-25T01:15:00Z
+             */
+            at: string;
+            /**
+             * @description 그 봉의 종가. 아래 모든 위치 판정이 이 값 기준이다
+             * @example 79256.9
+             */
+            close: number;
+            /**
+             * @description 이 시점의 변동성(ATR). **대의 폭과 손절 버퍼가 이 단위로 정해진다** —
+             *     같은 1% 손절도 ATR 이 크면 잡음 안이고 작으면 진짜 이탈이다.
+             * @example 412.3
+             */
+            atr: number;
+            /**
+             * @description 구름 대비 위치
+             * @example ABOVE
+             * @enum {string}
+             */
+            ichimoku: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
+             * @example 78900
+             */
+            cloudTop: number;
+            /**
+             * @description 구름 아래 모서리
+             * @example 77300
+             */
+            cloudBottom: number;
+            /**
+             * @description 밴드 대비 위치
+             * @example INSIDE
+             * @enum {string}
+             */
+            bollinger: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 밴드 상단
+             * @example 80120
+             */
+            bollingerUpper: number;
+            /**
+             * @description 밴드 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            bollingerMiddle: number;
+            /**
+             * @description 밴드 하단
+             * @example 77680
+             */
+            bollingerLower: number;
+            /**
+             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
+             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
+             * @example 3.09
+             */
+            bandWidthPercent: number;
+            /**
+             * @description 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
+             *     채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.
+             */
+            support: components["schemas"]["ZoneResponse"] | null;
+            /** @description 위에서 가장 가까운 대. **없을 수 있다** */
+            resistance: components["schemas"]["ZoneResponse"] | null;
+            /**
+             * @description 최근 스윙의 피보나치 되돌림. **없을 수 있다** — 스윙 고점과 저점 중 한쪽이라도
+             *     안 잡히면 비어 있다. 없는 스윙에 선을 그으면 아무 뜻 없는 여섯 줄이 생긴다.
+             */
+            fibonacci: components["schemas"]["FibonacciResponse"] | null;
+            /**
+             * @description 매물대 — 거래량이 어느 가격에 몰려 있나. **대와 다른 것을 잰다**: 대는 가격이
+             *     몇 번 되돌아섰나를 세고 매물대는 거기서 얼마나 거래됐나를 센다. 둘이 같은 자리를
+             *     가리키면 그것이 두 개의 증거다.
+             *
+             *     **이 수치는 백테스트를 통과한 적이 없다** — 일목·볼린저·대와 같은 무게로 읽으면
+             *     안 된다.
+             */
+            volume: components["schemas"]["VolumeProfileResponse"];
+        };
+        /** @description 거래량이 어느 가격에 몰려 있나 */
+        VolumeProfileResponse: {
+            /**
+             * @description 가장 두껍게 거래된 가격(POC). **언제나 있다** — 거래가 한 건이라도 있으면
+             *     가장 두꺼운 칸은 정해진다.
+             * @example 79200
+             */
+            pointOfControl: number;
+            /**
+             * @description 아래에서 가장 가까운 매물대. **없을 수 있다** — 평균보다 두꺼운 구간이 아래에
+             *     하나도 없으면 null 이다.
+             */
+            below: components["schemas"]["VolumeShelfResponse"] | null;
+            /** @description 위에서 가장 가까운 매물대. **없을 수 있다** */
+            above: components["schemas"]["VolumeShelfResponse"] | null;
+            /**
+             * @description 지금 가격을 품고 있는 매물대. **없을 수 있다.** 이것이 비어 있지 않으면
+             *     위·아래가 둘 다 비어 있는 것이 정상이다 — 지금 물린 물량 한가운데에 있다는
+             *     뜻이고, 어느 쪽으로 움직이든 그것을 지나야 한다.
+             */
+            here: components["schemas"]["VolumeShelfResponse"] | null;
+        };
+        /** @description 거래량이 몰린 가격 구간 */
+        VolumeShelfResponse: {
+            /**
+             * @description 지금 가격에 먼저 닿는 모서리
+             * @example 77650
+             */
+            near: number;
+            /**
+             * @description 반대쪽 모서리. **이 구간을 지나려면 여기까지 가야 한다** —
+             *     매물대는 점이 아니라 물린 물량이 쌓인 폭이다.
+             * @example 77200
+             */
+            far: number;
+            /**
+             * @description 전체 거래량의 몇 %가 이 구간에서 오갔나. **두께를 기간과 무관하게 견주는 수다** —
+             *     BTC 수량은 보는 기간이 길수록 커져서 그 자체로는 두꺼운지 알 수 없다.
+             * @example 9.24
+             */
+            sharePercent: number;
+            /**
+             * @description 지금 가격에서 가까운 모서리까지 몇 %. 언제나 0 이상이다
+             * @example 1.12
+             */
+            distancePercent: number;
+        };
+        /** @description 가장 가까운 지지 또는 저항 구간 */
+        ZoneResponse: {
+            /**
+             * @description 지금 가격에 가까운 쪽 모서리. **먼저 닿는 값이라 이쪽이 판단의 기준이다** —
+             *     지지대는 위쪽 모서리, 저항대는 아래쪽 모서리가 여기 온다.
+             * @example 76500
+             */
+            near: number;
+            /**
+             * @description 반대쪽 모서리. 대를 뚫었는지는 여기까지 가 봐야 안다 —
+             *     가까운 모서리를 스친 것과 대를 통과한 것은 다른 사실이다.
+             * @example 76120
+             */
+            far: number;
+            /**
+             * Format: int32
+             * @description 이 구간에 몇 번 닿았나. **많을수록 사람이 실제로 반응한 자리다.**
+             *     최소 2회부터 대로 친다 — 한 번 닿은 것은 대가 아니라 그냥 지나간 가격이다.
+             * @example 3
+             */
+            touches: number;
+            /**
+             * @description 지금 가격에서 가까운 모서리까지 몇 %. **언제나 0 이상이다** —
+             *     위인지 아래인지는 이 값이 지지에 붙었는지 저항에 붙었는지가 이미 말한다.
+             * @example 0.421
+             */
+            distancePercent: number;
+        };
+        /** @description 한 시점의 볼린저 밴드 값 */
+        BollingerPointResponse: {
+            /**
+             * Format: date-time
+             * @description 봉 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 상단
+             * @example 80120
+             */
+            upper: number;
+            /**
+             * @description 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            middle: number;
+            /**
+             * @description 하단
+             * @example 77680
+             */
+            lower: number;
+        };
+        /** @description 한 시점의 일목균형표 값 */
+        IchimokuPointResponse: {
+            /**
+             * Format: date-time
+             * @description 봉 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 선행스팬 1
+             * @example 78760
+             */
+            leadingSpanA: number;
+            /**
+             * @description 선행스팬 2
+             * @example 77300
+             */
+            leadingSpanB: number;
+            /**
+             * @description 후행스팬. **없을 수 있다** — 밀 자리가 아직 없는 구간이다
+             * @example 79880
+             */
+            laggingSpan: number | null;
+        };
+        /** @description 한 주기의 캔들과 지표 곡선 */
+        IndicatorSeriesResponse: {
+            /**
+             * @description 종목
+             * @example BTCUSDT
+             */
+            symbol: string;
+            /**
+             * @description 캔들 주기
+             * @example 4h
+             * @enum {string}
+             */
+            interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w";
+            /**
+             * Format: int32
+             * @description 봉 수
+             * @example 300
+             */
+            count: number;
+            /** @description 봉 */
+            candles: components["schemas"]["SeriesCandleResponse"][];
+            /** @description 일목균형표. **봉이 모자라면 빈 목록이다** */
+            ichimoku: components["schemas"]["IchimokuPointResponse"][];
+            /** @description 볼린저 밴드. **봉이 모자라면 빈 목록이다** */
+            bollinger: components["schemas"]["BollingerPointResponse"][];
+            /** @description 이동평균선들. 구간마다 하나씩 */
+            movingAverages: components["schemas"]["MovingAverageSeriesResponse"][];
+            /** @description RSI(14). 0~100. **봉이 모자라면 빈 목록이다** */
+            rsi: components["schemas"]["PricePointResponse"][];
+            /** @description MACD(12/26/9). **봉이 모자라면 빈 목록이다** */
+            macd: components["schemas"]["MacdPointResponse"][];
+            /**
+             * @description 지표마다 지금 어느 쪽에 서 있는가. **유리한 쪽이 아니라 관측이다** —
+             *     전부 정의로 정해지는 사실이고 그것이 계속된다는 뜻은 없다.
+             */
+            stances: components["schemas"]["IndicatorStanceResponse"][];
+        };
+        /** @description 지표 하나가 지금 선 자리. 유리한 쪽이 아니라 관측이다 */
+        IndicatorStanceResponse: {
+            /**
+             * @description 지표 이름
+             * @example MACD
+             */
+            indicator: string;
+            /**
+             * @description 어느 쪽에 서 있는가. **UNKNOWN 은 NEUTRAL 과 다른 사실이다** —
+             *     앞은 봉이 모자라 말할 수 없는 것이고 뒤는 어느 쪽도 아닌 것이다.
+             * @example SHORT
+             * @enum {string}
+             */
+            stance: "LONG" | "SHORT" | "NEUTRAL" | "UNKNOWN";
+            /**
+             * @description 그렇게 본 근거. **일어난 일까지만 적는다**
+             * @example 시그널 아래에 있다
+             */
+            statement: string;
+        };
+        /** @description 한 시점의 MACD 값 */
+        MacdPointResponse: {
+            /**
+             * Format: date-time
+             * @description 봉 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 빠른 EMA(12) − 느린 EMA(26). 음수일 수 있다
+             * @example 123.4567
+             */
+            macd: number;
+            /**
+             * @description MACD 의 EMA(9)
+             * @example 98.7654
+             */
+            signal: number;
+            /**
+             * @description MACD − 시그널
+             * @example 24.6913
+             */
+            histogram: number;
+        };
+        /** @description 이동평균선 하나 */
+        MovingAverageSeriesResponse: {
+            /**
+             * Format: int32
+             * @description 구간(봉 수)
+             * @example 20
+             */
+            period: number;
+            /** @description 봉마다의 값. **봉이 모자라면 빈 목록이다** */
+            points: components["schemas"]["PricePointResponse"][];
+        };
+        /** @description 한 시점의 값 하나 */
+        PricePointResponse: {
+            /**
+             * Format: date-time
+             * @description 그 값이 속한 봉의 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            at: string;
+            /**
+             * @description 값
+             * @example 79120.45
+             */
+            value: number;
+        };
+        /** @description 차트에 그릴 봉 하나 */
+        SeriesCandleResponse: {
+            /**
+             * Format: date-time
+             * @description 봉이 열린 시각(UTC)
+             * @example 2026-08-25T12:00:00Z
+             */
+            openTime: string;
+            /**
+             * @description 시가
+             * @example 79000
+             */
+            open: number;
+            /**
+             * @description 고가
+             * @example 79500
+             */
+            high: number;
+            /**
+             * @description 저가
+             * @example 78800
+             */
+            low: number;
+            /**
+             * @description 종가
+             * @example 79200
+             */
+            close: number;
+            /**
+             * @description 거래량(BTC)
+             * @example 1234.567
+             */
+            volume: number;
+        };
         /** @description 한 지표의 평소 대비 위치 */
         MetricOutlierResponse: {
             /**
@@ -1842,7 +2578,7 @@ export interface components {
              * @example FUNDING_RATE
              * @enum {string}
              */
-            metric: "FUNDING_RATE" | "OPEN_INTEREST" | "LONG_SHORT_RATIO";
+            metric: "FUNDING_RATE" | "OPEN_INTEREST" | "LONG_SHORT_RATIO" | "TAKER_RATIO" | "TOP_POSITION_RATIO" | "PRICE";
             /**
              * @description 지금 값. 펀딩비는 %, 미결제약정은 BTC, 롱숏비율은 무차원이다
              * @example 0.01
@@ -1864,6 +2600,30 @@ export interface components {
              * @example 90
              */
             sampleCount: number;
+            /**
+             * @description 정해진 창에서의 변화. 대부분 비율(0.032 = 3.2% 증가)이고 펀딩비만 차이(%p)다 — 부호가 바뀌는 값에서 비율이 무너지기 때문이다. 표본이 창보다 적거나 0 에서 출발했으면 null
+             * @example -0.032
+             */
+            change: number | null;
+            /**
+             * Format: int32
+             * @description 변화를 잰 창의 길이(표본 개수). 지표마다 다르다
+             * @example 6
+             */
+            changeWindow: number;
+            /**
+             * @description 어느 쪽 진영인가. 중립점(펀딩비 0, 비율 1)보다 크면 LONG, 작으면 SHORT, 같으면 BALANCED 다. NONE 은 중립이 아니라 **축이 없다**는 뜻이다 — 미결제약정은 크기이지 방향이 아니다. **붐비는 쪽이라는 뜻이지 유리한 쪽이라는 뜻이 아니다**
+             * @example LONG
+             * @enum {string}
+             */
+            side: "LONG" | "SHORT" | "BALANCED" | "NONE";
+            /**
+             * @description 중립점이 눈금 어디에 오는가 (위쪽으로부터의 비율 %). 현재값과 같은 방식으로 잰 위치라 나란히 놓을 수 있다. 축이 없거나 표본이 모자라면 null
+             * @example 63
+             */
+            neutralPercent: number | null;
+            /** @description 표본 시계열. 화면이 스파크라인을 그리는 데 쓴다. 위치와 변화율만으로는 서서히인가 급격한가가 사라진다 */
+            samples: number[];
         };
         /**
          * @description 세 지표의 평소 대비 위치
@@ -1871,20 +2631,26 @@ export interface components {
          *       "symbol": "BTCUSDT",
          *       "at": "2026-08-23T09:00:00Z",
          *       "hasOutlier": false,
+         *       "crowdedLong": 1,
+         *       "crowdedShort": 0,
          *       "metrics": [
          *         {
          *           "metric": "FUNDING_RATE",
          *           "current": 0.01,
          *           "topPercent": 12,
          *           "outlier": false,
-         *           "sampleCount": 90
+         *           "sampleCount": 90,
+         *           "side": "LONG",
+         *           "neutralPercent": 98
          *         },
          *         {
          *           "metric": "OPEN_INTEREST",
          *           "current": 107134.492,
          *           "topPercent": null,
          *           "outlier": false,
-         *           "sampleCount": 3
+         *           "sampleCount": 3,
+         *           "side": "NONE",
+         *           "neutralPercent": null
          *         }
          *       ]
          *     }
@@ -1906,8 +2672,24 @@ export interface components {
              * @example true
              */
             hasOutlier: boolean;
-            /** @description 지표별 결과. 펀딩비 · 미결제약정 · 롱숏비율 순이다 */
+            /** @description 지표별 결과. 펀딩비 · 미결제약정 · 롱숏비율 · 테이커 · 상위계정 순이다 */
             metrics: components["schemas"]["MetricOutlierResponse"][];
+            /** @description 같은 창의 가격. **지표가 아니라 기준선이다** — 미결제약정 −3.2% 는 가격 +1.1% 옆에서만 뜻이 된다 */
+            price: components["schemas"]["MetricOutlierResponse"];
+            /** @description 지금 기계적으로 성립하는 사실들. **비어 있는 것이 정상이다.** 무엇을 하라고 말하지 않고 방향도 말하지 않는다 */
+            situations: string[];
+            /**
+             * Format: int64
+             * @description 방향 있는 지표 중 롱 쪽이 몇인가. **셈이지 판정이 아니다** — 넷 중 셋이 롱 쪽이라는 것은 사실이고, 그래서 어느 쪽이 유리한가는 이 프로젝트가 답하지 않는다
+             * @example 3
+             */
+            crowdedLong: number;
+            /**
+             * Format: int64
+             * @description 방향 있는 지표 중 숏 쪽이 몇인가. 롱 쪽 수와 합해도 지표 수가 되지 않을 수 있다 — 미결제약정은 축이 없다
+             * @example 1
+             */
+            crowdedShort: number;
         };
         /**
          * @description 현재가와 호가
@@ -2016,6 +2798,33 @@ export interface components {
             bids: components["schemas"]["PriceLevelResponse"][];
             /** @description 매도 호가. 낮은 값부터 */
             asks: components["schemas"]["PriceLevelResponse"][];
+            /**
+             * @description 매수 쪽에서 가장 두꺼운 단. **평소보다 두꺼울 때만 있다** — 언제나 최댓값을
+             *     내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.
+             *     조건을 못 넘으면 null 이다.
+             */
+            bidWall: components["schemas"]["OrderWallResponse"] | null;
+            /** @description 매도 쪽에서 가장 두꺼운 단. **없을 수 있다** */
+            askWall: components["schemas"]["OrderWallResponse"] | null;
+        };
+        /** @description 평균보다 두꺼운 호가 한 단 */
+        OrderWallResponse: {
+            /**
+             * @description 그 단의 가격
+             * @example 78700
+             */
+            price: number;
+            /**
+             * @description 그 단에 걸린 잔량 (BTC)
+             * @example 12.4
+             */
+            quantity: number;
+            /**
+             * @description 같은 쪽 호가 한 단 평균의 몇 배인가. **배수로 말하는 이유는** 12 BTC 가 두꺼운지
+             *     얇은지를 그 자체로는 알 수 없기 때문이다 — 이상치 지표가 분위로 말하는 것과 같다.
+             * @example 8.14
+             */
+            multipleOfAverage: number;
         };
         /** @description 호가 한 단 */
         PriceLevelResponse: {
@@ -2148,6 +2957,61 @@ export interface components {
             /** @description 캔들 목록 */
             candles: components["schemas"]["CandleResponse"][];
         };
+        /** @description 거시 자산 시세 목록 */
+        MacroQuoteListResponse: {
+            /** @description 주가 · 금속 · 에너지 · 국채 · 공포 순이다 */
+            quotes: components["schemas"]["MacroQuoteResponse"][];
+            /**
+             * Format: int32
+             * @description 물어본 종목 수. quotes 보다 크면 그 차이만큼 못 읽은 것이다 —
+             *     화면이 이 수를 스스로 알면 관심 목록이 늘어난 날 거짓말이 된다.
+             * @example 12
+             */
+            requested: number;
+        };
+        /** @description 거시 자산 시세 */
+        MacroQuoteResponse: {
+            /**
+             * @description 바이낸스 심볼
+             * @example QQQUSDT
+             */
+            symbol: string;
+            /**
+             * @description 사람이 읽는 이름. **레버리지 상품은 배수를 이름에 적는다** —
+             *     배수를 숨기면 '미 장기국채 +0.4%' 가 국채가 0.4% 움직였다는 뜻으로 읽히는데
+             *     실제로는 그 3분의 1이다.
+             * @example 나스닥 100
+             */
+            label: string;
+            /**
+             * @description 어느 묶음인가. 열두 종목을 한 줄로 늘어놓으면 목록이 되고 목록은 읽히지 않는다.
+             * @example EQUITY
+             * @enum {string}
+             */
+            group: "CRYPTO" | "EQUITY" | "METAL" | "ENERGY" | "RATES" | "CURRENCY" | "FEAR";
+            /**
+             * @description 묶음의 사람이 읽는 이름
+             * @example 주가
+             */
+            groupLabel: string;
+            /**
+             * @description 현재가 (USDT)
+             * @example 612.34
+             */
+            last: number;
+            /**
+             * @description 24시간 변동률 (%). 음수면 하락이다
+             * @example 0.84
+             */
+            change24hPercent: number;
+            /**
+             * @description **24시간 내내 움직이는 값인가.** 바이낸스 무기한은 그렇고, 야후에서 오는
+             *     지수·선물은 아니다 — 미국 장 시간에만(선물은 거의 24시간이되 주말은 쉼)
+             *     움직이므로 같은 '24시간 변동률' 이라도 뜻이 코인과 다르다.
+             * @example true
+             */
+            roundTheClock: boolean;
+        };
         /** @description 거래소가 말하는 지금 이 순간의 포지션 */
         ExchangeSideResponse: {
             /**
@@ -2161,6 +3025,12 @@ export interface components {
              */
             entryPrice: number;
             /**
+             * @description 거래소의 표시가. 청산이 트리거되고 미실현 손익이 계산되는 값이다.
+             *     호가의 마지막 체결가와 다를 수 있고, 청산까지의 거리는 이것이 기준이다.
+             * @example 60120
+             */
+            markPrice: number;
+            /**
              * @description 보유 수량. 언제나 양수이고 방향은 따로 있다
              * @example 0.1
              */
@@ -2171,6 +3041,19 @@ export interface components {
              * @example 53765.06
              */
             liquidationPrice: number | null;
+            /**
+             * @description 표시가에서 청산가까지의 거리(%). 방향은 붙지 않는다 —
+             *     롱이면 아래, 숏이면 위이고 그 방향은 direction 이 이미 말한다.
+             *     거래소가 청산 지점을 말할 수 없으면 null 이다.
+             * @example 8.656
+             */
+            liquidationDistancePercent: number | null;
+            /**
+             * @description 명목(USDT). 표시가 × 수량이다. **수량이 아니라 이것이 위험의 크기다** —
+             *     0.13 BTC 라는 수는 얼마를 걸었는지를 말해 주지 않는다.
+             * @example 6012
+             */
+            notional: number;
             /**
              * @description 미실현 손익. 기록에는 없는 값이다 — 매 순간 달라지므로 기록의 대상이 아니다
              * @example 12.4
@@ -2524,6 +3407,48 @@ export interface operations {
                 };
             };
             /** @description 값은 유효하나 조건으로 성립하지 않는다. 총 거래 수 상한 초과 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    compoundTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompoundTargetRequest"];
+            };
+        };
+        responses: {
+            /** @description 월말마다의 자산과, 거래 한 건에 요구되는 수익·비용·가격 변동 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CompoundTargetResponse"];
+                };
+            };
+            /** @description 값 자체가 부적절하다. 0 이하의 목표·자산·레버리지, 누락된 필드 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 값은 유효하나 조건으로 성립하지 않는다. 총 거래 수 상한 초과, 반올림해서 0 이 된 거래당 필요 수익 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3029,6 +3954,97 @@ export interface operations {
             };
         };
     };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 15분 · 1시간 · 4시간 순서의 판독 셋 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TimeframeReadoutResponse"][];
+                };
+            };
+            /** @description 종목 표기가 올바르지 않다 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 지표를 낼 만큼 봉이 모이지 않았다 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    series: {
+        parameters: {
+            query: {
+                interval: string;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 그 주기의 캔들과 지표 곡선 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["IndicatorSeriesResponse"];
+                };
+            };
+            /** @description 종목 표기나 캔들 주기가 올바르지 않다 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description 거래소에 닿지 못했다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     outliers: {
         parameters: {
             query?: never;
@@ -3191,6 +4207,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    macro: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 거시 자산 시세. 못 읽은 것은 빠진다 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MacroQuoteListResponse"];
                 };
             };
         };

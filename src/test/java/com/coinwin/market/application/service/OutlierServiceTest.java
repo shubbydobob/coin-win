@@ -22,7 +22,7 @@ class OutlierServiceTest {
     private static final Instant AT = Instant.parse("2026-08-23T09:00:00Z");
 
     @Test
-    void 세_지표를_한_시각으로_묶는다() {
+    void 다섯_지표와_가격_기준선을_한_시각으로_묶는다() {
         MarketOutliers outliers = 서비스().outliers(SYMBOL);
 
         assertThat(outliers.at()).isEqualTo(AT);
@@ -30,7 +30,11 @@ class OutlierServiceTest {
                 .containsExactly(
                         MetricKind.FUNDING_RATE,
                         MetricKind.OPEN_INTEREST,
-                        MetricKind.LONG_SHORT_RATIO);
+                        MetricKind.LONG_SHORT_RATIO,
+                        MetricKind.TAKER_RATIO,
+                        MetricKind.TOP_POSITION_RATIO);
+        // 가격은 지표 목록이 아니라 기준선으로 따로 온다.
+        assertThat(outliers.price().kind()).isEqualTo(MetricKind.PRICE);
     }
 
     /** 관측 시각은 <b>현재값</b> 쪽에서 온다. 이력의 마지막 시각이 아니다. */

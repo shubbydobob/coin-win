@@ -103,4 +103,42 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 
+  <!--
+    같은 이유 — 거시 시세 어댑터. RestClient 는 불변이고 스레드 안전하다.
+
+    필드가 둘인 것은 비트코인 현물 때문이다. 현물은 무기한과 호스트가 달라 클라이언트가
+    따로 필요하다. 억제를 필드 이름으로 열거하는 이 파일의 방식대로 둘 다 적는다 —
+    클래스 전체로 넓히면 나중에 진짜 가변 객체를 들고 있게 돼도 경고가 나지 않는다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.binance.BinanceMacroQuoteAdapter"/>
+    <Or>
+      <Field name="client"/>
+      <Field name="spotClient"/>
+    </Or>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
+  <!--
+    같은 이유 — 환율 어댑터. 이쪽만 업비트인 것은 바이낸스에 원화 시장이 없기 때문이고,
+    RestClient 라는 점은 위와 같다.
+
+    함께 들고 있는 market(String) 은 이 경고의 대상이 아니다. 불변이라 복사할 것이 없다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.upbit.UpbitExchangeRateAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
+  <!--
+    야후 어댑터도 같다. RestClient 는 스프링이 만들어 주는 공용 빈이고, 복사할 수도 없으며
+    복사한다 해도 뜻이 없다 — 우리가 들고 있는 것이 곧 그 빈이다.
+  -->
+  <Match>
+    <Class name="com.coinwin.market.adapter.out.yahoo.YahooMacroQuoteAdapter"/>
+    <Field name="client"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+
 </FindBugsFilter>

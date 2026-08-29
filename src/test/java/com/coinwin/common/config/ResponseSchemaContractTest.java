@@ -49,16 +49,47 @@ class ResponseSchemaContractTest {
      *
      * <p>{@code liquidationPrice} 는 거래소가 청산 지점을 말할 수 없을 때 비어 있다. 0 으로
      * 채우면 화면이 "곧 청산된다" 로 읽는다 — {@code profitFactor} 와 같은 규칙이다.
+     * {@code liquidationDistancePercent} 는 그 값에서 파생되므로 <b>정확히 같은 때</b> 빈다.
+     *
+     * <p>{@code change} 는 표본이 창보다 적거나 0 에서 출발했을 때 비어 있다 — 0 으로 나눈
+     * 비율을 큰 수로 적으면 화면이 그것을 급변으로 읽는다.
      *
      * <p>{@code topPercent} 는 표본이 모자라 위치를 잴 수 없을 때 비어 있다. "표본 3개 중 상위
      * 33%" 는 수치의 모양만 갖춘 거짓말이다 — 같은 규칙의 세 번째 자리다.
+     *
+     * <p>{@code won} 은 업비트에서 환율을 얻지 못했을 때 통째로 빈다. 옛 환율이나 0 원으로
+     * 채우면 화면이 그것을 지금 값으로 읽는다 — 여섯 값이 <b>함께</b> 사라져야 하므로 필드를
+     * 흩뿌리지 않고 묶음 하나로 두었다.
+     *
+     * <p>{@code neutralPercent} 는 <b>두 가지 이유로</b> 빈다 — 축이 없는 지표(미결제약정·가격)
+     * 이거나, 축은 있는데 눈금을 그릴 표본이 모자라거나. 진영({@code side})은 그때도 있다.
+     * 어느 쪽인가는 중립점과 견주기만 하면 되고 눈금은 필요 없기 때문이다.
+     *
+     * <p>{@code below} · {@code above} · {@code here} 는 <b>평균보다 두꺼운 매물대가 그쪽에
+     * 없을 때</b> 빈다. 셋이 함께 있는 이유가 그것이다 — 위·아래만 두면 "매물대가 없다" 와
+     * "지금 매물대 한가운데에 있다" 가 화면에서 같은 모양이 된다.
+     *
+     * <p>{@code bidWall} · {@code askWall} 은 <b>그 쪽 호가가 고를 때</b> 빈다. 언제나 최댓값을
+     * 내면 그것은 그냥 최댓값이고, 늘 떠 있는 표시는 아무것도 알려 주지 않는다.
+     *
+     * <p>{@code support} · {@code resistance} 는 <b>그 방향에 대가 없을 때</b> 빈다. 최소 터치
+     * 수를 채운 구간이 지금 가격 아래(또는 위)에 하나도 없는 것은 정상이며, 그때 0 이나 화면
+     * 끝 값으로 채우면 <b>"지지가 0 원" 이라는 문장이 화면에 뜬다.</b> 대가 없다는 것과 대가
+     * 바닥에 있다는 것은 진입 판단에서 정반대로 읽힌다.
      */
     private static final Map<String, List<String>> NULLABLE_FIELDS = Map.of(
             "SummaryResponse", List.of("profitFactor"),
             "TradeResponse", List.of("entry", "outcome"),
             "PositionMatchResponse", List.of("recorded", "actual"),
-            "ExchangeSideResponse", List.of("liquidationPrice"),
-            "MetricOutlierResponse", List.of("topPercent"));
+            "ExchangeSideResponse", List.of("liquidationPrice", "liquidationDistancePercent"),
+            "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"),
+            "CompoundTargetResponse", List.of("won"),
+            "TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci"),
+            "VolumeProfileResponse", List.of("below", "above", "here"),
+            "OrderBookResponse", List.of("bidWall", "askWall"),
+            // 후행스팬은 뒤로 미는 값이라 최근 봉에는 밀 자리가 없다. 0 으로 채우면 차트
+            // 바닥에 없는 선이 생긴다 — 도메인이 Optional 로 들고 있는 것과 같은 이유다.
+            "IchimokuPointResponse", List.of("laggingSpan"));
 
     @Autowired
     private WebApplicationContext context;

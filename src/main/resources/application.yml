@@ -71,8 +71,42 @@ coinwin:
     binance:
       # 공개 엔드포인트만 쓴다. API 키가 필요 없다. 근거: .claude/docs/scope.md
       base-url: ${COINWIN_BINANCE_URL:https://fapi.binance.com}
+      # 현물은 호스트가 다르다. 비트코인 현물가 하나 때문에 생겼고, 그 값이 무기한가와
+      # 갈라지는 것이 관측값이므로 같은 주소에서 읽을 수는 없다.
+      spot-base-url: ${COINWIN_BINANCE_SPOT_URL:https://api.binance.com}
       # 바이낸스 klines 는 1회 최대 1500개를 준다. 이보다 크게 요청하면 조용히 잘린다.
       max-candles-per-request: 1500
+      connect-timeout: 3s
+      read-timeout: 10s
+      # 호가는 묻지 않고 받는다. 거래소가 100ms 마다 20단을 밀어 주므로 화면이 얼마나 자주
+      # 물어도 거래소 한도와 무관해지고, 응답에 실리는 호가가 3초 전이 아니라 방금 것이 된다.
+      #
+      # 24시간 시세는 여전히 REST 다 — 선물 @ticker 스트림이 구독을 받아 주면서 한 건도
+      # 보내지 않는 것을 확인했다(2026-08-25). 같은 연결의 호가 스트림은 정상이었다.
+      #
+      # 끄면 전부 REST 로 돌아간다. 물러섬은 늘 살아 있으므로 이 스위치는 기능을 없애지 않는다.
+      stream:
+        enabled: ${COINWIN_BINANCE_STREAM:true}
+        url: ${COINWIN_BINANCE_STREAM_URL:wss://fstream.binance.com/ws}
+        symbol: BTCUSDT
+        depth: 20
+        connect-timeout: 3s
+        # 이보다 오래된 호가는 스트림이 살아 있다고 보지 않는다. 100ms 마다 오는 것이라
+        # 넉넉한 값이고, 이 시간이 지나면 REST 로 물러선다.
+        freshness: 3s
+        # 흐름이 멎었는지 확인하는 주기. 끊긴 경우와 소리 없이 멎은 경우를 같이 다룬다.
+        reconnect-delay: 10s
+    upbit:
+      # 원/USDT 환율. 바이낸스에는 원화 시장이 없어 거래소가 하나 늘었다.
+      # 시세 조회는 공개 엔드포인트라 키가 필요 없다.
+      base-url: ${COINWIN_UPBIT_URL:https://api.upbit.com}
+      market: KRW-USDT
+      connect-timeout: 3s
+      read-timeout: 10s
+    yahoo:
+      # 바이낸스에 없는 셋(나스닥 선물 · S&P 500 지수 · 달러지수)만 여기서 읽는다.
+      # 문서화된 API 가 아니다 — 예고 없이 막히거나 모양이 바뀔 수 있고, 그때는 그 줄만 빠진다.
+      base-url: ${COINWIN_YAHOO_URL:https://query1.finance.yahoo.com}
       connect-timeout: 3s
       read-timeout: 10s
   watch:

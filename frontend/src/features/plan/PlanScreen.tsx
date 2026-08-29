@@ -57,12 +57,12 @@ export function PlanScreen() {
           analysis.mutate(form);
         }}
       >
-        <label className="block text-xs text-slate-500">
+        <label className="block text-xs text-ink-2">
           방향
           <select
             value={form.direction}
             onChange={(event) => field("direction", event.target.value as PlanForm["direction"])}
-            className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+            className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
           >
             {Object.entries(DIRECTION).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
@@ -83,7 +83,7 @@ export function PlanScreen() {
         <button
           type="submit"
           disabled={analysis.isPending}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink disabled:opacity-50"
         >
           {analysis.isPending ? "계산 중" : "계산"}
         </button>
@@ -105,14 +105,14 @@ interface NumberFieldProps {
 
 function NumberField({ label, value, onChange }: NumberFieldProps) {
   return (
-    <label className="block text-xs text-slate-500">
+    <label className="block text-xs text-ink-2">
       {label}
       <input
         type="number"
         step="any"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        className="mt-1 block w-full rounded border border-line px-2 py-1 text-sm"
       />
     </label>
   );
@@ -124,7 +124,7 @@ function NumberField({ label, value, onChange }: NumberFieldProps) {
  */
 function Failure({ error }: { error: Error }) {
   return (
-    <p role="alert" className="text-sm text-red-700">
+    <p role="alert" className="text-sm text-down">
       {error instanceof ApiFailure ? error.problem.detail : error.message}
     </p>
   );

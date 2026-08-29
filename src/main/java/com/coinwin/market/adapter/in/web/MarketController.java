@@ -1,6 +1,7 @@
 package com.coinwin.market.adapter.in.web;
 
 import com.coinwin.market.application.port.in.LoadMarketDataUseCase;
+import com.coinwin.market.application.port.in.LoadMacroQuotesUseCase;
 import com.coinwin.market.application.port.in.LoadMarketMetricsUseCase;
 import com.coinwin.market.application.port.in.LoadOrderBookUseCase;
 import com.coinwin.market.application.port.in.LoadOutliersUseCase;
@@ -39,6 +40,7 @@ public class MarketController {
     private final LoadMarketMetricsUseCase loadMetrics;
     private final LoadOrderBookUseCase loadOrderBook;
     private final LoadOutliersUseCase loadOutliers;
+    private final LoadMacroQuotesUseCase loadMacroQuotes;
 
     public MarketController(MarketUseCases useCases) {
         this.loadMarketData = useCases.loadMarketData();
@@ -46,6 +48,7 @@ public class MarketController {
         this.loadMetrics = useCases.loadMetrics();
         this.loadOrderBook = useCases.loadOrderBook();
         this.loadOutliers = useCases.loadOutliers();
+        this.loadMacroQuotes = useCases.loadMacroQuotes();
     }
 
     @Operation(
@@ -147,5 +150,23 @@ public class MarketController {
     @GetMapping("/{symbol}/outliers")
     public MetricOutliersResponse outliers(@PathVariable String symbol) {
         return MetricOutliersResponse.from(loadOutliers.outliers(Symbol.of(symbol)));
+    }
+
+    @Operation(
+            summary = "거시 자산 시세",
+            description = """
+                    나스닥 · 금 · 원유 · 국채 · 변동성. 전부 바이낸스에 상장된 TradFi
+                    무기한이라 BTC 와 **같은 시계 · 같은 형식**이다.
+
+                    **상관관계를 계산하지 않는다.** "나스닥이 오르니 BTC 도 오른다" 는 예측이고
+                    이 프로젝트가 답하지 않기로 한 질문이다. 나란히 놓는 데까지만 한다.
+
+                    못 읽은 종목은 목록에서 빠진다 — 하나가 나머지를 막지 않는다.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "거시 자산 시세. 못 읽은 것은 빠진다")
+    })
+    @GetMapping("/macro")
+    public MacroQuoteListResponse macro() {
+        return MacroQuoteListResponse.from(loadMacroQuotes.macroQuotes());
     }
 }

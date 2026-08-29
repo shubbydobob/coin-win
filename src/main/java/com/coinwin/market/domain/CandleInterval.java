@@ -19,7 +19,13 @@ public enum CandleInterval {
     FIFTEEN_MINUTES("15m", Duration.ofMinutes(15)),
     ONE_HOUR("1h", Duration.ofHours(1)),
     FOUR_HOURS("4h", Duration.ofHours(4)),
-    ONE_DAY("1d", Duration.ofDays(1));
+    ONE_DAY("1d", Duration.ofDays(1)),
+
+    /**
+     * 주봉. <b>거래소가 월요일 00:00 UTC 로 자른다</b> — 우리가 7일을 세는 것이 아니라
+     * 그쪽 경계를 그대로 받는다. 길이는 저장 구간을 계산할 때만 쓴다.
+     */
+    ONE_WEEK("1w", Duration.ofDays(7));
 
     private final String code;
     private final Duration length;
