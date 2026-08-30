@@ -2155,6 +2155,45 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 볼린저 판독. 밴드 안 어디인지까지 말하고 방향은 말하지 않는다 */
+        BollingerReadoutResponse: {
+            /**
+             * @description 밴드 대비 위치
+             * @example INSIDE
+             * @enum {string}
+             */
+            position: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 밴드 상단
+             * @example 80120
+             */
+            upper: number;
+            /**
+             * @description 밴드 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            middle: number;
+            /**
+             * @description 밴드 하단
+             * @example 77680
+             */
+            lower: number;
+            /**
+             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
+             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
+             * @example 3.09
+             */
+            bandWidthPercent: number;
+            /**
+             * @description 밴드 안에서 어디쯤인가. 하단이 0, 상단이 1 이고 **밖으로 나가면 그 범위를
+             *     벗어난다** — 0~1 로 자르면 상단에 닿은 것과 뚫고 나간 것이 같은 값이 된다.
+             *
+             *     **없을 수 있다** — 폭이 0 이면 "어디쯤" 이라는 물음이 성립하지 않는다.
+             *     0 이나 0.5 로 채우지 않는다.
+             * @example 0.7412
+             */
+            ratio: number | null;
+        };
         /** @description 되돌림 레벨 하나 */
         FibonacciLevelResponse: {
             /**
@@ -2198,6 +2237,57 @@ export interface components {
              */
             inGoldenPocket: boolean;
         };
+        /** @description 일목 판독. 위치와 값과 거리까지이며 방향은 말하지 않는다 */
+        IchimokuReadoutResponse: {
+            /**
+             * @description 구름 대비 위치
+             * @example ABOVE
+             * @enum {string}
+             */
+            position: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
+             * @example 78900
+             */
+            cloudTop: number;
+            /**
+             * @description 구름 아래 모서리
+             * @example 77300
+             */
+            cloudBottom: number;
+            /**
+             * @description 선행스팬 1 이 2 위인가. **뒤집히는 것 자체가 전환으로 읽히는 자리다** —
+             *     다만 그 읽기가 맞는지는 이 저장소가 재 본 적이 없다.
+             * @example true
+             */
+            bullishCloud: boolean;
+            /**
+             * @description 구름 두께를 ATR 로 잰 값. 언제나 0 이상이다. **두꺼우면 안 뚫린다는 뜻이
+             *     아니다** — 두께는 과거 52봉의 폭이고 앞을 말하지 않는다.
+             * @example 1.35
+             */
+            cloudThickness: number;
+            /**
+             * @description 전환선 − 기준선을 ATR 로 잰 값. **부호가 절반이다** — 양수면 전환선이 위다.
+             * @example 0.42
+             */
+            conversionGap: number;
+            /**
+             * @description 종가 − 기준선을 ATR 로 잰 값. 기준선에서 얼마나 떨어져 있나
+             * @example 1.1
+             */
+            baseLineGap: number;
+        };
         /** @description 한 주기의 지표·지지저항 판독 */
         TimeframeReadoutResponse: {
             /**
@@ -2224,58 +2314,15 @@ export interface components {
              */
             atr: number;
             /**
-             * @description 구름 대비 위치
-             * @example ABOVE
-             * @enum {string}
+             * @description 일목 판독. **한 칸으로 접지 않는다** — 구름 위치만 내면 아슬아슬하게 위인지
+             *     한참 위인지, 구름이 두꺼운지 종잇장인지가 전부 같은 사실이 된다.
              */
-            ichimoku: "ABOVE" | "INSIDE" | "BELOW";
+            ichimoku: components["schemas"]["IchimokuReadoutResponse"];
             /**
-             * @description 전환선 (9)
-             * @example 79100
+             * @description 볼린저 판독. **밴드 안 어디인지까지 낸다** — 「안」 하나로는 하단에 붙어 있는
+             *     것과 상단 바로 아래인 것이 구별되지 않는다.
              */
-            conversionLine: number;
-            /**
-             * @description 기준선 (26)
-             * @example 78420
-             */
-            baseLine: number;
-            /**
-             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
-             * @example 78900
-             */
-            cloudTop: number;
-            /**
-             * @description 구름 아래 모서리
-             * @example 77300
-             */
-            cloudBottom: number;
-            /**
-             * @description 밴드 대비 위치
-             * @example INSIDE
-             * @enum {string}
-             */
-            bollinger: "ABOVE" | "INSIDE" | "BELOW";
-            /**
-             * @description 밴드 상단
-             * @example 80120
-             */
-            bollingerUpper: number;
-            /**
-             * @description 밴드 중심. 20봉 단순이동평균이다
-             * @example 78900
-             */
-            bollingerMiddle: number;
-            /**
-             * @description 밴드 하단
-             * @example 77680
-             */
-            bollingerLower: number;
-            /**
-             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
-             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
-             * @example 3.09
-             */
-            bandWidthPercent: number;
+            bollinger: components["schemas"]["BollingerReadoutResponse"];
             /**
              * @description 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
              *     채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.

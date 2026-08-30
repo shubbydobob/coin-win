@@ -87,6 +87,12 @@ const MARGIN_RISK = formatter(MARGIN_RISK_SCALE, false);
 
 const RATIO = formatter(RATIO_SCALE, false);
 
+/**
+ * 밴드 안 위치(`BandRatio`)의 스케일. **넷인 것이 요점이다** — 도메인이 그 자릿수로 내려보내고,
+ * 둘로 줄이면 상단에 아슬아슬하게 못 미친 것과 정확히 닿은 것이 같은 값이 된다.
+ */
+const BAND_RATIO = formatter(PERCENT_SCALE, false);
+
 /** 배수 표시. 자릿수 상한은 손익비와 같고 하한만 0 이다 — 끝의 0 이 지워진다. */
 const MULTIPLE = new Intl.NumberFormat("ko-KR", {
   minimumFractionDigits: 0,
@@ -119,6 +125,11 @@ export function riskPercent(value: number): string {
 
 export function ratio(value: number): string {
   return RATIO.format(signed(value));
+}
+
+/** 밴드 안 위치. 하단이 0, 상단이 1 이고 밖으로 나가면 그 범위를 벗어난다. */
+export function bandRatio(value: number): string {
+  return BAND_RATIO.format(signed(value));
 }
 
 /**

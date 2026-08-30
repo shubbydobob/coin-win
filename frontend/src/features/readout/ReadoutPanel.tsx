@@ -1,12 +1,12 @@
 import { useState } from "react";
 
 import { PriceChart } from "./PriceChart";
-import { percent, price } from "../../format";
+import { NOTHING, bandRatio, orNothing, percent, price, ratio } from "../../format";
 import { TEXT_TONE, type Tone } from "../../shared/tone";
 import type { components } from "../../api/schema";
 
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
-type Position = Readout["ichimoku"];
+type Position = Readout["ichimoku"]["position"];
 
 /**
  * 지금 가격이 지표상 어디에 서 있나 — 15분 · 1시간 · 4시간.
@@ -53,14 +53,14 @@ export function ReadoutPanel({ readouts, symbol }: { readouts: Readout[]; symbol
                 {LABEL[readout.interval] ?? readout.interval}
               </span>
               <span className="flex items-baseline gap-2">
-                <span className={`font-medium ${TEXT_TONE[toneOf(readout.ichimoku)]}`}>
-                  {POSITION[readout.ichimoku] ?? readout.ichimoku}
+                <span className={`font-medium ${TEXT_TONE[toneOf(readout.ichimoku.position)]}`}>
+                  {POSITION[readout.ichimoku.position] ?? readout.ichimoku.position}
                 </span>
-                <span className={`font-medium ${TEXT_TONE[toneOf(readout.bollinger)]}`}>
-                  {BAND[readout.bollinger] ?? readout.bollinger}
+                <span className={`font-medium ${TEXT_TONE[toneOf(readout.bollinger.position)]}`}>
+                  {BAND[readout.bollinger.position] ?? readout.bollinger.position}
                 </span>
                 <span className="tabular-nums text-ink-4">
-                  폭 {percent(readout.bandWidthPercent)}
+                  폭 {percent(readout.bollinger.bandWidthPercent)}
                 </span>
               </span>
             </button>
@@ -79,6 +79,28 @@ export function ReadoutPanel({ readouts, symbol }: { readouts: Readout[]; symbol
             {/* 매물대는 언제나 온다 — 서버 DTO 가 nullable 이 아니다. 없는 것은 대뿐이다. */}
             <span className="tabular-nums">매물대 중심 {price(보는것.volume.pointOfControl)}</span>
           </div>
+
+          {/*
+            **위치 딱지가 접어 버리는 것들.** 「구름 위」 는 아슬아슬하게 위인지 한참 위인지를
+            같은 사실로 만들고, 「밴드 안」 은 하단에 붙어 있는 것과 상단 바로 아래인 것을 같은
+            사실로 만든다. 근거는 `docs/spec/indicator-usage.md` § 4.
+
+            **거리는 ATR 배수다.** 같은 300 도 조용한 장에서는 큰 값이고 급한 장에서는 아무것도
+            아니다 — 대의 폭과 손절 버퍼가 이미 그 단위로 정해져 있다.
+          */}
+          <dl className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-ink-3">
+            <Fact 이름="구름 두께" 값={`${ratio(보는것.ichimoku.cloudThickness)} ATR`} />
+            <Fact
+              이름="구름"
+              값={보는것.ichimoku.bullishCloud ? "선행1 이 위" : "선행2 가 위"}
+            />
+            <Fact 이름="전환−기준" 값={`${ratio(보는것.ichimoku.conversionGap)} ATR`} />
+            <Fact 이름="기준선까지" 값={`${ratio(보는것.ichimoku.baseLineGap)} ATR`} />
+            <Fact
+              이름="밴드 안 어디"
+              값={orNothing(보는것.bollinger.ratio, (안) => bandRatio(안))}
+            />
+          </dl>
           <PriceChart symbol={symbol} readout={보는것} />
         </>
       )}
@@ -123,6 +145,22 @@ function Distance({
     <span className="tabular-nums">
       {label} {zone ? `${percent(Math.abs(zone.distancePercent))}` : "없다"}
     </span>
+  );
+}
+
+/**
+ * 지금 이 주기의 사실 하나. <b>이름과 값을 함께 둔다</b> — 수만 늘어놓으면 `1.35` 가 무엇의
+ * 배수인지가 사라지고, ATR 배수는 특히 그렇다.
+ *
+ * <b>「말할 수 없다」 를 빈칸으로 두지 않는다.</b> 밴드 폭이 0 이면 「밴드 안 어디」 가
+ * 성립하지 않는데, 빈칸이면 그것이 0 으로 읽힌다 — `NOTHING` 이 그 자리를 채운다.
+ */
+function Fact({ 이름, 값 }: { 이름: string; 값: string }) {
+  return (
+    <div className="flex items-baseline gap-1">
+      <dt className="text-ink-4">{이름}</dt>
+      <dd className={`tabular-nums ${값 === NOTHING ? "text-ink-4" : ""}`}>{값}</dd>
+    </div>
   );
 }
 

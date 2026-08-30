@@ -51,8 +51,8 @@ class TimeframeReadoutTest {
         TimeframeReadout 판독 = TimeframeReadout.over(
                 CandleInterval.ONE_HOUR, 단조증가(200), ZoneSettings.standard(), VolumeProfileSettings.standard());
 
-        assertThat(판독.indicators().ichimoku()).isEqualTo(BandPosition.ABOVE);
-        assertThat(판독.close().value()).isGreaterThan(판독.indicators().cloudTop().value());
+        assertThat(판독.indicators().ichimoku().position()).isEqualTo(BandPosition.ABOVE);
+        assertThat(판독.close().value()).isGreaterThan(판독.indicators().ichimoku().cloudTop().value());
     }
 
     /** 구름 상단은 두 선행스팬 중 큰 쪽이다. 뒤집히는 것 자체가 뜻을 가지므로 순서를 고정한다. */
@@ -61,10 +61,10 @@ class TimeframeReadoutTest {
         TimeframeReadout 판독 = TimeframeReadout.over(
                 CandleInterval.FOUR_HOURS, 톱니(200), ZoneSettings.standard(), VolumeProfileSettings.standard());
 
-        assertThat(판독.indicators().cloudTop().value())
-                .isGreaterThanOrEqualTo(판독.indicators().cloudBottom().value());
-        assertThat(판독.indicators().bollingerUpper().value())
-                .isGreaterThan(판독.indicators().bollingerLower().value());
+        assertThat(판독.indicators().ichimoku().cloudTop().value())
+                .isGreaterThanOrEqualTo(판독.indicators().ichimoku().cloudBottom().value());
+        assertThat(판독.indicators().bollinger().upper().value())
+                .isGreaterThan(판독.indicators().bollinger().lower().value());
     }
 
     /**

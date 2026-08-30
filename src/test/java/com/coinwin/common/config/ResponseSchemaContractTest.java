@@ -77,21 +77,24 @@ class ResponseSchemaContractTest {
      * 끝 값으로 채우면 <b>"지지가 0 원" 이라는 문장이 화면에 뜬다.</b> 대가 없다는 것과 대가
      * 바닥에 있다는 것은 진입 판단에서 정반대로 읽힌다.
      */
-    private static final Map<String, List<String>> NULLABLE_FIELDS = Map.of(
-            "SummaryResponse", List.of("profitFactor"),
-            "TradeResponse", List.of("entry", "outcome"),
-            "PositionMatchResponse", List.of("recorded", "actual"),
-            "ExchangeSideResponse",
-            List.of("liquidationPrice", "liquidationDistancePercent", "margin", "leverage",
-                    "lossToLiquidation", "marginAtRiskPercent"),
-            "MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent"),
-            "CompoundTargetResponse", List.of("won"),
-            "TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci"),
-            "VolumeProfileResponse", List.of("below", "above", "here"),
-            "OrderBookResponse", List.of("bidWall", "askWall"),
+    private static final Map<String, List<String>> NULLABLE_FIELDS = Map.ofEntries(
+            Map.entry("SummaryResponse", List.of("profitFactor")),
+            Map.entry("TradeResponse", List.of("entry", "outcome")),
+            Map.entry("PositionMatchResponse", List.of("recorded", "actual")),
+            Map.entry("ExchangeSideResponse",
+                    List.of("liquidationPrice", "liquidationDistancePercent", "margin",
+                            "leverage", "lossToLiquidation", "marginAtRiskPercent")),
+            Map.entry("MetricOutlierResponse", List.of("topPercent", "change", "neutralPercent")),
+            Map.entry("CompoundTargetResponse", List.of("won")),
+            Map.entry("TimeframeReadoutResponse", List.of("support", "resistance", "fibonacci")),
+            Map.entry("VolumeProfileResponse", List.of("below", "above", "here")),
+            Map.entry("OrderBookResponse", List.of("bidWall", "askWall")),
+            // 밴드 폭이 0 이면 "밴드 안 어디" 라는 물음이 성립하지 않는다. 0 이나 0.5 로
+            // 채우면 그것이 없는 사실이 된다 — 손익비를 0 으로 적지 않는 것과 같은 자리다.
+            Map.entry("BollingerReadoutResponse", List.of("ratio")),
             // 후행스팬은 뒤로 미는 값이라 최근 봉에는 밀 자리가 없다. 0 으로 채우면 차트
             // 바닥에 없는 선이 생긴다 — 도메인이 Optional 로 들고 있는 것과 같은 이유다.
-            "IchimokuPointResponse", List.of("laggingSpan"));
+            Map.entry("IchimokuPointResponse", List.of("laggingSpan")));
 
     @Autowired
     private WebApplicationContext context;

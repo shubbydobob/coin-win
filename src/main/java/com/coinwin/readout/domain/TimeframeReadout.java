@@ -98,17 +98,17 @@ public record TimeframeReadout(
                 pivots, zoneSettings.toleranceFor(atr), zoneSettings.minTouches());
         return new TimeframeReadout(
                 interval, lastCandleTime(series), close, atr,
-                indicatorsOf(series, close),
+                indicatorsOf(series, close, atr),
                 zones.nearestSupport(close).map(zone -> ZoneReadout.of(zone, close)),
                 zones.nearestResistance(close).map(zone -> ZoneReadout.of(zone, close)),
                 FibonacciRetracement.over(pivots),
                 VolumeProfileReadout.of(VolumeProfile.over(series, volumeSettings), close));
     }
 
-    private static IndicatorReadout indicatorsOf(CandleSeries series, Price close) {
+    private static IndicatorReadout indicatorsOf(CandleSeries series, Price close, Money atr) {
         IchimokuValue ichimoku = last(IchimokuCloud.standard().over(series));
         BollingerValue bollinger = last(BollingerBands.standard().over(series));
-        return IndicatorReadout.of(ichimoku, bollinger, close);
+        return IndicatorReadout.of(ichimoku, bollinger, close, atr);
     }
 
     private static Price lastCandleClose(CandleSeries series) {
