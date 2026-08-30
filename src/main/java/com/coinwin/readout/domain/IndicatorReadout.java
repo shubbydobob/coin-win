@@ -6,6 +6,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.BollingerBands;
 import com.coinwin.indicator.domain.IchimokuCloud;
 import com.coinwin.indicator.domain.Macd;
+import com.coinwin.indicator.domain.RelativeStrengthIndex;
 import com.coinwin.market.domain.CandleSeries;
 
 /**
@@ -27,24 +28,27 @@ import com.coinwin.market.domain.CandleSeries;
  *
  * @param ichimoku 구름과 두 선, 그리고 후행스팬
  * @param bollinger 밴드와 그 폭의 순위
+ * @param rsi 50 으로 접기 전의 값과 그 움직임
  * @param macd 시그널 대비와 영선 대비, 그리고 그 자리가 이어진 봉 수
  * @param movingAverage 20 과 200 이 벌어진 정도
  */
 public record IndicatorReadout(
         IchimokuReadout ichimoku,
         BollingerReadout bollinger,
+        RsiReadout rsi,
         MacdReadout macd,
         MovingAverageReadout movingAverage) {
 
     public IndicatorReadout {
         DomainValues.required(ichimoku, "일목");
         DomainValues.required(bollinger, "볼린저");
+        DomainValues.required(rsi, "RSI");
         DomainValues.required(macd, "MACD");
         DomainValues.required(movingAverage, "이동평균");
     }
 
     /**
-     * 캔들에서 네 지표를 읽는다.
+     * 캔들에서 다섯 지표를 읽는다.
      *
      * <p><b>ATR 을 함께 받는 이유</b>는 거리를 그 단위로 재기 때문이다. 여기서 다시 계산하면
      * 판독의 다른 값들이 쓰는 ATR 과 갈라질 수 있고, 그러면 같은 화면의 두 수가 다른 변동성을
@@ -66,6 +70,7 @@ public record IndicatorReadout(
                         atr,
                         cloud.laggingSpanGap(series)),
                 BollingerReadout.over(BollingerBands.standard().over(series), series),
+                RsiReadout.over(RelativeStrengthIndex.standard().over(series)),
                 MacdReadout.over(Macd.standard().over(series), atr),
                 MovingAverageReadout.over(series, atr));
     }

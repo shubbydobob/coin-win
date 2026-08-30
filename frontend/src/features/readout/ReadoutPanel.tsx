@@ -106,6 +106,8 @@ export function ReadoutPanel({ readouts, symbol }: { readouts: Readout[]; symbol
               이름="후행스팬"
               값={orNothing(보는것.ichimoku.laggingSpanGap, (간격) => `${ratio(간격)} ATR`)}
             />
+            <Fact 이름="RSI" 값={percent(보는것.rsi.value)} />
+            <Fact 이름="RSI 3봉" 값={`${percent(보는것.rsi.change3)}p`} />
             <Fact 이름="MACD 이어진 봉" 값={`${보는것.macd.barsSinceCross}봉`} />
             <Fact 이름="영선" 값={보는것.macd.aboveZero ? "위" : "아래"} />
             <Fact

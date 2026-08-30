@@ -50,6 +50,11 @@ public record TimeframeReadoutResponse(
         BollingerReadoutResponse bollinger,
 
         @Schema(description = """
+                RSI 판독. **50 으로 접지 않는다** — 「50 위」 는 51 과 78 을 같은 사실로
+                만든다.""")
+        RsiReadoutResponse rsi,
+
+        @Schema(description = """
                 MACD 판독. **부호 하나로 접지 않는다** — 방금 넘어온 것과 스무 봉째 위에
                 있는 것은 다른 자리다.""")
         MacdReadoutResponse macd,
@@ -90,6 +95,7 @@ public record TimeframeReadoutResponse(
                 readout.close().value(), readout.atr().value(),
                 IchimokuReadoutResponse.from(indicators.ichimoku()),
                 BollingerReadoutResponse.from(indicators.bollinger()),
+                RsiReadoutResponse.from(indicators.rsi()),
                 MacdReadoutResponse.from(indicators.macd()),
                 MovingAverageReadoutResponse.from(indicators.movingAverage()),
                 zone(readout.support()), zone(readout.resistance()), fibonacci(readout),

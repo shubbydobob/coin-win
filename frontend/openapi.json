@@ -3846,6 +3846,26 @@
           "spread"
         ]
       },
+      "RsiReadoutResponse": {
+        "type": "object",
+        "description": "RSI 판독. 50 으로 접기 전의 값을 낸다",
+        "properties": {
+          "value": {
+            "type": "number",
+            "description": "지금 RSI. **50 · 70 · 30 같은 경계는 관습이고 이 저장소가 검증한 수가 아니다.**",
+            "example": 62.41
+          },
+          "change3": {
+            "type": "number",
+            "description": "3봉 전 대비 변화(%p). **비율이 아니라 비율의 차라 음수가 될 수 있다.**\n3봉이라는 수는 임의로 고른 것이고 검증한 적이 없다.",
+            "example": -4.12
+          }
+        },
+        "required": [
+          "change3",
+          "value"
+        ]
+      },
       "TimeframeReadoutResponse": {
         "type": "object",
         "description": "한 주기의 지표·지지저항 판독",
@@ -3885,6 +3905,10 @@
           "bollinger": {
             "$ref": "#/components/schemas/BollingerReadoutResponse",
             "description": "볼린저 판독. **밴드 안 어디인지까지 낸다** — 「안」 하나로는 하단에 붙어 있는\n것과 상단 바로 아래인 것이 구별되지 않는다."
+          },
+          "rsi": {
+            "$ref": "#/components/schemas/RsiReadoutResponse",
+            "description": "RSI 판독. **50 으로 접지 않는다** — 「50 위」 는 51 과 78 을 같은 사실로\n만든다."
           },
           "macd": {
             "$ref": "#/components/schemas/MacdReadoutResponse",
@@ -3943,6 +3967,7 @@
           "macd",
           "movingAverage",
           "resistance",
+          "rsi",
           "support",
           "volume"
         ]

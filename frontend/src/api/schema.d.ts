@@ -2349,6 +2349,20 @@ export interface components {
              */
             spread: number | null;
         };
+        /** @description RSI 판독. 50 으로 접기 전의 값을 낸다 */
+        RsiReadoutResponse: {
+            /**
+             * @description 지금 RSI. **50 · 70 · 30 같은 경계는 관습이고 이 저장소가 검증한 수가 아니다.**
+             * @example 62.41
+             */
+            value: number;
+            /**
+             * @description 3봉 전 대비 변화(%p). **비율이 아니라 비율의 차라 음수가 될 수 있다.**
+             *     3봉이라는 수는 임의로 고른 것이고 검증한 적이 없다.
+             * @example -4.12
+             */
+            change3: number;
+        };
         /** @description 한 주기의 지표·지지저항 판독 */
         TimeframeReadoutResponse: {
             /**
@@ -2384,6 +2398,11 @@ export interface components {
              *     것과 상단 바로 아래인 것이 구별되지 않는다.
              */
             bollinger: components["schemas"]["BollingerReadoutResponse"];
+            /**
+             * @description RSI 판독. **50 으로 접지 않는다** — 「50 위」 는 51 과 78 을 같은 사실로
+             *     만든다.
+             */
+            rsi: components["schemas"]["RsiReadoutResponse"];
             /**
              * @description MACD 판독. **부호 하나로 접지 않는다** — 방금 넘어온 것과 스무 봉째 위에
              *     있는 것은 다른 자리다.

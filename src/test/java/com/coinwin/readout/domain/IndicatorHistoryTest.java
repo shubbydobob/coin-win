@@ -3,6 +3,7 @@ package com.coinwin.readout.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.coinwin.common.domain.Money;
+import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.indicator.domain.BollingerValue;
@@ -114,6 +115,35 @@ class IndicatorHistoryTest {
     @DisplayName("변위만큼 전의 봉이 없으면 후행스팬을 말할 수 없다")
     void 후행스팬이_없으면() {
         assertThat(IchimokuCloud.standard().laggingSpanGap(단조증가(10))).isEmpty();
+    }
+
+    /**
+     * <b>「50 위」 는 51 과 78 을 같은 사실로 만든다.</b> 값과 그 움직임을 함께 내면 둘이
+     * 갈린다 — 3봉이라는 수는 임의로 고른 것이고 검증한 적이 없다.
+     */
+    @Test
+    @DisplayName("RSI 는 값과 3봉 전 대비 변화를 함께 낸다")
+    void RSI_값과_움직임() {
+        RsiReadout 판독 = RsiReadout.over(비율(40, 45, 50, 55, 62));
+
+        assertThat(판독.value().value()).isEqualByComparingTo("62.0000");
+        assertThat(판독.change3()).isEqualByComparingTo("17.0000");
+    }
+
+    /** 3봉 전이 없으면 있는 것 중 가장 앞과 견준다. 변화가 0 인 것과 같은 자리다. */
+    @Test
+    @DisplayName("봉이 셋에 못 미치면 있는 만큼만 견준다")
+    void RSI_봉이_모자라면() {
+        assertThat(RsiReadout.over(비율(40)).change3()).isEqualByComparingTo("0.0000");
+    }
+
+    private static List<IndicatorPoint<Percentage>> 비율(int... values) {
+        List<IndicatorPoint<Percentage>> points = new ArrayList<>(values.length);
+        for (int i = 0; i < values.length; i++) {
+            points.add(new IndicatorPoint<>(START.plus(Duration.ofHours(i)),
+                    Percentage.of(BigDecimal.valueOf(values[i]))));
+        }
+        return List.copyOf(points);
     }
 
     /** 폭이 다른 다섯 밴드. 마지막이 가운데 넓이라 순위가 100 도 0 도 아니다. */

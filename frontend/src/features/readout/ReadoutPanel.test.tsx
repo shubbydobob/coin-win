@@ -51,6 +51,7 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
       bandWidthRank: 18.5053,
       bandWalk: 0,
     },
+    rsi: { value: 62.41, change3: -4.12 },
     macd: { histogram: 0.31, change: -0.04, aboveZero: true, barsSinceCross: 7 },
     movingAverage: { spread: 2.4 },
     support: { near: 77803, far: 77650, touches: 26, distancePercent: 1.2691 },
@@ -182,6 +183,8 @@ describe("지표 판독", () => {
     expect(screen.getByText("밴드폭 순위").nextElementSibling).toHaveTextContent("18.5053%");
     expect(screen.getByText("밴드 밖 연속").nextElementSibling).toHaveTextContent("0봉");
     expect(screen.getByText("후행스팬").nextElementSibling).toHaveTextContent("0.85 ATR");
+    expect(screen.getByText("RSI").nextElementSibling).toHaveTextContent("62.4100%");
+    expect(screen.getByText("RSI 3봉").nextElementSibling).toHaveTextContent("-4.1200%p");
     expect(screen.getByText("MACD 이어진 봉").nextElementSibling).toHaveTextContent("7봉");
     expect(screen.getByText("20−200").nextElementSibling).toHaveTextContent("2.40 ATR");
   });
