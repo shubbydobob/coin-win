@@ -2155,6 +2155,60 @@ export interface components {
              */
             winRate: number;
         };
+        /** @description 볼린저 판독. 밴드 안 어디인지까지 말하고 방향은 말하지 않는다 */
+        BollingerReadoutResponse: {
+            /**
+             * @description 밴드 대비 위치
+             * @example INSIDE
+             * @enum {string}
+             */
+            position: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 밴드 상단
+             * @example 80120
+             */
+            upper: number;
+            /**
+             * @description 밴드 중심. 20봉 단순이동평균이다
+             * @example 78900
+             */
+            middle: number;
+            /**
+             * @description 밴드 하단
+             * @example 77680
+             */
+            lower: number;
+            /**
+             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
+             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
+             * @example 3.09
+             */
+            bandWidthPercent: number;
+            /**
+             * @description 밴드 안에서 어디쯤인가. 하단이 0, 상단이 1 이고 **밖으로 나가면 그 범위를
+             *     벗어난다** — 0~1 로 자르면 상단에 닿은 것과 뚫고 나간 것이 같은 값이 된다.
+             *
+             *     **없을 수 있다** — 폭이 0 이면 "어디쯤" 이라는 물음이 성립하지 않는다.
+             *     0 이나 0.5 로 채우지 않는다.
+             * @example 0.7412
+             */
+            ratio: number | null;
+            /**
+             * @description 판독 창 안에서 지금 폭의 백분위. **수축은 절대값이 아니라 순위다** —
+             *     3% 가 좁은지 넓은지는 그 종목의 최근 이력 위에서만 뜻을 갖는다.
+             *     100 이면 이 창에서 가장 넓다.
+             * @example 18.5053
+             */
+            bandWidthRank: number;
+            /**
+             * Format: int32
+             * @description 밴드 밖에 **연속으로 머문 봉 수**. 양수면 상단 밖, 음수면 하단 밖이고
+             *     0 이면 지금 안에 있다. 「밖」 하나로는 방금 나간 것과 닷새째 걷는 것이
+             *     같은 사실이 된다.
+             * @example 3
+             */
+            bandWalk: number;
+        };
         /** @description 되돌림 레벨 하나 */
         FibonacciLevelResponse: {
             /**
@@ -2198,6 +2252,117 @@ export interface components {
              */
             inGoldenPocket: boolean;
         };
+        /** @description 일목 판독. 위치와 값과 거리까지이며 방향은 말하지 않는다 */
+        IchimokuReadoutResponse: {
+            /**
+             * @description 구름 대비 위치
+             * @example ABOVE
+             * @enum {string}
+             */
+            position: "ABOVE" | "INSIDE" | "BELOW";
+            /**
+             * @description 전환선 (9)
+             * @example 79100
+             */
+            conversionLine: number;
+            /**
+             * @description 기준선 (26)
+             * @example 78420
+             */
+            baseLine: number;
+            /**
+             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
+             * @example 78900
+             */
+            cloudTop: number;
+            /**
+             * @description 구름 아래 모서리
+             * @example 77300
+             */
+            cloudBottom: number;
+            /**
+             * @description 선행스팬 1 이 2 위인가. **뒤집히는 것 자체가 전환으로 읽히는 자리다** —
+             *     다만 그 읽기가 맞는지는 이 저장소가 재 본 적이 없다.
+             * @example true
+             */
+            bullishCloud: boolean;
+            /**
+             * @description 구름 두께를 ATR 로 잰 값. 언제나 0 이상이다. **두꺼우면 안 뚫린다는 뜻이
+             *     아니다** — 두께는 과거 52봉의 폭이고 앞을 말하지 않는다.
+             * @example 1.35
+             */
+            cloudThickness: number;
+            /**
+             * @description 전환선 − 기준선을 ATR 로 잰 값. **부호가 절반이다** — 양수면 전환선이 위다.
+             * @example 0.42
+             */
+            conversionGap: number;
+            /**
+             * @description 종가 − 기준선을 ATR 로 잰 값. 기준선에서 얼마나 떨어져 있나
+             * @example 1.1
+             */
+            baseLineGap: number;
+            /**
+             * @description 후행스팬 확인 — 지금 종가가 **변위만큼 전의 종가**보다 얼마나 위인가를 ATR 로
+             *     잰 값. 후행스팬은 지금 종가를 뒤로 민 선이라 그 비교와 같은 물음이다.
+             *
+             *     **없을 수 있다** — 변위만큼 전의 봉이 없으면 견줄 대상이 없다.
+             * @example 0.85
+             */
+            laggingSpanGap: number | null;
+        };
+        /** @description MACD 판독. 부호와 크기와 이어진 길이를 함께 낸다 */
+        MacdReadoutResponse: {
+            /**
+             * @description 히스토그램을 ATR 로 잰 값. **가격의 차라 그대로 두면 시대가 비교되지 않는다** —
+             *     60,000 시절의 100 과 100,000 시절의 100 은 다른 크기다.
+             * @example 0.31
+             */
+            histogram: number;
+            /**
+             * @description 직전 봉 대비 히스토그램 변화. 붙는 중인지 벌어지는 중인지를 말한다
+             * @example -0.04
+             */
+            change: number;
+            /**
+             * @description MACD 선이 영선 위인가. **시그널 대비와 다른 사실이다** — 시그널 위이면서
+             *     영선 아래인 자리가 있고, 그것을 한 부호로 접으면 둘이 구별되지 않는다.
+             * @example true
+             */
+            aboveZero: boolean;
+            /**
+             * Format: int32
+             * @description 지금 부호가 **이어진 봉 수**. 양수면 시그널 위, 음수면 아래이고
+             *     0 이면 히스토그램이 정확히 0 이다.
+             * @example 7
+             */
+            barsSinceCross: number;
+        };
+        /** @description 이동평균 판독. 순서가 아니라 벌어진 정도를 낸다 */
+        MovingAverageReadoutResponse: {
+            /**
+             * @description (20 − 200) 을 ATR 로 잰 값. 부호가 어느 쪽이 위인지를 말한다.
+             *
+             *     **없을 수 있다** — 200 구간은 봉 200 개가 있어야 값을 낸다. 0 으로 채우면
+             *     "두 선이 붙어 있다" 는 없는 사실이 생긴다.
+             * @example 2.4
+             */
+            spread: number | null;
+        };
+        /** @description RSI 판독. 50 으로 접기 전의 값을 낸다 */
+        RsiReadoutResponse: {
+            /**
+             * @description 지금 RSI. **50 · 70 · 30 같은 경계는 관습이고 이 저장소가 검증한 수가 아니다.**
+             * @example 62.41
+             */
+            value: number;
+            /**
+             * @description 3봉 전 대비 변화(%p). **비율이 아니라 비율의 차라 음수가 될 수 있다.**
+             *     3봉이라는 수는 임의로 고른 것이고 검증한 적이 없다.
+             * @example -4.12
+             */
+            change3: number;
+        };
         /** @description 한 주기의 지표·지지저항 판독 */
         TimeframeReadoutResponse: {
             /**
@@ -2224,58 +2389,30 @@ export interface components {
              */
             atr: number;
             /**
-             * @description 구름 대비 위치
-             * @example ABOVE
-             * @enum {string}
+             * @description 일목 판독. **한 칸으로 접지 않는다** — 구름 위치만 내면 아슬아슬하게 위인지
+             *     한참 위인지, 구름이 두꺼운지 종잇장인지가 전부 같은 사실이 된다.
              */
-            ichimoku: "ABOVE" | "INSIDE" | "BELOW";
+            ichimoku: components["schemas"]["IchimokuReadoutResponse"];
             /**
-             * @description 전환선 (9)
-             * @example 79100
+             * @description 볼린저 판독. **밴드 안 어디인지까지 낸다** — 「안」 하나로는 하단에 붙어 있는
+             *     것과 상단 바로 아래인 것이 구별되지 않는다.
              */
-            conversionLine: number;
+            bollinger: components["schemas"]["BollingerReadoutResponse"];
             /**
-             * @description 기준선 (26)
-             * @example 78420
+             * @description RSI 판독. **50 으로 접지 않는다** — 「50 위」 는 51 과 78 을 같은 사실로
+             *     만든다.
              */
-            baseLine: number;
+            rsi: components["schemas"]["RsiReadoutResponse"];
             /**
-             * @description 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
-             * @example 78900
+             * @description MACD 판독. **부호 하나로 접지 않는다** — 방금 넘어온 것과 스무 봉째 위에
+             *     있는 것은 다른 자리다.
              */
-            cloudTop: number;
+            macd: components["schemas"]["MacdReadoutResponse"];
             /**
-             * @description 구름 아래 모서리
-             * @example 77300
+             * @description 이동평균 판독. **순서가 아니라 벌어진 정도를 낸다** — 「정배열」 은 1 만큼
+             *     위인 것과 다섯 배 벌어진 것을 같은 사실로 만든다.
              */
-            cloudBottom: number;
-            /**
-             * @description 밴드 대비 위치
-             * @example INSIDE
-             * @enum {string}
-             */
-            bollinger: "ABOVE" | "INSIDE" | "BELOW";
-            /**
-             * @description 밴드 상단
-             * @example 80120
-             */
-            bollingerUpper: number;
-            /**
-             * @description 밴드 중심. 20봉 단순이동평균이다
-             * @example 78900
-             */
-            bollingerMiddle: number;
-            /**
-             * @description 밴드 하단
-             * @example 77680
-             */
-            bollingerLower: number;
-            /**
-             * @description 밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
-             *     않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.
-             * @example 3.09
-             */
-            bandWidthPercent: number;
+            movingAverage: components["schemas"]["MovingAverageReadoutResponse"];
             /**
              * @description 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
              *     채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.
@@ -2475,6 +2612,14 @@ export interface components {
              * @example MACD
              */
             indicator: string;
+            /**
+             * @description 무엇을 재는 부류인가. **TREND 와 REVERSION 을 함께 세면 안 된다** —
+             *     종가가 밴드 상단 위인 것은 되돌림에게 과열이고 추세에게 돌파인데
+             *     둘 다 LONG 으로 적히기 때문이다.
+             * @example TREND
+             * @enum {string}
+             */
+            family: "TREND" | "REVERSION";
             /**
              * @description 어느 쪽에 서 있는가. **UNKNOWN 은 NEUTRAL 과 다른 사실이다** —
              *     앞은 봉이 모자라 말할 수 없는 것이고 뒤는 어느 쪽도 아닌 것이다.

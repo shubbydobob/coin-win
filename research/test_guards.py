@@ -17,10 +17,12 @@ import pandas as pd
 import dumps
 import labels
 import stability
+import indicators
 import measure
+import pandas as pd
 import snapshots
 import store
-from config import ALPHA, LIQUIDATION_DISTANCE_PCT, MIN_SAMPLES
+from config import ALPHA, ERA_BOUNDARY, LIQUIDATION_DISTANCE_PCT, MIN_SAMPLES
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -396,6 +398,105 @@ def _():
     잔표 = _drift_frame(n=600)             # 한 해가 600 → 빠진다
     assert stability.by_year_relative(작은표, "taker_buy_sell_ratio")
     assert not stability.by_year_relative(잔표, "taker_buy_sell_ratio")
+
+# ── 판독 지표 (docs/spec/indicator-usage.md) ────────────────────────────────
+
+@case("슬롯보다 늦게 닫힌 봉을 붙이면 저장이 거절한다")
+def _():
+    conn = _fresh()
+    conn.executescript(
+        "CREATE TABLE indicator_h4 (slot_ts INTEGER PRIMARY KEY, "
+        "bar_open_time INTEGER NOT NULL, bar_close_time INTEGER NOT NULL, rsi REAL);"
+    )
+    slot = _slot0()
+    conn.execute("INSERT INTO indicator_h4 VALUES (?,?,?,?)", (slot, slot, slot, 50.0))
+    try:
+        indicators.assert_no_lookahead(conn, "4h")
+    except indicators.LookaheadError:
+        return
+    raise AssertionError("거절하지 않았다 — 봉 마감이 슬롯과 같은 것도 아직 닫히지 않은 것이다")
+
+
+@case("슬롯 직전에 닫힌 봉은 통과한다")
+def _():
+    conn = _fresh()
+    conn.executescript(
+        "CREATE TABLE indicator_h4 (slot_ts INTEGER PRIMARY KEY, "
+        "bar_open_time INTEGER NOT NULL, bar_close_time INTEGER NOT NULL, rsi REAL);"
+    )
+    slot = _slot0()
+    conn.execute("INSERT INTO indicator_h4 VALUES (?,?,?,?)", (slot, slot - 100, slot - 1, 50.0))
+    indicators.assert_no_lookahead(conn, "4h")
+
+
+@case("붙이는 규칙은 그 시각에 이미 닫힌 마지막 봉을 고른다")
+def _():
+    slot = _slot0()
+    rows = [
+        (slot - 3000, slot - 2001, {"rsi": 10.0}),      # 슬롯보다 한참 전에 닫힘
+        (slot - 2000, slot - 1, {"rsi": 20.0}),         # 슬롯 직전에 닫힘 — 이것이 답이다
+        (slot - 1000, slot + 999, {"rsi": 30.0}),       # 슬롯 뒤에 닫힘 — 아직 모른다
+    ]
+    original = indicators.read
+    indicators.read = lambda interval: rows
+    try:
+        attached = indicators.attach(None, "4h", [slot])
+    finally:
+        indicators.read = original
+    assert len(attached) == 1, attached
+    assert attached[0][1][2]["rsi"] == 20.0, attached[0][1][2]
+
+
+@case("범주형은 분위로 자르지 않고 값 하나가 한 칸이 된다")
+def _():
+    frame = pd.DataFrame({
+        "cloud_position_4h": ["ABOVE"] * 4000 + ["INSIDE"] * 4000 + ["BELOW"] * 4000,
+        "ret": [0.01] * 6000 + [-0.01] * 6000,
+        "mfe": [0.02] * 12000,
+        "mae": [-0.02] * 12000,
+    })
+    rows = measure.measure_indicator(frame, "cloud_position_4h")
+    assert len(rows) == 3, f"칸이 셋이어야 한다: {len(rows)}"
+    assert {r["label"] for r in rows} == {"ABOVE", "INSIDE", "BELOW"}
+    assert all(r["lo"] is None for r in rows), "범주에는 구간이 없다"
+
+
+@case("승률 기준을 넘어도 금액이 비용을 못 넘으면 후보가 아니다")
+def _():
+    row = {"n": MIN_SAMPLES, "edge_pp": 10.0, "mean_mfe": 1.0, "mean_mae": -1.0,
+           "p_bh": 0.0, "mean_ret": 0.10, "baseline_ret": 0.0}
+    assert measure.verdict(row) == "비용을 못 넘는다", measure.verdict(row)
+    row["mean_ret"] = 0.20                       # 기준선 대비 0.20% > 왕복 0.14%
+    assert measure.verdict(row) == "유효 후보", measure.verdict(row)
+
+
+@case("기준선을 빼지 않으면 시장 상승이 신호로 읽힌다")
+def _():
+    # 분위와 기준선이 똑같이 +0.20% 다. 빼지 않으면 비용을 넘은 것처럼 보인다.
+    row = {"n": MIN_SAMPLES, "edge_pp": 10.0, "mean_mfe": 1.0, "mean_mae": -1.0,
+           "p_bh": 0.0, "mean_ret": 0.20, "baseline_ret": 0.20}
+    assert measure.verdict(row) == "비용을 못 넘는다", measure.verdict(row)
+
+
+@case("국면 경계는 두 구간을 겹치지 않게 가른다")
+def _():
+    boundary = int(pd.Timestamp(ERA_BOUNDARY, tz="UTC").timestamp() * 1000)
+    assert measure.era_bounds("all") == (None, None)
+    assert measure.era_bounds("reversion") == (None, boundary)
+    assert measure.era_bounds("momentum") == (boundary, None)
+
+
+@case("범주형은 상관 클러스터에서 빠지지만 대표 자리는 지킨다")
+def _():
+    frame = pd.DataFrame({
+        "cloud_position_4h": ["ABOVE"] * 6000 + ["BELOW"] * 6000,
+        "rsi_4h": list(range(12000)),
+    })
+    clusters = measure.correlation_clusters(frame, ["cloud_position_4h", "rsi_4h"])
+    assert "cloud_position_4h" in clusters, "클러스터가 없으면 독립 증거에서 사라진다"
+    reps = measure.representatives(clusters, {"cloud_position_4h": 6000, "rsi_4h": 12000})
+    assert "cloud_position_4h" in reps
+
 
 for name in PASSED:
     print(f"  통과  {name}")

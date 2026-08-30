@@ -11,6 +11,7 @@ import com.coinwin.market.domain.CandleQuery;
 import com.coinwin.market.domain.CandleSeries;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.market.domain.TimeRange;
+import com.coinwin.readout.domain.IndicatorKind;
 import com.coinwin.readout.domain.IndicatorStance;
 import com.coinwin.readout.domain.Stance;
 import com.coinwin.readout.domain.TimeframeSeries;
@@ -106,7 +107,7 @@ class StanceCrossCheckTest {
     }
 
     private void 표를_찍는다(List<Candle> bars, TimeframeSeries indicators, int horizon) {
-        Map<String, Map<Stance, Bucket>> byIndicator = new LinkedHashMap<>();
+        Map<IndicatorKind, Map<Stance, Bucket>> byIndicator = new LinkedHashMap<>();
         Bucket baseline = new Bucket();
 
         for (int i = 0; i < bars.size() - horizon; i++) {
@@ -130,7 +131,7 @@ class StanceCrossCheckTest {
                 return;
             }
             System.out.printf("%-10s %-6s %8d %8.2f%% %9.4f%% %+9.2f%%p%n",
-                    indicator, stance, bucket.count, bucket.winRate(), bucket.median(),
+                    indicator.label(), stance, bucket.count, bucket.winRate(), bucket.median(),
                     bucket.winRate() - baseline.winRate());
         }));
     }
@@ -181,12 +182,12 @@ class StanceCrossCheckTest {
      * {@code stancesAt} 이 낸 것을 이름만 붙여 묶는다.
      */
     private static String 조합이름(TimeframeSeries indicators, Instant bar) {
-        Map<String, Stance> found = new LinkedHashMap<>();
+        Map<IndicatorKind, Stance> found = new LinkedHashMap<>();
         for (IndicatorStance stance : indicators.stancesAt(bar)) {
             found.put(stance.indicator(), stance.stance());
         }
-        return "일목 " + found.getOrDefault("일목", Stance.UNKNOWN)
-                + " · 볼린저 " + found.getOrDefault("볼린저", Stance.UNKNOWN);
+        return "일목 " + found.getOrDefault(IndicatorKind.ICHIMOKU, Stance.UNKNOWN)
+                + " · 볼린저 " + found.getOrDefault(IndicatorKind.BOLLINGER, Stance.UNKNOWN);
     }
 
     /** 종가 대비 종가. <b>MFE·MAE 는 여기서 재지 않는다</b> — 그것은 1분봉이 있어야 한다. */

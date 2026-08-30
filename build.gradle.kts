@@ -114,6 +114,11 @@ val liveAiTag = "liveAi"
 // 지키지 않는다. 근거: docs/spec/phase8-frontend.md § 5.2
 val schemaTag = "schema"
 
+// 6년치 지표 덤프는 research/data 아래 CSV 를 쓰고 몇 분이 걸린다. 기본 test 에서 돌 이유가
+// 없고, 무엇보다 research/bars.py 가 먼저 돌아 있어야 한다.
+// 근거: docs/spec/indicator-usage.md § 5.2
+val indicatorDumpTag = "indicatorDump"
+
 tasks.withType<Test>().configureEach {
     testLogging {
         events("passed", "skipped", "failed")
@@ -126,7 +131,9 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.test {
-    useJUnitPlatform { excludeTags(integrationTag, crossCheckTag, liveAiTag, schemaTag) }
+    useJUnitPlatform {
+        excludeTags(integrationTag, crossCheckTag, liveAiTag, schemaTag, indicatorDumpTag)
+    }
 }
 
 val openApiSchemaDump = tasks.register<Test>("openApiSchemaDump") {
@@ -148,6 +155,19 @@ tasks.register<Test>("crossCheck") {
     // 출력을 보는 것이 목적이므로 -PshowTestOutput 없이도 항상 찍는다.
     testLogging { showStandardStreams = true }
     // 거래소 값이 매번 다르다. UP-TO-DATE 로 건너뛰면 대조할 표가 나오지 않는다.
+    outputs.upToDateWhen { false }
+}
+
+tasks.register<Test>("indicatorDump") {
+    group = "verification"
+    description = "6년치 봉마다 지표 칸을 research/data 아래 CSV 로 찍는다. 측정이 그것을 읽는다."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(indicatorDumpTag) }
+    testLogging { showStandardStreams = true }
+    // 21만 봉 × 다섯 지표를 한꺼번에 든다. 기본 힙으로는 모자란다.
+    maxHeapSize = "4g"
+    // 찍는 것이 목적이므로 UP-TO-DATE 로 건너뛰면 안 된다.
     outputs.upToDateWhen { false }
 }
 

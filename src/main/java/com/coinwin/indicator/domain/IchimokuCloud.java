@@ -1,6 +1,7 @@
 package com.coinwin.indicator.domain;
 
 import com.coinwin.common.domain.DomainValues;
+import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
 import com.coinwin.market.domain.Candle;
 import com.coinwin.market.domain.CandleSeries;
@@ -73,6 +74,40 @@ public record IchimokuCloud(
      *
      * @throws InsufficientCandlesException 워밍업 구간을 채우지 못하는 경우
      */
+    /**
+     * 후행스팬 확인 — <b>지금 종가가 변위만큼 전의 종가보다 얼마나 위인가.</b>
+     *
+     * <p>후행스팬은 지금 종가를 {@link #shift()} 봉 뒤로 민 선이므로, "후행스팬이 그때의
+     * 가격 위에 있는가" 는 <b>지금 종가와 그 봉 종가의 비교</b>와 같은 물음이다. 그 비교를
+     * 여기 두는 이유는 <b>몇 봉을 세는가가 일목의 정책</b>이기 때문이다 — 부르는 쪽이 26 을
+     * 세면 실제 이동이 25 라는 사실이 그 자리에서 다시 틀린다.
+     *
+     * <p><b>위/아래가 아니라 거리를 낸다.</b> 세 갈래로 접으면 아슬아슬하게 위인 것과 한참
+     * 위인 것이 같은 사실이 되고, 그것이 이 저장소가 딱지에서 이미 겪은 문제다.
+     *
+     * <p><b>봉이 모자라면 비어 있다.</b> 변위만큼 전의 봉이 없으면 견줄 대상이 없다.
+     */
+    public Optional<Money> laggingSpanGap(CandleSeries series) {
+        DomainValues.required(series, "캔들 묶음");
+        return laggingSpanGapAt(series, series.candles().size() - 1);
+    }
+
+    /**
+     * <b>아무 봉에서나 물을 수 있다.</b> 화면은 마지막 봉만 쓰지만, "이 자리에 섰을 때 다음에
+     * 무슨 일이 있었나" 를 재려면 과거의 모든 봉에서 같은 값이 나와야 한다. 재는 쪽이 규칙을
+     * 복사하면 화면과 측정이 다른 것을 말하게 된다.
+     */
+    public Optional<Money> laggingSpanGapAt(CandleSeries series, int index) {
+        DomainValues.required(series, "캔들 묶음");
+        List<Candle> candles = series.candles();
+        if (index < shift() || index >= candles.size()) {
+            return Optional.empty();
+        }
+        Price now = candles.get(index).close();
+        Price then = candles.get(index - shift()).close();
+        return Optional.of(now.asAmount().minus(then.asAmount()));
+    }
+
     public List<IndicatorPoint<IchimokuValue>> over(CandleSeries series) {
         DomainValues.required(series, "캔들 묶음");
         List<Candle> candles = series.candles();

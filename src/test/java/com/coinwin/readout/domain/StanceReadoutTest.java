@@ -34,19 +34,20 @@ class StanceReadoutTest {
         List<IndicatorStance> stances = 자리(i -> 60000 + i * 60.0);
 
         assertThat(stances).extracting(IndicatorStance::indicator)
-                .containsExactly("일목", "볼린저", "이동평균", "RSI", "MACD");
+                .containsExactly(IndicatorKind.ICHIMOKU, IndicatorKind.BOLLINGER,
+                        IndicatorKind.MOVING_AVERAGE, IndicatorKind.RSI, IndicatorKind.MACD);
         assertThat(stances).extracting(IndicatorStance::indicator, IndicatorStance::stance)
                 .containsExactly(
-                        org.assertj.core.api.Assertions.tuple("일목", Stance.LONG),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.ICHIMOKU, Stance.LONG),
                         // **꾸준한 상승은 밴드를 뚫지 않는다.** 기울기가 일정하면 표준편차도
                         // 일정해서 종가가 상단 안쪽에 머문다 — 처음에 다섯 다 롱일 것으로
                         // 적었다가 이 테스트가 잡았다. 밴드는 추세가 아니라 **급함**을 잰다.
-                        org.assertj.core.api.Assertions.tuple("볼린저", Stance.NEUTRAL),
-                        org.assertj.core.api.Assertions.tuple("이동평균", Stance.LONG),
-                        org.assertj.core.api.Assertions.tuple("RSI", Stance.LONG),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.BOLLINGER, Stance.NEUTRAL),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.MOVING_AVERAGE, Stance.LONG),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.RSI, Stance.LONG),
                         // MACD 는 여기서 빼지 않고 그대로 두되, 완전한 직선에서 이 값이
                         // 무엇으로 수렴하는지는 아래 별도 테스트가 말한다.
-                        org.assertj.core.api.Assertions.tuple("MACD", Stance.LONG));
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.MACD, Stance.LONG));
     }
 
     /**
@@ -61,7 +62,7 @@ class StanceReadoutTest {
     @DisplayName("완전한 직선에서는 MACD 가 어느 쪽도 아니게 된다")
     void 직선에서의_MACD() {
         assertThat(자리(i -> 90000 - i * 60.0))
-                .filteredOn(stance -> stance.indicator().equals("MACD"))
+                .filteredOn(stance -> stance.indicator() == IndicatorKind.MACD)
                 .extracting(IndicatorStance::stance)
                 .containsExactly(Stance.NEUTRAL);
     }
@@ -71,7 +72,7 @@ class StanceReadoutTest {
     @DisplayName("끝에서 꺾이면 MACD 가 그쪽에 선다")
     void 꺾이면_MACD가_갈린다() {
         assertThat(자리(i -> i < 250 ? 60000 + i * 60.0 : 75000 - (i - 250) * 400.0))
-                .filteredOn(stance -> stance.indicator().equals("MACD"))
+                .filteredOn(stance -> stance.indicator() == IndicatorKind.MACD)
                 .extracting(IndicatorStance::stance)
                 .containsExactly(Stance.SHORT);
     }
@@ -82,11 +83,11 @@ class StanceReadoutTest {
         assertThat(자리(i -> 90000 - i * 60.0))
                 .extracting(IndicatorStance::indicator, IndicatorStance::stance)
                 .containsExactly(
-                        org.assertj.core.api.Assertions.tuple("일목", Stance.SHORT),
-                        org.assertj.core.api.Assertions.tuple("볼린저", Stance.NEUTRAL),
-                        org.assertj.core.api.Assertions.tuple("이동평균", Stance.SHORT),
-                        org.assertj.core.api.Assertions.tuple("RSI", Stance.SHORT),
-                        org.assertj.core.api.Assertions.tuple("MACD", Stance.NEUTRAL));
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.ICHIMOKU, Stance.SHORT),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.BOLLINGER, Stance.NEUTRAL),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.MOVING_AVERAGE, Stance.SHORT),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.RSI, Stance.SHORT),
+                        org.assertj.core.api.Assertions.tuple(IndicatorKind.MACD, Stance.NEUTRAL));
     }
 
     /**
@@ -109,7 +110,7 @@ class StanceReadoutTest {
     void 평평한_장() {
         List<IndicatorStance> stances = 자리(i -> 60000);
 
-        assertThat(stances).filteredOn(stance -> stance.indicator().equals("이동평균"))
+        assertThat(stances).filteredOn(stance -> stance.indicator() == IndicatorKind.MOVING_AVERAGE)
                 .extracting(IndicatorStance::stance)
                 .containsExactly(Stance.NEUTRAL);
     }

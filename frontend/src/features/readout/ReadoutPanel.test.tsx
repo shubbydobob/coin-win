@@ -21,6 +21,7 @@ vi.mock("./PriceChart", () => ({
 }));
 
 type Readout = components["schemas"]["TimeframeReadoutResponse"];
+type 위치값 = Readout["ichimoku"]["position"];
 
 function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
   return {
@@ -28,16 +29,31 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
     at: "2026-08-25T01:15:00Z",
     close: 78803.1,
     atr: 492.08,
-    ichimoku: "ABOVE",
-    conversionLine: 79366.55,
-    baseLine: 78704.8,
-    cloudTop: 77420.55,
-    cloudBottom: 77332.8,
-    bollinger: "INSIDE",
-    bollingerUpper: 79969.29,
-    bollingerMiddle: 79144.86,
-    bollingerLower: 78320.44,
-    bandWidthPercent: 2.0833,
+    ichimoku: {
+      position: "ABOVE",
+      conversionLine: 79366.55,
+      baseLine: 78704.8,
+      cloudTop: 77420.55,
+      cloudBottom: 77332.8,
+      bullishCloud: true,
+      cloudThickness: 0.18,
+      conversionGap: 1.34,
+      baseLineGap: 0.2,
+      laggingSpanGap: 0.85,
+    },
+    bollinger: {
+      position: "INSIDE",
+      upper: 79969.29,
+      middle: 79144.86,
+      lower: 78320.44,
+      bandWidthPercent: 2.0833,
+      ratio: 0.2929,
+      bandWidthRank: 18.5053,
+      bandWalk: 0,
+    },
+    rsi: { value: 62.41, change3: -4.12 },
+    macd: { histogram: 0.31, change: -0.04, aboveZero: true, barsSinceCross: 7 },
+    movingAverage: { spread: 2.4 },
     support: { near: 77803, far: 77650, touches: 26, distancePercent: 1.2691 },
     fibonacci: {
       low: 64000,
@@ -60,10 +76,19 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
   };
 }
 
+/** 위치만 바꿔 끼운다. 나머지 값은 이 테스트가 묻지 않는 것이라 기본 픽스처 그대로다. */
+function 위치(readout: Readout, 구름: 위치값, 밴드: 위치값): Readout {
+  return {
+    ...readout,
+    ichimoku: { ...readout.ichimoku, position: 구름 },
+    bollinger: { ...readout.bollinger, position: 밴드 },
+  };
+}
+
 const 셋 = [
   판독(),
-  판독({ interval: "1h", ichimoku: "BELOW", bollinger: "ABOVE" }),
-  판독({ interval: "4h", ichimoku: "INSIDE", bollinger: "BELOW" }),
+  위치(판독({ interval: "1h" }), "BELOW", "ABOVE"),
+  위치(판독({ interval: "4h" }), "INSIDE", "BELOW"),
 ];
 
 describe("지표 판독", () => {
@@ -115,6 +140,82 @@ describe("지표 판독", () => {
     render(<ReadoutPanel readouts={[판독()]} symbol="BTCUSDT" />);
 
     expect(screen.getByText(/매물대 중심 79,200/)).toBeVisible();
+  });
+
+  /**
+   * <b>위치 딱지가 접어 버리던 것들.</b> 「구름 위」 는 아슬아슬하게 위인지 한참 위인지를,
+   * 「밴드 안」 은 하단에 붙어 있는 것과 상단 바로 아래인 것을 같은 사실로 만든다.
+   * 근거는 <code>docs/spec/indicator-usage.md</code> § 4.
+   */
+  it("구름과 밴드의 값을 ATR 배수로 함께 적는다", () => {
+    render(<ReadoutPanel readouts={[판독()]} symbol="BTCUSDT" />);
+
+    expect(screen.getByText("구름 두께")).toBeVisible();
+    expect(screen.getByText("0.18 ATR")).toBeVisible();
+    expect(screen.getByText("1.34 ATR")).toBeVisible();
+    expect(screen.getByText("0.20 ATR")).toBeVisible();
+    expect(screen.getByText("0.2929")).toBeVisible();
+  });
+
+  /**
+   * <b>말할 수 없는 것을 빈칸으로 두지 않는다.</b> 밴드 폭이 0 이면 「밴드 안 어디」 가
+   * 성립하지 않는데, 빈칸이면 그것이 0(하단에 붙어 있다)으로 읽힌다.
+   */
+  it("밴드 안 위치가 없으면 없다고 적는다", () => {
+    const 없는것 = 판독();
+    render(
+      <ReadoutPanel
+        readouts={[{ ...없는것, bollinger: { ...없는것.bollinger, ratio: null } }]}
+        symbol="BTCUSDT"
+      />,
+    );
+
+    expect(screen.getByText("밴드 안 어디").nextElementSibling).toHaveTextContent("—");
+  });
+
+  /**
+   * <b>한 봉만 봐서는 나오지 않는 것들.</b> 밴드폭이 창 안에서 몇 번째인지, 밖에서 몇 봉째
+   * 걷고 있는지, 시그널 위에 선 지 얼마나 됐는지 — 전부 딱지에서 통째로 빠져 있던 값이다.
+   */
+  it("이력이 있어야 나오는 값들을 함께 적는다", () => {
+    render(<ReadoutPanel readouts={[판독()]} symbol="BTCUSDT" />);
+
+    expect(screen.getByText("밴드폭 순위").nextElementSibling).toHaveTextContent("18.5053%");
+    expect(screen.getByText("밴드 밖 연속").nextElementSibling).toHaveTextContent("0봉");
+    expect(screen.getByText("후행스팬").nextElementSibling).toHaveTextContent("0.85 ATR");
+    expect(screen.getByText("RSI").nextElementSibling).toHaveTextContent("62.4100%");
+    expect(screen.getByText("RSI 3봉").nextElementSibling).toHaveTextContent("-4.1200%p");
+    expect(screen.getByText("MACD 이어진 봉").nextElementSibling).toHaveTextContent("7봉");
+    expect(screen.getByText("20−200").nextElementSibling).toHaveTextContent("2.40 ATR");
+  });
+
+  /** 200 이동평균이 없는 주기가 실제로 있다. 0 으로 적으면 두 선이 붙어 있다는 뜻이 된다. */
+  /**
+   * <b>흰 화면과 원인을 적은 한 줄은 다르다.</b> 서버가 이 소스보다 오래된 코드로 떠
+   * 있으면 타입이 참이라고 말하는 칸이 <code>undefined</code> 로 오고, 그대로 읽으면
+   * 화면 전체가 죽는다. 실제로 그렇게 죽었다 —
+   * <code>Cannot read properties of undefined (reading 'value')</code>.
+   *
+   * 타입을 일부러 거스르는 픽스처다. 그것이 이 검사가 재는 상황 그 자체이기 때문이다.
+   */
+  it("서버가 옛 코드로 떠 있으면 흰 화면 대신 그 사실을 적는다", () => {
+    const 낡은것 = { ...판독() } as Record<string, unknown>;
+    delete 낡은것.rsi;
+    render(<ReadoutPanel readouts={[낡은것 as unknown as Readout]} symbol="BTCUSDT" />);
+
+    expect(screen.getByText(/서버가 옛 코드로 떠 있다/)).toBeVisible();
+    expect(screen.getByText(/bootRun/)).toBeVisible();
+  });
+  it("이동평균 간격이 없으면 없다고 적는다", () => {
+    const 없는것 = 판독();
+    render(
+      <ReadoutPanel
+        readouts={[{ ...없는것, movingAverage: { spread: null } }]}
+        symbol="BTCUSDT"
+      />,
+    );
+
+    expect(screen.getByText("20−200").nextElementSibling).toHaveTextContent("—");
   });
 
   /** 읽는 법은 한 번 읽으면 되는 것이다. 펼쳐 두면 매일 보는 값들이 그 글에 밀린다. */

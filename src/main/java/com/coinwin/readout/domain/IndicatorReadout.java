@@ -1,78 +1,77 @@
 package com.coinwin.readout.domain;
 
 import com.coinwin.common.domain.DomainValues;
-import com.coinwin.common.domain.Percentage;
+import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
-import com.coinwin.indicator.domain.BandPosition;
-import com.coinwin.indicator.domain.BollingerValue;
-import com.coinwin.indicator.domain.IchimokuValue;
+import com.coinwin.indicator.domain.BollingerBands;
+import com.coinwin.indicator.domain.IchimokuCloud;
+import com.coinwin.indicator.domain.Macd;
+import com.coinwin.indicator.domain.RelativeStrengthIndex;
+import com.coinwin.market.domain.CandleSeries;
 
 /**
  * 한 주기에서 지표가 말하는 것.
  *
- * <p><b>선 값을 함께 싣는다.</b> "구름 위" 만으로는 아슬아슬하게 위인지 한참 위인지 알 수
- * 없고, 그 차이가 분할 진입에서 첫 칸을 어디 둘지를 가른다. 위치는 요약이고 선은 근거다.
+ * <p><b>지표마다 자기 묶음을 갖는다.</b> 처음에는 열 칸이 한 줄에 늘어서 있었고, 그러면
+ * 「구름 상단」 과 「밴드 상단」 이 같은 높이에 놓여 <b>어느 것이 어느 지표의 값인지가
+ * 이름에만 남는다.</b> 칸을 늘릴수록 그 자리가 나빠진다.
+ *
+ * <p><b>계산기를 여기서 부른다.</b> 이력이 필요한 값들(밴드폭 순위·밴드 걷기·교차 이후 경과
+ * 봉·후행스팬)은 마지막 값 하나로는 나오지 않는다 — 부르는 쪽이 목록을 넘겨 주는 모양이면
+ * "어느 창에서 잰 것인가" 가 호출부마다 달라질 수 있다.
  *
  * <p><b>판정하지 않는다.</b> 구름 위라는 것은 사실이고 "그러니 롱" 은 예측이다. 이 저장소는
- * 그 예측을 7년 15,110봉에서 반증했다({@code docs/adr/021}). 그래서 여기 담기는 것은 위치와
- * 값까지이고, 방향은 사람이 정한다.
+ * 그 예측을 7년 15,110봉에서 반증했다({@code docs/adr/021}).
  *
- * @param ichimoku 구름 대비 위치
- * @param conversionLine 전환선 (9)
- * @param baseLine 기준선 (26)
- * @param cloudTop 구름 위 모서리. 두 선행스팬 중 큰 쪽이다
- * @param cloudBottom 구름 아래 모서리
- * @param bollinger 밴드 대비 위치
- * @param bollingerUpper 밴드 상단
- * @param bollingerMiddle 밴드 중심 (이동평균)
- * @param bollingerLower 밴드 하단
- * @param bandWidthPercent 밴드 폭. 좁으면 변동성이 죽어 있다는 뜻이다
+ * <p><b>무리를 합친 수를 만들지 않는다.</b> 일목·MACD·이동평균은 추세를, 볼린저는 되돌림을
+ * 재고 둘은 같은 사실에 반대 뜻을 붙인다 — {@link IndicatorFamily} 가 그 이유를 갖고 있다.
+ *
+ * @param ichimoku 구름과 두 선, 그리고 후행스팬
+ * @param bollinger 밴드와 그 폭의 순위
+ * @param rsi 50 으로 접기 전의 값과 그 움직임
+ * @param macd 시그널 대비와 영선 대비, 그리고 그 자리가 이어진 봉 수
+ * @param movingAverage 20 과 200 이 벌어진 정도
  */
 public record IndicatorReadout(
-        BandPosition ichimoku,
-        Price conversionLine,
-        Price baseLine,
-        Price cloudTop,
-        Price cloudBottom,
-        BandPosition bollinger,
-        Price bollingerUpper,
-        Price bollingerMiddle,
-        Price bollingerLower,
-        Percentage bandWidthPercent) {
+        IchimokuReadout ichimoku,
+        BollingerReadout bollinger,
+        RsiReadout rsi,
+        MacdReadout macd,
+        MovingAverageReadout movingAverage) {
 
     public IndicatorReadout {
-        DomainValues.required(ichimoku, "구름 위치");
-        DomainValues.required(conversionLine, "전환선");
-        DomainValues.required(baseLine, "기준선");
-        DomainValues.required(cloudTop, "구름 상단");
-        DomainValues.required(cloudBottom, "구름 하단");
-        DomainValues.required(bollinger, "밴드 위치");
-        DomainValues.required(bollingerUpper, "밴드 상단");
-        DomainValues.required(bollingerMiddle, "밴드 중심");
-        DomainValues.required(bollingerLower, "밴드 하단");
-        DomainValues.required(bandWidthPercent, "밴드 폭");
+        DomainValues.required(ichimoku, "일목");
+        DomainValues.required(bollinger, "볼린저");
+        DomainValues.required(rsi, "RSI");
+        DomainValues.required(macd, "MACD");
+        DomainValues.required(movingAverage, "이동평균");
     }
 
     /**
-     * 두 지표 값을 지금 가격 기준으로 읽는다.
+     * 캔들에서 다섯 지표를 읽는다.
      *
-     * <p><b>위치는 지표가 판정한다.</b> 여기서 가격과 선을 직접 비교하면 "경계는 구간에
-     * 포함된다" 는 규칙이 두 곳에 생기고, 한쪽만 바뀌는 순간 화면과 백테스트가 다른 답을 낸다.
+     * <p><b>ATR 을 함께 받는 이유</b>는 거리를 그 단위로 재기 때문이다. 여기서 다시 계산하면
+     * 판독의 다른 값들이 쓰는 ATR 과 갈라질 수 있고, 그러면 같은 화면의 두 수가 다른 변동성을
+     * 기준으로 삼는다.
+     *
+     * <p><b>봉이 모자라면 던진다.</b> 일목이 가장 긴 워밍업을 갖고 있어 그쪽이 먼저 걸리며,
+     * 여기서 같은 검사를 또 하지 않는다 — 몇 봉이 필요한지는 계산기가 안다. 200 이동평균만은
+     * 없어도 나머지가 성립하므로 그 하나만 빈다.
      */
-    public static IndicatorReadout of(IchimokuValue ichimoku, BollingerValue bollinger, Price close) {
-        DomainValues.required(ichimoku, "일목 값");
-        DomainValues.required(bollinger, "볼린저 값");
-        DomainValues.required(close, "현재가");
+    public static IndicatorReadout over(CandleSeries series, Money atr) {
+        DomainValues.required(series, "캔들 묶음");
+        DomainValues.required(atr, "ATR");
+        IchimokuCloud cloud = IchimokuCloud.standard();
+        Price close = series.candles().getLast().close();
         return new IndicatorReadout(
-                ichimoku.positionOf(close),
-                ichimoku.conversionLine(),
-                ichimoku.baseLine(),
-                ichimoku.cloud().upper(),
-                ichimoku.cloud().lower(),
-                bollinger.positionOf(close),
-                bollinger.upper(),
-                bollinger.middle(),
-                bollinger.lower(),
-                bollinger.bandWidth());
+                IchimokuReadout.of(
+                        cloud.over(series).getLast().value(),
+                        close,
+                        atr,
+                        cloud.laggingSpanGap(series)),
+                BollingerReadout.over(BollingerBands.standard().over(series), series),
+                RsiReadout.over(RelativeStrengthIndex.standard().over(series)),
+                MacdReadout.over(Macd.standard().over(series), atr),
+                MovingAverageReadout.over(series, atr));
     }
 }

@@ -39,40 +39,30 @@ public record TimeframeReadoutResponse(
                 example = "412.30")
         BigDecimal atr,
 
-        @Schema(description = "구름 대비 위치", example = "ABOVE",
-                allowableValues = {"ABOVE", "INSIDE", "BELOW"})
-        String ichimoku,
-
-        @Schema(description = "전환선 (9)", example = "79100.00")
-        BigDecimal conversionLine,
-
-        @Schema(description = "기준선 (26)", example = "78420.00")
-        BigDecimal baseLine,
-
-        @Schema(description = "구름 위 모서리. 두 선행스팬 중 큰 쪽이다", example = "78900.00")
-        BigDecimal cloudTop,
-
-        @Schema(description = "구름 아래 모서리", example = "77300.00")
-        BigDecimal cloudBottom,
-
-        @Schema(description = "밴드 대비 위치", example = "INSIDE",
-                allowableValues = {"ABOVE", "INSIDE", "BELOW"})
-        String bollinger,
-
-        @Schema(description = "밴드 상단", example = "80120.00")
-        BigDecimal bollingerUpper,
-
-        @Schema(description = "밴드 중심. 20봉 단순이동평균이다", example = "78900.00")
-        BigDecimal bollingerMiddle,
-
-        @Schema(description = "밴드 하단", example = "77680.00")
-        BigDecimal bollingerLower,
+        @Schema(description = """
+                일목 판독. **한 칸으로 접지 않는다** — 구름 위치만 내면 아슬아슬하게 위인지
+                한참 위인지, 구름이 두꺼운지 종잇장인지가 전부 같은 사실이 된다.""")
+        IchimokuReadoutResponse ichimoku,
 
         @Schema(description = """
-                밴드 폭 (%). **좁으면 변동성이 죽어 있다는 뜻**이고 그 자체로 방향을 뜻하지
-                않는다 — 좁아진 뒤 어느 쪽으로 터지는가는 이 수가 답하지 않는다.""",
-                example = "3.0900")
-        BigDecimal bandWidthPercent,
+                볼린저 판독. **밴드 안 어디인지까지 낸다** — 「안」 하나로는 하단에 붙어 있는
+                것과 상단 바로 아래인 것이 구별되지 않는다.""")
+        BollingerReadoutResponse bollinger,
+
+        @Schema(description = """
+                RSI 판독. **50 으로 접지 않는다** — 「50 위」 는 51 과 78 을 같은 사실로
+                만든다.""")
+        RsiReadoutResponse rsi,
+
+        @Schema(description = """
+                MACD 판독. **부호 하나로 접지 않는다** — 방금 넘어온 것과 스무 봉째 위에
+                있는 것은 다른 자리다.""")
+        MacdReadoutResponse macd,
+
+        @Schema(description = """
+                이동평균 판독. **순서가 아니라 벌어진 정도를 낸다** — 「정배열」 은 1 만큼
+                위인 것과 다섯 배 벌어진 것을 같은 사실로 만든다.""")
+        MovingAverageReadoutResponse movingAverage,
 
         @Schema(description = """
                 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
@@ -103,11 +93,11 @@ public record TimeframeReadoutResponse(
         return new TimeframeReadoutResponse(
                 readout.interval().code(), readout.at(),
                 readout.close().value(), readout.atr().value(),
-                indicators.ichimoku().name(), indicators.conversionLine().value(),
-                indicators.baseLine().value(), indicators.cloudTop().value(),
-                indicators.cloudBottom().value(), indicators.bollinger().name(),
-                indicators.bollingerUpper().value(), indicators.bollingerMiddle().value(),
-                indicators.bollingerLower().value(), indicators.bandWidthPercent().value(),
+                IchimokuReadoutResponse.from(indicators.ichimoku()),
+                BollingerReadoutResponse.from(indicators.bollinger()),
+                RsiReadoutResponse.from(indicators.rsi()),
+                MacdReadoutResponse.from(indicators.macd()),
+                MovingAverageReadoutResponse.from(indicators.movingAverage()),
                 zone(readout.support()), zone(readout.resistance()), fibonacci(readout),
                 VolumeProfileResponse.from(readout.volume()));
     }

@@ -47,6 +47,9 @@ import pandas as pd
 import store
 from config import (
     ALPHA,
+    ERAS,
+    ERA_BOUNDARY,
+    ROUND_TRIP_COST_PCT,
     CORRELATION_CLUSTER_THRESHOLD,
     EMBARGO_HOURS,
     HORIZONS_HOURS,
@@ -63,7 +66,19 @@ if hasattr(sys.stdout, "reconfigure"):
 #: 재는 대상. 스냅샷이 가진 지표 전부이고 여기서 새로 만들지 않는다 — 파생 특징(변화율·
 #: 이동평균)을 이 자리에서 정의하면 그 정의가 수집기와 갈라진다. `basis` · `basis_rate` 가
 #: 이미 저장돼 있는 이유와 같다(`store.DERIVED_COLUMNS`).
-INDICATORS = store.METRIC_COLUMNS + store.DERIVED_COLUMNS
+SNAPSHOT_INDICATORS = store.METRIC_COLUMNS + store.DERIVED_COLUMNS
+
+#: 판독 지표가 사는 표. 슬롯마다 **그 시각에 이미 닫힌 봉**의 값이 들어 있다
+#: (`indicators.py`). 여기서 계산하지 않고 읽기만 한다 — 정의는 자바에만 있다.
+INDICATOR_TABLES = {"15m": "indicator_m15", "1h": "indicator_h1", "4h": "indicator_h4"}
+
+#: 분위로 자르지 않는 칸. **값 하나가 한 칸이다.** 구름 위/안/아래를 다섯 분위로 자르면
+#: 세 값이 다섯 칸에 흩어지고, 그 표는 지표에 대해 아무 말도 하지 않는다.
+CATEGORICAL_BASES = ("cloud_position", "ma_order", "cloud_bullish", "macd_zero_side")
+
+#: 지표 이름 전체. 스냅샷 것과 판독 것이 한 가족으로 보정된다 — 같은 실행에서 같은 라벨을
+#: 상대로 재므로 가족을 나눌 이유가 없다.
+INDICATORS = list(SNAPSHOT_INDICATORS)
 
 #: 값 자체가 6년 동안 한 방향으로 흐른 지표. 분위가 "높다/낮다" 가 아니라 **"언제였나"** 를
 #: 가른다 — 2020년의 가격은 전부 Q1 이고 2025년의 가격은 전부 Q5 다. 그래서 여기서 유의한
@@ -73,6 +88,13 @@ INDICATORS = store.METRIC_COLUMNS + store.DERIVED_COLUMNS
 #: 일이다.
 LEVEL_LIKE = frozenset(
     {"perp_price", "spot_price", "open_interest", "open_interest_value", "basis"}
+) | frozenset(
+    # 판독 지표 중 수준값인 것들. **명세 § 7 이 결과를 보기 전에 꼽아 둔 둘이다** —
+    # 밴드폭과 이동평균 간격은 변동성 국면이 통째로 옮겨가면 분위가 "넓다/좁다" 가 아니라
+    # "언제였나" 를 가른다. 순위(`bandwidth_rank`)는 창 안에서 다시 재므로 여기 없다.
+    f"{base}_{interval}"
+    for base in ("bandwidth", "ma_spread_atr")
+    for interval in ("15m", "1h", "4h")
 )
 
 #: 측정 결과는 **파생이다.** 원천(`store._SCHEMA`)에 섞지 않고 여기서 만든다 — 스냅샷과
@@ -81,14 +103,17 @@ LEVEL_LIKE = frozenset(
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS measurement (
     run_at      INTEGER NOT NULL,
+    era         TEXT    NOT NULL,
     horizon_h   INTEGER NOT NULL,
     indicator   TEXT    NOT NULL,
     quantile    INTEGER NOT NULL,
+    label       TEXT,
     lo          REAL,
     hi          REAL,
     n           INTEGER NOT NULL,
     winrate     REAL,
     baseline    REAL,
+    baseline_ret REAL,
     edge_pp     REAL,
     mean_ret    REAL,
     median_ret  REAL,
@@ -101,7 +126,7 @@ CREATE TABLE IF NOT EXISTS measurement (
     oos_n       INTEGER,
     oos_edge_pp REAL,
     verdict     TEXT    NOT NULL,
-    PRIMARY KEY (run_at, horizon_h, indicator, quantile)
+    PRIMARY KEY (run_at, era, horizon_h, indicator, quantile)
 );
 """
 
@@ -178,8 +203,12 @@ def correlation_clusters(frame, names, threshold=CORRELATION_CLUSTER_THRESHOLD):
     임계 아래여도 한 덩이가 된다. **느슨한 쪽으로 틀리는 선택**이고 의도한 것이다 — 독립
     증거를 실제보다 적게 세는 오류가 많게 세는 오류보다 싸다.
     """
-    usable = [c for c in names if frame[c].notna().sum() >= MIN_SAMPLES]
-    parent = {c: c for c in usable}
+    # **범주형은 상관을 잴 수 없다.** 순위 상관은 순서가 있는 값에만 뜻이 있고, 구름 위/안/
+    # 아래에는 순서가 없다. 그래서 각자 한 덩이로 둔다 — 묶이지 않는 것과 클러스터가 없는
+    # 것은 다르다. 클러스터가 없으면 대표로도 뽑히지 않아 **독립 증거에서 조용히 사라진다.**
+    counted = [c for c in names if frame[c].notna().sum() >= MIN_SAMPLES]
+    usable = [c for c in counted if not is_categorical(c)]
+    parent = {c: c for c in counted}
 
     def find(x):
         while parent[x] != x:
@@ -196,7 +225,7 @@ def correlation_clusters(frame, names, threshold=CORRELATION_CLUSTER_THRESHOLD):
                     parent[find(a)] = find(b)
 
     groups = {}
-    for c in usable:
+    for c in counted:
         groups.setdefault(find(c), []).append(c)
     # 클러스터 이름은 그 안에서 가장 이른 이름이다. 실행마다 같은 이름이 나와야 표를 맞댈 수
     # 있고, 딕셔너리 순서에 기대면 그것이 성립하지 않는다.
@@ -242,32 +271,50 @@ def _adverse_pct(edge_pp, mean_mfe_pct, mean_mae_pct):
     return mean_mae_pct if edge_pp >= 0 else -mean_mfe_pct
 
 
+def _cells(values, name, quantiles=QUANTILES):
+    """칸을 나눈다. `(칸 코드, 칸 수, 칸 이름 함수)`.
+
+    **범주형은 값 하나가 한 칸이다.** 구름 위/안/아래를 다섯 분위로 자르면 세 값이 다섯 칸에
+    흩어지고, 그 표는 지표에 대해 아무 말도 하지 않는다.
+    """
+    if is_categorical(name):
+        labels = sorted(values.dropna().unique().tolist(), key=str)
+        codes = values.map({label: i for i, label in enumerate(labels)})
+        return codes, len(labels), (lambda q: (str(labels[q]), None, None))
+    codes, edges = _bins(values, quantiles)
+    return codes, len(edges) - 1, (lambda q: (None, float(edges[q]), float(edges[q + 1])))
+
+
 def measure_indicator(frame, name, quantiles=QUANTILES):
-    """한 지표를 분위로 갈라 분위마다 한 줄. p 는 아직 보정 전이고 판정도 아직 없다."""
+    """한 지표를 칸으로 갈라 칸마다 한 줄. p 는 아직 보정 전이고 판정도 아직 없다."""
     sub = frame[[name, "ret", "mfe", "mae"]].dropna(subset=[name])
     total = len(sub)
     if total < MIN_SAMPLES:
-        # 지표 전체가 표본 미달이면 분위를 나누지 않는다. 나누면 다섯 줄이 생기고, 다섯 줄은
+        # 지표 전체가 표본 미달이면 칸을 나누지 않는다. 나누면 여러 줄이 생기고, 여러 줄은
         # 아무것도 모른다는 사실보다 더 많이 아는 것처럼 보인다.
         return [{"indicator": name, "quantile": -1, "n": total, "p_raw": None}]
 
-    codes, edges = _bins(sub[name], quantiles)
+    codes, cells, describe = _cells(sub[name], name, quantiles)
     wins = sub["ret"] > 0
     total_wins = int(wins.sum())
     baseline = total_wins / total
+    baseline_ret = sub["ret"].mean() * 100
 
     rows = []
-    for q in range(len(edges) - 1):
+    for q in range(cells):
         mask = codes == q
         n1 = int(mask.sum())
         k1 = int(wins[mask].sum())
         n2, k2 = total - n1, total_wins - k1
         winrate = k1 / n1 if n1 else float("nan")
+        label, lo, hi = describe(q)
         rows.append({
             "indicator": name,
             "quantile": q,
-            "lo": float(edges[q]),
-            "hi": float(edges[q + 1]),
+            "label": label,
+            "lo": lo,
+            "hi": hi,
+            "baseline_ret": baseline_ret,
             "n": n1,
             "winrate": winrate,
             "baseline": baseline,
@@ -302,13 +349,22 @@ def out_of_sample(frame, name, quantiles=QUANTILES):
     if len(train) < MIN_SAMPLES or len(valid) < MIN_SAMPLES:
         return {}
 
-    _, edges = _bins(train[name], quantiles)
-    edges = [-math.inf, *list(edges[1:-1]), math.inf]   # 밖으로 벗어난 값도 양 끝 분위에 담는다
-    codes = pd.cut(valid[name], edges, labels=False, duplicates="drop")
+    if is_categorical(name):
+        # **범주는 고를 것이 없다.** 칸이 값 자체라 학습 구간에서 경계를 얻는 단계가 없고,
+        # 그래서 이 칸이 묻는 것은 "고른 경계가 밖에서도 서는가" 가 아니라 "관계가 뒤 구간에서도
+        # 같은 방향인가" 다. 칸 번호는 구간 안 표와 **같은 순서**여야 하므로 전 구간에서 얻는다.
+        labels = sorted(sub[name].dropna().unique().tolist(), key=str)
+        codes = valid[name].map({label: i for i, label in enumerate(labels)})
+        cells = len(labels)
+    else:
+        _, edges = _bins(train[name], quantiles)
+        edges = [-math.inf, *list(edges[1:-1]), math.inf]  # 밖으로 벗어난 값도 양 끝에 담는다
+        codes = pd.cut(valid[name], edges, labels=False, duplicates="drop")
+        cells = len(edges) - 1
     wins = valid["ret"] > 0
     baseline = wins.mean()
     out = {}
-    for q in range(len(edges) - 1):
+    for q in range(cells):
         mask = codes == q
         n = int(mask.sum())
         # 검증 구간의 그 칸이 `MIN_SAMPLES` 를 못 채우면 수를 내지 않는다. 여기서 이 규칙이
@@ -323,11 +379,20 @@ def out_of_sample(frame, name, quantiles=QUANTILES):
 
 
 def verdict(row):
-    """`config.py` 의 네 기준을 순서대로 적용한다. 여기서 새 기준을 만들지 않는다.
+    """`config.py` 의 다섯 기준을 순서대로 적용한다. 여기서 새 기준을 만들지 않는다.
 
     순서가 뜻을 갖는다. **표본 미달이 가장 먼저**인 것은 "아무 결론도 내지 않는다" 가 다른
     어떤 판정보다 강하기 때문이고, **청산 거리가 그다음**인 것은 그 기준이 "승률과 무관하게"
     라고 적혀 있기 때문이다.
+
+    **비용이 가장 마지막이다.** 승률 기준을 통과하고도 금액에서 지는 자리가 실제로 있었고
+    (`stability.py`), 그때 드러난 것은 기준이 틀렸다는 것이 아니라 **기준이 승률로만 적혀
+    있었다는 사실**이었다. 기준선을 뺀 뒤 왕복 비용을 넘는지 본다 — 빼지 않으면 시장이
+    올라서 생긴 수익을 신호의 값으로 읽는다.
+
+    **이 기준은 진입 칸의 것이다.** 손절·사이징은 거래를 새로 만들지 않으므로 비용을 넘을
+    이유가 없고, 그 칸의 답은 판정이 아니라 MAE 분포에서 읽는다
+    (`docs/spec/indicator-usage.md` § 3).
     """
     if row["n"] < MIN_SAMPLES:
         return "데이터 부족"
@@ -337,28 +402,84 @@ def verdict(row):
         return "예측력 없음"
     if abs(row["edge_pp"]) < MIN_WINRATE_EDGE_PP:
         return "실용적으로 무의미"
+    if abs(row["mean_ret"] - row.get("baseline_ret", 0.0)) < ROUND_TRIP_COST_PCT:
+        return "비용을 못 넘는다"
     return "유효 후보"
 
 
 # ── 실행 ────────────────────────────────────────────────────────────────────
 
-def load(conn, horizon):
-    """스냅샷과 라벨을 슬롯으로 맞댄다. 라벨이 없는 슬롯은 빠진다."""
+def readout_columns(conn):
+    """붙어 있는 판독 지표 칸. `{프레임 이름: (표, 원래 칸)}`.
+
+    **표에서 읽는다.** 여기 목록을 손으로 적으면 `docs/spec/indicator-usage.md` § 4 가 늘 때
+    한쪽만 낡는다 — 자바가 CSV 에 낸 칸이 그대로 표가 되고 표가 그대로 여기 온다.
+    """
+    out = {}
+    for interval, table in INDICATOR_TABLES.items():
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchall()
+        if not rows:
+            continue
+        for info in conn.execute(f"PRAGMA table_info({table})"):
+            name = info[1]
+            if name not in ("slot_ts", "bar_open_time", "bar_close_time"):
+                out[f"{name}_{interval}"] = (table, name)
+    return out
+
+
+def is_categorical(name):
+    """분위로 자르지 않는 칸인가. 이름은 `{칸}_{주기}` 다."""
+    return any(name.startswith(base) for base in CATEGORICAL_BASES)
+
+
+def era_bounds(era):
+    """`(시작, 끝)` 밀리초. `None` 은 열려 있다는 뜻이다."""
+    if era == "all":
+        return None, None
+    boundary = int(pd.Timestamp(ERA_BOUNDARY, tz="UTC").timestamp() * 1000)
+    return (None, boundary) if era == "reversion" else (boundary, None)
+
+
+def load(conn, horizon, readout, era="all"):
+    """스냅샷·판독 지표·라벨을 슬롯으로 맞댄다. 라벨이 없는 슬롯은 빠진다."""
+    selects = ["s.slot_ts"] + [f"s.{c}" for c in SNAPSHOT_INDICATORS]
+    joins = []
+    for index, (interval, table) in enumerate(INDICATOR_TABLES.items()):
+        names = [name for frame_name, (owner, name) in readout.items() if owner == table]
+        if not names:
+            continue
+        alias = f"t{index}"
+        selects += [f"{alias}.{name} AS {name}_{interval}" for name in names]
+        joins.append(f"LEFT JOIN {table} {alias} ON {alias}.slot_ts = s.slot_ts")
     snap = pd.read_sql_query(
-        f"SELECT slot_ts, {', '.join(INDICATORS)} FROM snapshot ORDER BY slot_ts", conn
+        f"SELECT {', '.join(selects)} FROM snapshot s {' '.join(joins)} ORDER BY s.slot_ts", conn
     )
     label = pd.read_sql_query(
         "SELECT slot_ts, ret, mfe, mae FROM label WHERE horizon_h=?", conn, params=(horizon,)
     )
-    return snap.merge(label, on="slot_ts", how="inner")
+    frame = snap.merge(label, on="slot_ts", how="inner")
+    start, end = era_bounds(era)
+    if start is not None:
+        frame = frame[frame["slot_ts"] >= start]
+    if end is not None:
+        frame = frame[frame["slot_ts"] < end]
+    return frame.reset_index(drop=True)
 
 
-def run(conn, horizons=HORIZONS_HOURS):
-    """전 기간·전 지표를 재고 BH 로 보정한 뒤 판정을 붙인다."""
+def run(conn, horizons=HORIZONS_HOURS, era="all"):
+    """한 국면·전 지표를 재고 BH 로 보정한 뒤 판정을 붙인다.
+
+    **BH 가족은 한 국면 안이다.** 국면을 나눠 재는 것은 세 개의 다른 질문이므로 한 실행에
+    묶지 않는다 — 묶으면 "2024년 이후에 이런 관계가 있었나" 의 문턱이 2020년 표에 달린다.
+    """
+    readout = readout_columns(conn)
+    INDICATORS[:] = SNAPSHOT_INDICATORS + sorted(readout)
     rows = []
     frames = {}
     for hours in horizons:
-        frame = load(conn, hours)
+        frame = load(conn, hours, readout, era)
         frames[hours] = frame
         oos = {name: out_of_sample(frame, name) for name in INDICATORS}
         counts = {name: int(frame[name].notna().sum()) for name in INDICATORS}
@@ -367,6 +488,7 @@ def run(conn, horizons=HORIZONS_HOURS):
         for name in INDICATORS:
             for row in measure_indicator(frame, name):
                 row["horizon_h"] = hours
+                row["era"] = era
                 row["indicator_n"] = counts[name]
                 row["cluster"] = clusters.get(name)
                 row["representative"] = name in reps
@@ -384,18 +506,32 @@ def run(conn, horizons=HORIZONS_HOURS):
     return rows, frames
 
 
+def _migrate(conn):
+    """모양이 달라진 낡은 표는 버린다.
+
+    **`measurement` 는 파생이다.** 스냅샷과 라벨은 다시 만들 수 없지만 이 표는 언제든 다시
+    계산된다 — 칸이 늘 때 옮겨 담는 코드를 쓰는 것은 다시 계산하는 것보다 비싸고, 그 코드가
+    틀리면 옛 판정과 새 판정이 한 표에 섞인다.
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(measurement)")}
+    if existing and not {"era", "label", "baseline_ret"} <= existing:
+        conn.execute("DROP TABLE measurement")
+
+
 def save(conn, rows, run_at):
+    _migrate(conn)
     conn.executescript(_SCHEMA)
     conn.executemany(
-        "INSERT INTO measurement (run_at, horizon_h, indicator, quantile, lo, hi, n, winrate, "
-        "baseline, edge_pp, mean_ret, median_ret, mean_mfe, mean_mae, p_raw, p_bh, cluster, "
-        "representative, oos_n, oos_edge_pp, verdict) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "INSERT INTO measurement (run_at, era, horizon_h, indicator, quantile, label, lo, hi, "
+        "n, winrate, baseline, baseline_ret, edge_pp, mean_ret, median_ret, mean_mfe, mean_mae, "
+        "p_raw, p_bh, cluster, representative, oos_n, oos_edge_pp, verdict) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT DO NOTHING",
         [
             (
-                run_at, r["horizon_h"], r["indicator"], r["quantile"],
-                r.get("lo"), r.get("hi"), r["n"], r.get("winrate"), r.get("baseline"),
+                run_at, r.get("era", "all"), r["horizon_h"], r["indicator"], r["quantile"],
+                r.get("label"), r.get("lo"), r.get("hi"), r["n"], r.get("winrate"),
+                r.get("baseline"), r.get("baseline_ret"),
                 r.get("edge_pp"), r.get("mean_ret"), r.get("median_ret"),
                 r.get("mean_mfe"), r.get("mean_mae"), r.get("p_raw"), r.get("p_bh"),
                 r.get("cluster"), int(bool(r.get("representative"))),
@@ -417,8 +553,13 @@ def _fmt(x, spec, blank="-"):
     return blank if x is None or (isinstance(x, float) and math.isnan(x)) else format(x, spec)
 
 
-def render(rows, frames=None):
-    """콘솔 표. 기간 → 지표 → 분위 순서로 찍는다."""
+def render(rows, frames=None, era="all"):
+    """콘솔 표. 기간 → 지표 → 칸 순서로 찍는다."""
+    print()
+    note = "" if era == "all" else (
+        f"  (경계 {ERA_BOUNDARY} — stability.py 가 테이커 비율에서 찾은 날이다. "
+        "지표마다 다시 고르지 않는다)")
+    print(f"국면 {era}" + note)
     for hours in sorted({r["horizon_h"] for r in rows}):
         block = [r for r in rows if r["horizon_h"] == hours]
         head = f"\n{'═' * 132}\n{hours}시간"
@@ -427,7 +568,7 @@ def render(rows, frames=None):
             up = (frame["ret"] > 0).mean() * 100
             head += f"  라벨 {len(frame):,}행  전체 승률 {up:.2f}%"
         print(head + f"\n{'═' * 132}")
-        for name in INDICATORS:
+        for name in sorted({r["indicator"] for r in block}, key=INDICATORS.index):
             lines = [r for r in block if r["indicator"] == name]
             if lines:
                 _render_indicator(name, lines)
@@ -450,7 +591,8 @@ def _render_indicator(name, lines):
         return
     print("  " + _HEAD)
     for r in lines:
-        span = f"[{_fmt(r.get('lo'), '>12,.4f')} ~ {_fmt(r.get('hi'), '>12,.4f')}]"
+        span = (f"{r['label']:>29}" if r.get("label")
+                else f"[{_fmt(r.get('lo'), '>12,.4f')} ~ {_fmt(r.get('hi'), '>12,.4f')}]")
         winrate = r.get("winrate")
         print(
             f"  Q{r['quantile'] + 1}    {span}  {r['n']:>7,}  "
@@ -466,7 +608,8 @@ def _render_summary(block):
     tally = {}
     for r in block:
         tally[r["verdict"]] = tally.get(r["verdict"], 0) + 1
-    order = ["유효 후보", "실용적으로 무의미", "예측력 없음", "사용 불가", "데이터 부족"]
+    order = ["유효 후보", "비용을 못 넘는다", "실용적으로 무의미", "예측력 없음",
+             "사용 불가", "데이터 부족"]
     print("\n  판정(줄 수, 중복 증거 포함): " + " · ".join(
         f"{k} {tally[k]}" for k in order if k in tally
     ))
@@ -487,6 +630,7 @@ def _render_summary(block):
 
 def report(conn):
     """마지막 실행 결과만 읽어 찍는다. 다시 재지 않는다."""
+    _migrate(conn)
     conn.executescript(_SCHEMA)
     last = conn.execute("SELECT MAX(run_at) FROM measurement").fetchone()[0]
     if last is None:
@@ -505,24 +649,29 @@ def report(conn):
         r["representative"] = bool(r["representative"])
         r["indicator_n"] = totals[(r["horizon_h"], r["indicator"])]
     stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(last / 1000))
+    era = rows[0]["era"] if rows else "all"
     print(f"마지막 측정 {stamp}  {len(rows):,}줄")
-    render(rows)
+    render(rows, era=era)
 
 
 def main(argv):
     horizons = HORIZONS_HOURS
     if "--horizon" in argv:
         horizons = (int(argv[argv.index("--horizon") + 1]),)
+    era = argv[argv.index("--era") + 1] if "--era" in argv else "all"
+    if era not in ERAS:
+        print(f"국면은 {' · '.join(ERAS)} 중 하나다")
+        return 2
     with store.connect() as conn:
         store.init(conn)
         if "--report" in argv:
             report(conn)
             return 0
         started = time.time()
-        rows, frames = run(conn, horizons)
+        rows, frames = run(conn, horizons, era)
         run_at = int(time.time() * 1000)
         save(conn, rows, run_at)
-        render(rows, frames)
+        render(rows, frames, era)
         print(f"\n{time.time() - started:.1f}초  ·  {len(rows):,}줄 저장")
         print("\n이 표는 신호를 만들지 않는다. 분포를 잰 것이고, "
               "'예측력 없음' 은 실패가 아니라 결과다.")
