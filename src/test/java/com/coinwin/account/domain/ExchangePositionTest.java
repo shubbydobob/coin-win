@@ -58,22 +58,22 @@ class ExchangePositionTest {
     @Test
     void 필수값이_없으면_만들_수_없다() {
         assertThatThrownBy(() -> new ExchangePosition(null, Direction.LONG, Quantity.of("0.1"),
-                Price.of("59500"), MARK, liquidation(), Money.of("0"), AT))
+                Price.of("59500"), MARK, liquidation(), Money.of("0"), MARGIN, AT))
                 .isInstanceOf(InvalidValueException.class);
         assertThatThrownBy(() -> new ExchangePosition(Symbol.BTC_USDT, null, Quantity.of("0.1"),
-                Price.of("59500"), MARK, liquidation(), Money.of("0"), AT))
+                Price.of("59500"), MARK, liquidation(), Money.of("0"), MARGIN, AT))
                 .isInstanceOf(InvalidValueException.class);
         assertThatThrownBy(() -> new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
-                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(), Money.of("0"), null))
+                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(), Money.of("0"), MARGIN, null))
                 .isInstanceOf(InvalidValueException.class);
         assertThatThrownBy(() -> new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
-                Quantity.of("0.1"), null, MARK, liquidation(), Money.of("0"), AT))
+                Quantity.of("0.1"), null, MARK, liquidation(), Money.of("0"), MARGIN, AT))
                 .isInstanceOf(InvalidValueException.class);
         assertThatThrownBy(() -> new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
-                Quantity.of("0.1"), Price.of("59500"), MARK, null, Money.of("0"), AT))
+                Quantity.of("0.1"), Price.of("59500"), MARK, null, Money.of("0"), MARGIN, AT))
                 .isInstanceOf(InvalidValueException.class);
         assertThatThrownBy(() -> new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
-                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(), null, AT))
+                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(), null, MARGIN, AT))
                 .isInstanceOf(InvalidValueException.class);
     }
 
@@ -81,14 +81,14 @@ class ExchangePositionTest {
     @Test
     void 미실현_손익은_음수일_수_있다() {
         ExchangePosition losing = new ExchangePosition(Symbol.BTC_USDT, Direction.SHORT,
-                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(), Money.of("-8.10"), AT);
+                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(), Money.of("-8.10"), MARGIN, AT);
 
         assertThat(losing.unrealizedPnl()).isEqualTo(Money.of("-8.10"));
     }
 
     private static ExchangePosition position(Quantity quantity, Optional<Price> liquidation) {
         return new ExchangePosition(Symbol.BTC_USDT, Direction.LONG, quantity,
-                Price.of("59500"), MARK, liquidation, Money.of("12.40"), AT);
+                Price.of("59500"), MARK, liquidation, Money.of("12.40"), MARGIN, AT);
     }
 
     /**
@@ -120,7 +120,7 @@ class ExchangePositionTest {
     void 숏의_청산가는_위에_있고_거리는_그래도_양수다() {
         ExchangePosition 숏 = new ExchangePosition(Symbol.BTC_USDT, Direction.SHORT,
                 Quantity.of("0.1"), Price.of("59500"), MARK,
-                Optional.of(Price.of("66043.21")), Money.of("-8.10"), AT);
+                Optional.of(Price.of("66043.21")), Money.of("-8.10"), MARGIN, AT);
 
         // (66043.21 − 60000) / 60000 = 10.0720%
         assertThat(숏.liquidationDistance()).contains(Percentage.of("10.0720"));
@@ -136,6 +136,82 @@ class ExchangePositionTest {
 
     /** 표시가. 평단 59500 에서 조금 오른 자리라 롱이 이기고 있는 상태다. */
     private static final Price MARK = Price.of("60000");
+
+    /** 증거금 600. 수량 0.1 이면 명목이 6000 이므로 배수가 정확히 10 이다. */
+    private static final Optional<Money> MARGIN = Optional.of(Money.of("600"));
+
+    /**
+     * <b>배수는 받는 값이 아니라 나누어 얻는 값이다.</b> 거래소 응답({@code v3})에
+     * {@code leverage} 필드가 없어서 명목을 개시증거금으로 나눈다.
+     */
+    @Test
+    void 레버리지는_명목을_증거금으로_나눈_값이다() {
+        ExchangePosition position = position(Quantity.of("0.1"), liquidation());
+
+        // 명목 0.1 × 60000 = 6000, 증거금 600 → 10배
+        assertThat(position.notional()).isEqualTo(Money.of("6000.00"));
+        assertThat(position.leverage()).contains(new java.math.BigDecimal("10.00"));
+    }
+
+    /** 수량이 늘면 명목이 늘고, 같은 증거금에서는 배수가 그만큼 커진다. */
+    @Test
+    void 같은_증거금에_명목이_두_배면_배수도_두_배다() {
+        assertThat(position(Quantity.of("0.2"), liquidation()).leverage())
+                .contains(new java.math.BigDecimal("20.00"));
+    }
+
+    /**
+     * 증거금을 말할 수 없으면 배수도 없다. <b>0 이나 1배로 채우면 위험이 없다는 뜻이 된다</b> —
+     * 이 값이 가리키는 것이 정확히 위험의 크기이므로 가장 나쁜 거짓말이다.
+     */
+    @Test
+    void 증거금이_없으면_레버리지도_없다() {
+        ExchangePosition position = new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
+                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(),
+                Money.of("12.40"), Optional.empty(), AT);
+
+        assertThat(position.leverage()).isEmpty();
+    }
+
+    /** 0 원짜리 증거금은 배수를 무한대로 만든다. 청산가와 같은 규칙이다. */
+    @Test
+    void 증거금이_0_이면_거절한다() {
+        assertThatThrownBy(() -> new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
+                Quantity.of("0.1"), Price.of("59500"), MARK, liquidation(),
+                Money.of("12.40"), Optional.of(Money.of("0")), AT))
+                .isInstanceOf(InvalidAccountDataException.class);
+    }
+
+    /**
+     * <b>가격 거리만으로는 위험이 읽히지 않는다.</b> 표시가 60000 에서 청산 53765.06 까지는
+     * 10.39% 인데, 수량 0.1 이면 그 사이에 사라지는 돈이 623.49 로 증거금 600 을 넘는다.
+     */
+    @Test
+    void 청산까지_사라지는_돈은_증거금보다_클_수_있다() {
+        ExchangePosition position = position(Quantity.of("0.1"), liquidation());
+
+        // 0.1 × (60000 − 53765.06) = 623.494 → 623.49
+        assertThat(position.lossToLiquidation()).contains(Money.of("623.49"));
+        // 623.49 / 600 = 103.9150% → 소수 둘로 103.92%
+        assertThat(position.marginAtRisk()).contains(Percentage.of("103.92"));
+    }
+
+    /** 100% 를 넘는 것을 깎지 않는다. 깎으면 "딱 맞게 버틴다" 로 읽힌다. */
+    @Test
+    void 증거금이_먼저_바닥나는_것을_100퍼센트로_누르지_않는다() {
+        assertThat(position(Quantity.of("0.1"), liquidation()).marginAtRisk())
+                .hasValueSatisfying(risk -> assertThat(risk.value().doubleValue())
+                        .isGreaterThan(100.0));
+    }
+
+    /** 청산가가 없으면 사라질 돈도 말할 수 없다. */
+    @Test
+    void 청산가가_없으면_사라지는_돈도_없다() {
+        ExchangePosition position = position(Quantity.of("0.1"), Optional.empty());
+
+        assertThat(position.lossToLiquidation()).isEmpty();
+        assertThat(position.marginAtRisk()).isEmpty();
+    }
 
     private static Optional<Price> liquidation() {
         return Optional.of(Price.of("53765.06"));

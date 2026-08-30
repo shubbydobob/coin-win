@@ -1,6 +1,7 @@
 package com.coinwin.account.adapter.in.web;
 
 import com.coinwin.account.domain.ExchangePosition;
+import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -52,7 +53,35 @@ public record ExchangeSideResponse(
 
         @Schema(description = "미실현 손익. 기록에는 없는 값이다 — 매 순간 달라지므로 기록의 대상이 아니다",
                 example = "12.40")
-        BigDecimal unrealizedPnl) {
+        BigDecimal unrealizedPnl,
+
+        @Schema(description = """
+                이 포지션에 묶여 있는 개시증거금(USDT). 명목을 이것으로 나눈 것이 레버리지다.
+                거래소가 말할 수 없으면 null 이다 — 0 원짜리 증거금은 배수를 무한대로 만든다.""",
+                nullable = true, example = "280.72")
+        BigDecimal margin,
+
+        @Schema(description = """
+                레버리지(배). **거래소가 주는 값이 아니라 명목 ÷ 증거금이다** —
+                /fapi/v3/positionRisk 에는 leverage 필드가 없다(v2 에는 있었다).
+                증거금이 없으면 null 이다. 0 이나 1 로 채우면 위험이 없다는 뜻으로 읽힌다.""",
+                nullable = true, example = "44.00")
+        BigDecimal leverage,
+
+        @Schema(description = """
+                청산에 닿으면 사라지는 돈(USDT). 수량 × |표시가 − 청산가| 이고,
+                옆의 청산 거리와 같은 구간을 잰다. 청산가가 없으면 null 이다.""",
+                nullable = true, example = "239.79")
+        BigDecimal lossToLiquidation,
+
+        @Schema(description = """
+                그 손실이 증거금의 몇 %인가. **가격 1.94% 가 증거금 85% 일 수 있다** —
+                거리만으로는 위험이 읽히지 않아 같은 사실을 돈 눈금으로도 적는다.
+                **소수 둘이다** — Percentage 의 넷이 아니라, 뒤 두 자리가 표시가 1 센트에
+                바뀌는 자리라 도메인이 깎아서 낸다. 100% 를 넘을 수 있고 그것은 깎지 않는다.
+                청산가나 증거금이 없으면 null 이다.""",
+                nullable = true, example = "83.97")
+        BigDecimal marginAtRiskPercent) {
 
     static ExchangeSideResponse from(ExchangePosition position) {
         return new ExchangeSideResponse(
@@ -63,6 +92,10 @@ public record ExchangeSideResponse(
                 position.liquidationPrice().map(Price::value).orElse(null),
                 position.liquidationDistance().map(Percentage::value).orElse(null),
                 position.notional().value(),
-                position.unrealizedPnl().value());
+                position.unrealizedPnl().value(),
+                position.margin().map(Money::value).orElse(null),
+                position.leverage().orElse(null),
+                position.lossToLiquidation().map(Money::value).orElse(null),
+                position.marginAtRisk().map(Percentage::value).orElse(null));
     }
 }

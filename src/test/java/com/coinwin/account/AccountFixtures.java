@@ -30,14 +30,16 @@ public final class AccountFixtures {
     public static ExchangePosition longPosition(String quantity, Instant observedAt) {
         return new ExchangePosition(Symbol.BTC_USDT, Direction.LONG,
                 Quantity.of(quantity), Price.of("59500"), Price.of("60000"),
-                Optional.of(Price.of("53765.06")), Money.of("12.40"), observedAt);
+                Optional.of(Price.of("53765.06")), Money.of("12.40"),
+                Optional.of(Money.of("600")), observedAt);
     }
 
     /** 숏 포지션. 평단 60500 — 기록 픽스처의 숏 2분할 평단과 같다. */
     public static ExchangePosition shortPosition(String quantity, Instant observedAt) {
         return new ExchangePosition(Symbol.BTC_USDT, Direction.SHORT,
                 Quantity.of(quantity), Price.of("60500"), Price.of("60000"),
-                Optional.of(Price.of("66043.21")), Money.of("-8.10"), observedAt);
+                Optional.of(Price.of("66043.21")), Money.of("-8.10"),
+                Optional.of(Money.of("600")), observedAt);
     }
 
     public static ExchangePosition longPosition(String quantity) {
