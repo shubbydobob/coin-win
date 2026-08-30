@@ -30,6 +30,10 @@ export function ReadoutPanel({ readouts, symbol }: { readouts: Readout[]; symbol
   const [고른것, 고르기] = useState(readouts[0]?.interval ?? "15m");
   const 보는것 = readouts.find((readout) => readout.interval === 고른것) ?? readouts[0];
 
+  if (보는것 && !낡지_않았나(보는것)) {
+    return <StaleServer />;
+  }
+
   return (
     <section aria-label="지표 판독" className="rounded-lg border border-line bg-surface p-3">
       {/*
@@ -159,6 +163,39 @@ function Distance({
     <span className="tabular-nums">
       {label} {zone ? `${percent(Math.abs(zone.distancePercent))}` : "없다"}
     </span>
+  );
+}
+
+/**
+ * 서버가 **이 소스보다 오래된 코드로 떠 있는가.**
+ *
+ * 타입은 이 칸들이 언제나 있다고 말한다. 그런데 그것은 *지금 소스가 만드는 서버* 에 대한
+ * 약속이지 **8080 에 실제로 떠 있는 프로세스** 에 대한 약속이 아니다 — 그 둘이 갈라지면
+ * 타입이 참이라고 말하는 값이 `undefined` 로 온다.
+ *
+ * <b>이 저장소는 그 자리에서 두 번 데였고 두 번 다 흰 화면이었다.</b> 한 번은 복리 화면의
+ * `+NaN`, 한 번은 이 화면의 `Cannot read properties of undefined`. 막을 수는 없다 —
+ * 서버를 다시 띄우는 것은 사람이 한다. 그러나 **흰 화면과 원인을 적은 한 줄은 다르다.**
+ *
+ * 값 하나만 본다. 여러 칸을 훑으면 "어느 칸이 없느냐" 를 세게 되고, 그것은 이 검사가
+ * 답하려는 질문(**서버가 낡았는가**)이 아니다.
+ */
+function 낡지_않았나(readout: Readout): boolean {
+  return readout.rsi !== undefined;
+}
+
+/** 고치는 방법을 함께 적는다. 원인만 적으면 읽는 사람이 무엇을 할지 모른다. */
+function StaleServer() {
+  return (
+    <section aria-label="지표 판독" className="rounded-lg border border-line bg-surface p-3">
+      <p className="text-xs text-ink-2">
+        <b>서버가 옛 코드로 떠 있다.</b> 판독 응답에 이 화면이 읽는 칸이 없다.
+      </p>
+      <p className="mt-1.5 text-[11px] leading-snug text-ink-4">
+        <code>bootRun</code> 을 다시 띄운다 — <b>저장소 루트에서</b> 띄워야 한다.
+        작업 트리가 둘이면 다른 쪽(다른 브랜치)의 서버가 떠 있을 수 있다.
+      </p>
+    </section>
   );
 }
 

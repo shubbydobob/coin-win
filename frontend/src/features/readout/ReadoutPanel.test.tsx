@@ -190,6 +190,22 @@ describe("지표 판독", () => {
   });
 
   /** 200 이동평균이 없는 주기가 실제로 있다. 0 으로 적으면 두 선이 붙어 있다는 뜻이 된다. */
+  /**
+   * <b>흰 화면과 원인을 적은 한 줄은 다르다.</b> 서버가 이 소스보다 오래된 코드로 떠
+   * 있으면 타입이 참이라고 말하는 칸이 <code>undefined</code> 로 오고, 그대로 읽으면
+   * 화면 전체가 죽는다. 실제로 그렇게 죽었다 —
+   * <code>Cannot read properties of undefined (reading 'value')</code>.
+   *
+   * 타입을 일부러 거스르는 픽스처다. 그것이 이 검사가 재는 상황 그 자체이기 때문이다.
+   */
+  it("서버가 옛 코드로 떠 있으면 흰 화면 대신 그 사실을 적는다", () => {
+    const 낡은것 = { ...판독() } as Record<string, unknown>;
+    delete 낡은것.rsi;
+    render(<ReadoutPanel readouts={[낡은것 as unknown as Readout]} symbol="BTCUSDT" />);
+
+    expect(screen.getByText(/서버가 옛 코드로 떠 있다/)).toBeVisible();
+    expect(screen.getByText(/bootRun/)).toBeVisible();
+  });
   it("이동평균 간격이 없으면 없다고 적는다", () => {
     const 없는것 = 판독();
     render(
