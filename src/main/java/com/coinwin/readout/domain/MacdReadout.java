@@ -36,7 +36,7 @@ public record MacdReadout(
                 AtrMultiple.of(Money.of(last.histogram()), atr),
                 AtrMultiple.of(Money.of(last.histogram().subtract(previousHistogram(points))), atr),
                 last.macd().signum() > 0,
-                barsSinceCross(points));
+                IndicatorDerivations.macdRuns(points).getLast());
     }
 
     /** 첫 봉에는 직전이 없다. 변화가 0 인 것과 같은 자리이므로 자기 값을 쓴다. */
@@ -44,22 +44,4 @@ public record MacdReadout(
         return points.get(Math.max(points.size() - 2, 0)).value().histogram();
     }
 
-    /**
-     * 지금 부호가 몇 봉째 이어지고 있나. <b>부호를 그대로 실어 내보낸다</b> — 방향과 길이를
-     * 따로 두면 부르는 쪽이 둘을 맞대는 규칙을 또 갖게 된다.
-     */
-    private static int barsSinceCross(List<IndicatorPoint<MacdValue>> points) {
-        int side = points.getLast().value().histogram().signum();
-        if (side == 0) {
-            return 0;
-        }
-        int count = 0;
-        for (int i = points.size() - 1; i >= 0; i--) {
-            if (points.get(i).value().histogram().signum() != side) {
-                break;
-            }
-            count++;
-        }
-        return side * count;
-    }
 }

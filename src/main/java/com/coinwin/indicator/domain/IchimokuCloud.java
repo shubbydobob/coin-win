@@ -89,12 +89,22 @@ public record IchimokuCloud(
      */
     public Optional<Money> laggingSpanGap(CandleSeries series) {
         DomainValues.required(series, "캔들 묶음");
+        return laggingSpanGapAt(series, series.candles().size() - 1);
+    }
+
+    /**
+     * <b>아무 봉에서나 물을 수 있다.</b> 화면은 마지막 봉만 쓰지만, "이 자리에 섰을 때 다음에
+     * 무슨 일이 있었나" 를 재려면 과거의 모든 봉에서 같은 값이 나와야 한다. 재는 쪽이 규칙을
+     * 복사하면 화면과 측정이 다른 것을 말하게 된다.
+     */
+    public Optional<Money> laggingSpanGapAt(CandleSeries series, int index) {
+        DomainValues.required(series, "캔들 묶음");
         List<Candle> candles = series.candles();
-        if (candles.size() <= shift()) {
+        if (index < shift() || index >= candles.size()) {
             return Optional.empty();
         }
-        Price now = candles.getLast().close();
-        Price then = candles.get(candles.size() - 1 - shift()).close();
+        Price now = candles.get(index).close();
+        Price then = candles.get(index - shift()).close();
         return Optional.of(now.asAmount().minus(then.asAmount()));
     }
 
