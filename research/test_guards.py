@@ -6,15 +6,20 @@
     python test_guards.py
 """
 
+import math
 import sqlite3
 import sys
 import tempfile
 from pathlib import Path
 
+import pandas as pd
+
 import dumps
 import labels
+import measure
 import snapshots
 import store
+from config import ALPHA, LIQUIDATION_DISTANCE_PCT, MIN_SAMPLES
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -204,6 +209,139 @@ def _():
 def _():
     ret, mfe, mae = 0.02, 0.05, -0.03
     assert labels.short_view(ret, mfe, mae) == (-0.02, 0.03, -0.05)
+
+# ── 측정 (Phase 3) ──────────────────────────────────────────────────────────
+#
+# **검사가 있다는 것과 실제로 막는다는 것은 다른 사실이다.** 아래는 전부 위반 픽스처다 —
+# 판정이 무너지는 모양을 손으로 만들어 놓고 규칙이 그것을 잡는지 본다. 통계 코드는 그럴듯한
+# 숫자를 언제나 내므로(Phase 4 의 밀린 구름과 같다) 눈으로 봐서는 무너진 것을 알 수 없다.
+
+
+def _flat_labels(n, ret):
+    return {"ret": ret, "mfe": [0.02] * n, "mae": [-0.02] * n}
+
+
+@case("표본이 모자란 지표는 분위를 나누지 않고 결론도 내지 않는다")
+def _():
+    n = MIN_SAMPLES - 1
+    frame = pd.DataFrame({
+        "book_imbalance": [i / n for i in range(n)],
+        **_flat_labels(n, [0.01] * n),          # 승률 100%. 우위가 최대인데도
+    })
+    rows = measure.measure_indicator(frame, "book_imbalance")
+    assert len(rows) == 1, f"표본 미달인데 분위를 나눴다: {len(rows)}줄"
+    assert rows[0]["p_raw"] is None, "표본 미달인데 검정을 했다"
+    assert measure.verdict(rows[0]) == "데이터 부족", measure.verdict(rows[0])
+
+
+@case("표본 미달 분위는 아무리 유의해도 결론이 되지 않는다")
+def _():
+    # 판정 순서가 뒤집히면 이 줄이 "유효 후보" 가 된다. 우위 20%p 에 p 는 0 이다.
+    row = {"n": MIN_SAMPLES - 1, "edge_pp": 20.0,
+           "mean_mfe": 1.0, "mean_mae": -0.5, "p_bh": 0.0}
+    assert measure.verdict(row) == "데이터 부족", measure.verdict(row)
+
+
+@case("평균 MAE 가 청산 거리를 넘으면 승률과 무관하게 사용 불가다")
+def _():
+    big = MIN_SAMPLES * 10
+    long_side = {"n": big, "edge_pp": +20.0, "mean_mfe": 30.0,
+                 "mean_mae": LIQUIDATION_DISTANCE_PCT - 0.01, "p_bh": 0.0}
+    assert measure.verdict(long_side) == "사용 불가", measure.verdict(long_side)
+    # 숏 후보(우위가 음수)는 롱 기준 MFE 를 뒤집어 본다 - 올라간 거리가 숏에게는 손실이다.
+    # 이 줄의 롱 기준 MAE 는 -0.1% 로 아주 얕아서, 방향을 안 보면 그냥 통과한다.
+    short_side = {"n": big, "edge_pp": -20.0, "mean_mfe": -LIQUIDATION_DISTANCE_PCT + 0.01,
+                  "mean_mae": -0.1, "p_bh": 0.0}
+    assert measure.verdict(short_side) == "사용 불가", measure.verdict(short_side)
+
+
+@case("BH 보정은 순진한 p 보다 언제나 보수적이다")
+def _():
+    ps = [0.001, 0.01, 0.02, 0.04, 0.2, 0.5, 0.9]
+    qs = measure.benjamini_hochberg(ps)
+    assert all(q >= p - 1e-12 for p, q in zip(ps, qs)), list(zip(ps, qs))
+    naive = sum(p < ALPHA for p in ps)
+    corrected = sum(q < ALPHA for q in qs)
+    assert corrected < naive, f"보정 뒤에도 {corrected}개가 살았다 (순진하게는 {naive}개)"
+
+
+@case("검정이 많으면 BH 가 아슬아슬한 하나를 지운다")
+def _():
+    # 50개를 훑어 p=0.04 하나를 건진 상황. 아무 관계가 없어도 50개 중 둘은 이보다 작다.
+    ps = [0.04] + [0.5] * 49
+    qs = measure.benjamini_hochberg(ps)
+    assert ps[0] < ALPHA and qs[0] >= ALPHA, f"보정 뒤에도 {qs[0]:.4f} 로 살아남았다"
+
+
+@case("상관이 높은 두 지표는 한 클러스터로 묶여 한 번만 센다")
+def _():
+    n = MIN_SAMPLES * 2
+    base = [math.sin(i / 7.0) for i in range(n)]
+    frame = pd.DataFrame({
+        "open_interest": base,
+        # 단조 변환이므로 순위가 완전히 같다. 같은 사실을 두 번 말하는 지표의 극단이다.
+        "open_interest_value": [x * 1000.0 + 5.0 for x in base],
+        "long_short_account_ratio": [((i * 7919) % n) / n for i in range(n)],
+    })
+    names = list(frame.columns)
+    clusters = measure.correlation_clusters(frame, names)
+    assert clusters["open_interest"] == clusters["open_interest_value"], clusters
+    assert clusters["long_short_account_ratio"] != clusters["open_interest"], clusters
+    counts = {c: int(frame[c].notna().sum()) for c in names}
+    reps = measure.representatives(clusters, counts)
+    duplicated = {"open_interest", "open_interest_value"} & reps
+    assert len(duplicated) == 1, f"중복 증거를 둘 다 셌다: {duplicated}"
+    assert "long_short_account_ratio" in reps, "묶이지 않은 지표가 대표에서 빠졌다"
+
+
+@case("기준선은 그 지표가 값을 가진 행에서만 나온다")
+def _():
+    n = MIN_SAMPLES * 20
+    half = n // 2
+    # 앞 절반은 지표가 비어 있고 그 구간은 전부 오른다. 전체 승률은 75%, 지표가 값을 가진
+    # 구간의 승률은 50% 다. 전체 승률과 대면 다섯 분위가 나란히 -25%p 로 보인다.
+    frame = pd.DataFrame({
+        "open_interest": [None] * half + [float(i) for i in range(half)],
+        **_flat_labels(n, [0.01] * half + [0.01 if i % 2 else -0.01 for i in range(half)]),
+    })
+    rows = measure.measure_indicator(frame, "open_interest")
+    assert all(abs(r["baseline"] - 0.5) < 0.01 for r in rows), rows[0]["baseline"]
+    assert all(abs(r["edge_pp"]) < 3.0 for r in rows), [r["edge_pp"] for r in rows]
+
+
+@case("구간 밖 확인의 분위 경계는 학습 구간에서만 나온다")
+def _():
+    n = MIN_SAMPLES * 20
+    frame = pd.DataFrame({
+        "slot_ts": [_slot0() + i * store.SLOT_MS for i in range(n)],
+        "open_interest": [float(i) for i in range(n)],   # 단조 증가 = 가장 심한 수준값
+        "ret": [0.01 if i % 2 else -0.01 for i in range(n)],
+    })
+    out = measure.out_of_sample(frame, "open_interest")
+    counts = {q: rows for q, (rows, _) in out.items()}
+    top = max(counts)
+    assert counts[top] == sum(counts.values()), counts
+    # 픽스처가 실제로 구분력을 갖는지 본다 - 전체 구간에서 경계를 얻었다면 검증 구간이
+    # 여러 분위에 흩어진다. 그러지 않으면 위 단언은 아무것도 증명하지 않는다.
+    codes, _edges = measure._bins(frame["open_interest"])
+    tail = codes[-sum(counts.values()):]
+    assert tail.nunique() > 1, "픽스처가 경계 누수를 구분하지 못한다"
+
+
+@case("검증 구간의 칸이 표본 미달이면 구간 밖 우위를 내지 않는다")
+def _():
+    n = MIN_SAMPLES * 20
+    frame = pd.DataFrame({
+        "slot_ts": [_slot0() + i * store.SLOT_MS for i in range(n)],
+        "open_interest": [float(i) for i in range(n)],
+        "ret": [0.01 if i % 2 else -0.01 for i in range(n)],
+    })
+    out = measure.out_of_sample(frame, "open_interest")
+    empty = [q for q, (rows, _) in out.items() if rows < MIN_SAMPLES]
+    assert empty, "표본 미달인 칸이 없어 이 검사가 아무것도 보지 않는다"
+    assert all(math.isnan(out[q][1]) for q in empty), \
+        "몇십 행짜리 칸에서 우위를 냈다"
+
 
 for name in PASSED:
     print(f"  통과  {name}")
