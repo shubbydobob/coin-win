@@ -10,6 +10,8 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
+
+import { IchimokuCloud, type 구름점 } from "./IchimokuCloud";
 import { useEffect, useRef, useState } from "react";
 
 import { get } from "../../api/client";
@@ -143,18 +145,24 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
     })));
 
     if (켠것.ichimoku) {
-      선("#8a8f98", 0).setData(점(data.ichimoku, (p) => p.leadingSpanA));
-      선("#8a8f98", 0).setData(점(data.ichimoku, (p) => p.leadingSpanB));
-      선("#c9a227", 0, true).setData(점(data.ichimoku, (p) => p.conversionLine));
-      선("#3b6ea5", 0, true).setData(점(data.ichimoku, (p) => p.baseLine));
+      // 구름은 선이 아니라 면이다. 라이브러리에 두 계열 사이를 칠하는 기능이 없어 캔버스에
+      // 직접 그린다 — 근거는 IchimokuCloud 의 주석. 계열을 지우면 딸린 조각도 함께 사라진다.
+      const 구름 = new IchimokuCloud();
+      candles.attachPrimitive(구름);
+      구름.setData(구름면(data.ichimoku));
+      선(ICHIMOKU_LINE.spanA, 0).setData(점(data.ichimoku, (p) => p.leadingSpanA));
+      선(ICHIMOKU_LINE.spanB, 0).setData(점(data.ichimoku, (p) => p.leadingSpanB));
+      선(ICHIMOKU_LINE.conversion, 0, true).setData(점(data.ichimoku, (p) => p.conversionLine));
+      선(ICHIMOKU_LINE.base, 0, true).setData(점(data.ichimoku, (p) => p.baseLine));
     }
     if (켠것.bollinger) {
-      선("#4a7fb5", 0, true).setData(점(data.bollinger, (p) => p.upper));
-      선("#4a7fb5", 0, true).setData(점(data.bollinger, (p) => p.lower));
+      선(BOLLINGER_LINE, 0, true).setData(점(data.bollinger, (p) => p.upper));
+      선(BOLLINGER_LINE, 0, true).setData(점(data.bollinger, (p) => p.lower));
     }
     if (켠것.movingAverages) {
       data.movingAverages.forEach((ma) => {
-        선(MA_COLOR[ma.period] ?? "#848e9c", 0).setData(점(ma.points, (p) => p.value));
+        const 선모양 = MA_LINE[ma.period] ?? { color: "#848e9c", width: 1 as const };
+        선(선모양.color, 0, false, 선모양.width).setData(점(ma.points, (p) => p.value));
       });
     }
 
@@ -221,7 +229,7 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
   return (
     <div className="mt-2">
       <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-        {OVERLAYS.map(({ key, label, swatches }) => (
+        {OVERLAYS.map(({ key, label, lines }) => (
           <label key={key} className="flex cursor-pointer items-center gap-1 text-ink-3">
             <input
               type="checkbox"
@@ -229,15 +237,17 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
               onChange={(event) => 켜기((전) => ({ ...전, [key]: event.target.checked }))}
               className="size-3"
             />
-            {swatches.map((color) => (
-              <span
-                key={color}
-                className="inline-block h-0.5 w-3 rounded-full"
-                style={{ backgroundColor: color }}
-                aria-hidden="true"
-              />
-            ))}
             {label}
+            {lines.map(({ color, name }) => (
+              <span key={color + name} className="flex items-center gap-0.5">
+                <span
+                  className="inline-block h-0.5 w-3 rounded-full"
+                  style={{ backgroundColor: color }}
+                  aria-hidden="true"
+                />
+                {name && <span className="text-ink-4">{name}</span>}
+              </span>
+            ))}
           </label>
         ))}
       </div>
@@ -391,24 +401,80 @@ const STANCE_CHIP: Record<string, ChipSide | undefined> = {
 type Overlay = "ichimoku" | "bollinger" | "movingAverages";
 
 /**
- * 이동평균 다섯 구간의 색. **짧을수록 밝다** — 다섯 선을 색 이름으로 외우지 않고 밝기로
- * 읽으라는 뜻이다. 구간을 바꾸면 여기도 함께 바꿔야 하고, 없는 구간은 회색으로 떨어진다.
+ * 선의 색. **색을 가진 무리는 이동평균 하나뿐이다.**
+ *
+ * 앞판은 세 무리가 다 색을 갖고 있었고 그래서 서로 겹쳤다 — 이동평균 10(`#ffffff`)과
+ * 20(`#eaecef`)이 사실상 같은 흰색이었고, 200 은 음봉과 **정확히 같은 빨강**(`#f6465d`)이라
+ * 캔들에 묻혔으며, 선행스팬 A 와 B 가 둘 다 `#8a8f98` 이었다. **구름이 뒤집히는 것이 신호인데
+ * 그 뒤집힘을 색으로 읽을 수 없었다.**
+ *
+ * 그래서 무리마다 역할을 준다. 캔들은 초록·빨강(가격), 일목은 무채색(맥락), 볼린저는 청록
+ * 점선, 이동평균만 색이다. **색을 가진 무리가 하나뿐이면 색이 곧 "어느 이동평균인가" 를
+ * 뜻하게 된다** — 화면을 반만 쓰는 좁은 창에서도 그 규칙은 무너지지 않는다.
+ *
+ * 구간을 바꾸면 여기도 함께 바꿔야 하고, 없는 구간은 회색으로 떨어진다.
  */
-const MA_COLOR: Record<number, string> = {
-  10: "#ffffff",
-  20: "#eaecef",
-  50: "#f0b90b",
-  200: "#f6465d",
-  300: "#8a4bff",
+const MA_LINE: Record<number, { color: string; width: 1 | 2 }> = {
+  10: { color: "#ffffff", width: 1 },
+  20: { color: "#7dd3fc", width: 1 },
+  50: { color: "#fbbf24", width: 1 },
+  200: { color: "#f0abfc", width: 2 },
+  300: { color: "#8b5cf6", width: 2 },
 };
 
-const OVERLAYS: { key: Overlay; label: string; swatches: string[] }[] = [
-  { key: "ichimoku", label: "일목", swatches: ["#8a8f98", "#c9a227", "#3b6ea5"] },
-  { key: "bollinger", label: "볼린저 (중심은 MA20 과 같다)", swatches: ["#4a7fb5"] },
+/**
+ * 일목의 네 선. **무채색이고 밝기로만 가른다.**
+ *
+ * 선행스팬 A 를 밝게 B 를 어둡게 둔 것이 요점이다 — 둘 중 어느 쪽이 위인가가 구름의 방향이고,
+ * 같은 색이면 그 사실이 화면에서 사라진다. 전환·기준은 점선이라 스팬과 섞이지 않는다.
+ *
+ * **넷 다 흰색에서 충분히 내려와 있어야 한다.** 첫 판은 전환선을 `#c9d1d9` 로 두었는데 그것이
+ * 이동평균 10 의 흰색과 캔들 주변에서 겹쳤다 — 무채색으로 통일하는 것만으로는 부족하고,
+ * **일목은 맥락이므로 뒤로 물러나 있어야** 색을 가진 이동평균이 앞에 선다.
+ */
+const ICHIMOKU_LINE = {
+  spanA: "#7c8a97",
+  spanB: "#454f59",
+  conversion: "#93a0ac",
+  base: "#5a6570",
+} as const;
+
+/** 볼린저. 청록 점선 하나 — 일목의 무채색과도, 이동평균의 색과도 겹치지 않는다. */
+const BOLLINGER_LINE = "#3fb9ad";
+
+/**
+ * 범례. **선마다 이름을 붙인다.**
+ *
+ * 앞판은 무리마다 색 조각만 늘어놓고 이름은 "이동평균 10·20·50·200·300" 처럼 한 덩어리로
+ * 적었다. 그러면 화면의 어떤 선이 200 인지를 색 조각과 이름 사이에서 **사람이 짝지어야
+ * 한다** — 조각이 다섯이고 이름도 다섯이면 순서를 세어 맞춰야 한다는 뜻이다. 색 옆에 이름을
+ * 붙여 두면 세지 않아도 된다.
+ *
+ * 색은 그리는 쪽과 같은 상수에서 온다. 두 벌을 두면 팔레트를 바꿀 때 범례만 옛 색으로 남는다.
+ */
+const OVERLAYS: { key: Overlay; label: string; lines: { color: string; name: string }[] }[] = [
+  {
+    key: "ichimoku",
+    label: "일목",
+    lines: [
+      { color: ICHIMOKU_LINE.spanA, name: "선행A" },
+      { color: ICHIMOKU_LINE.spanB, name: "선행B" },
+      { color: ICHIMOKU_LINE.conversion, name: "전환" },
+      { color: ICHIMOKU_LINE.base, name: "기준" },
+    ],
+  },
+  {
+    key: "bollinger",
+    label: "볼린저 (중심은 MA20 과 같다)",
+    lines: [{ color: BOLLINGER_LINE, name: "" }],
+  },
   {
     key: "movingAverages",
-    label: "이동평균 10·20·50·200·300",
-    swatches: ["#ffffff", "#eaecef", "#f0b90b", "#f6465d", "#8a4bff"],
+    label: "이동평균",
+    lines: Object.entries(MA_LINE).map(([period, line]) => ({
+      color: line.color,
+      name: period,
+    })),
   },
 ];
 
@@ -418,6 +484,21 @@ function 점<T extends { at: string }>(points: T[], pick: (point: T) => number |
     .map((point) => ({ time: 초(point.at), value: pick(point) }))
     .filter((row): row is { time: UTCTimestamp; value: number } =>
       row.value !== null && row.value !== undefined);
+}
+
+/**
+ * 구름으로 칠할 구간. **두 스팬이 모두 있는 점만** 낸다 — 한쪽만 있는 구간은 위아래가
+ * 정해지지 않아 칠할 면이 없다. 워밍업 구간이 그렇다.
+ */
+function 구름면(points: Series["ichimoku"]): 구름점[] {
+  const out: 구름점[] = [];
+  points.forEach((point) => {
+    if (point.leadingSpanA !== null && point.leadingSpanA !== undefined
+      && point.leadingSpanB !== null && point.leadingSpanB !== undefined) {
+      out.push({ time: 초(point.at), a: point.leadingSpanA, b: point.leadingSpanB });
+    }
+  });
+  return out;
 }
 
 /** 비어 있는 지표를 이름으로 적는다. 없는 것과 고장난 것은 다른 사실이다. */
