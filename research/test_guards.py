@@ -16,6 +16,7 @@ import pandas as pd
 
 import dumps
 import labels
+import stability
 import measure
 import snapshots
 import store
@@ -342,6 +343,59 @@ def _():
     assert all(math.isnan(out[q][1]) for q in empty), \
         "몇십 행짜리 칸에서 우위를 냈다"
 
+
+
+# ── 경계 흔들기 (stability) ─────────────────────────────────────────────────
+
+def _drift_frame(n=6000, 뒤집는가=False):
+    """지표와 수익률이 붙어 있는 합성 표. `뒤집는가` 면 뒤쪽 절반의 관계가 반대가 된다."""
+    import pandas as pd
+    # 두 해로 갈라 놓는다. 한 해에 다 넣으면 연도 표에 줄이 하나뿐이라 부호가 갈릴 자리가 없다.
+    해시작 = (1_609_459_200_000, 1_735_689_600_000)          # 2021-01-01, 2025-01-01 (UTC)
+    지표, 수익, 시각 = [], [], []
+    for i in range(n):
+        x = (i * 37 % 1000) / 1000.0
+        뒤쪽 = i >= n // 2
+        방향 = -1 if (뒤집는가 and 뒤쪽) else 1
+        지표.append(x)
+        수익.append(방향 * (x - 0.5) * 0.01)
+        시각.append(해시작[1 if 뒤쪽 else 0] + (i % (n // 2)) * store.SLOT_MS)
+    return pd.DataFrame({"slot_ts": 시각, "taker_buy_sell_ratio": 지표, "ret": 수익})
+
+
+@case("문턱 50% 에서 상위와 하위가 반대 부호로 만난다")
+def _():
+    rows = stability.sweep_threshold(_drift_frame(), "taker_buy_sell_ratio")
+    절반 = [r for r in rows if r["pct"] == 50][0]
+    합 = 절반["low"]["edge_pp"] + 절반["high"]["edge_pp"]
+    assert abs(합) < 1e-9, f"절반에서 두 칸이 만나지 않는다: {합}"
+
+
+@case("해마다 다시 얻은 경계는 칸 크기를 해마다 같게 만든다")
+def _():
+    frame = _drift_frame()
+    rows = stability.by_year_relative(frame, "taker_buy_sell_ratio")
+    assert rows, "연도 표가 비었다"
+    for row in rows:
+        기대 = round(row["n"] / 5)
+        assert abs(row["low"]["n"] - 기대) <= 2, (row["year"], row["low"]["n"], 기대)
+
+
+@case("관계가 뒤집히면 연도 표가 부호로 그것을 드러낸다")
+def _():
+    # 해마다 6,000 이어야 극단 칸(1/5)이 1,200 으로 MIN_SAMPLES 를 넘는다.
+    rows = stability.by_year_relative(_drift_frame(12000, 뒤집는가=True), "taker_buy_sell_ratio")
+    부호 = [r["high"]["edge_pp"] for r in rows if r["high"]["edge_pp"] is not None]
+    assert any(a > 0 for a in 부호) and any(a < 0 for a in 부호), (
+        f"뒤집었는데 부호가 한쪽뿐이다: {부호}")
+
+
+@case("표본이 모자란 해는 연도 표에서 빠진다")
+def _():
+    작은표 = _drift_frame(n=2400)          # 두 해로 갈려 해마다 1,200 → 남고
+    잔표 = _drift_frame(n=600)             # 한 해가 600 → 빠진다
+    assert stability.by_year_relative(작은표, "taker_buy_sell_ratio")
+    assert not stability.by_year_relative(잔표, "taker_buy_sell_ratio")
 
 for name in PASSED:
     print(f"  통과  {name}")
