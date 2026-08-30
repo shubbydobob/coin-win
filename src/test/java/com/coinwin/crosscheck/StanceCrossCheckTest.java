@@ -100,6 +100,9 @@ class StanceCrossCheckTest {
         for (int horizon : HORIZONS) {
             표를_찍는다(bars, indicators, horizon);
         }
+        for (int horizon : HORIZONS) {
+            조합표를_찍는다(bars, indicators, horizon);
+        }
     }
 
     private void 표를_찍는다(List<Candle> bars, TimeframeSeries indicators, int horizon) {
@@ -130,6 +133,60 @@ class StanceCrossCheckTest {
                     indicator, stance, bucket.count, bucket.winRate(), bucket.median(),
                     bucket.winRate() - baseline.winRate());
         }));
+    }
+
+    /**
+     * 일목과 볼린저를 <b>함께</b> 본 표. 화면이 주기마다 "구름 위 · 밴드 안" 처럼 두 딱지를
+     * 나란히 적으므로, 사람이 실제로 읽는 것은 낱개가 아니라 이 조합이다.
+     *
+     * <p><b>낱개 표로는 답할 수 없는 질문이다.</b> 일목이 롱이고 볼린저가 중립인 칸의 승률은
+     * 두 낱개 승률에서 나오지 않는다 — 두 딱지가 같은 봉에서 함께 서는 빈도가 편향돼 있으면
+     * 곱셈이 성립하지 않는다.
+     *
+     * <p>조합이 아홉이고 기간이 셋이라 <b>검정이 스물일곱</b>이 된다. 여기서 p 를 내지 않는
+     * 이유가 그것이다 — 보정 없이 스물일곱을 보면 아무 예측력이 없어도 몇 개는 좋아 보인다.
+     * 볼 것은 크기이고, 기준선과의 차이가 왕복 비용(0.14% 안팎)을 넘는가만 묻는다.
+     */
+    private void 조합표를_찍는다(List<Candle> bars, TimeframeSeries indicators, int horizon) {
+        Map<String, Bucket> byPair = new LinkedHashMap<>();
+        Bucket baseline = new Bucket();
+
+        for (int i = 0; i < bars.size() - horizon; i++) {
+            BigDecimal ret = 수익률(bars, i, horizon);
+            baseline.add(ret);
+            byPair.computeIfAbsent(조합이름(indicators, bars.get(i).openTime()),
+                    key -> new Bucket()).add(ret);
+        }
+
+        System.out.printf("%n=== 일목 × 볼린저 · %d봉 뒤(%d시간) ===%n", horizon, horizon * 4);
+        System.out.printf("%-26s %8s %9s %10s %10s%n",
+                "조합", "표본", "승률", "중앙값", "기준선차");
+        System.out.printf("%-26s %8d %8.2f%% %9.4f%% %10s%n",
+                "(전체)", baseline.count, baseline.winRate(), baseline.median(), "-");
+        byPair.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue().count, a.getValue().count))
+                .forEach(e -> {
+                    if (e.getValue().count < 1_000) {
+                        return;
+                    }
+                    System.out.printf("%-26s %8d %8.2f%% %9.4f%% %+9.2f%%p%n",
+                            e.getKey(), e.getValue().count, e.getValue().winRate(),
+                            e.getValue().median(),
+                            e.getValue().winRate() - baseline.winRate());
+                });
+    }
+
+    /**
+     * 그 봉의 (일목, 볼린저) 딱지를 한 이름으로. <b>규칙을 복사하지 않는다</b> —
+     * {@code stancesAt} 이 낸 것을 이름만 붙여 묶는다.
+     */
+    private static String 조합이름(TimeframeSeries indicators, Instant bar) {
+        Map<String, Stance> found = new LinkedHashMap<>();
+        for (IndicatorStance stance : indicators.stancesAt(bar)) {
+            found.put(stance.indicator(), stance.stance());
+        }
+        return "일목 " + found.getOrDefault("일목", Stance.UNKNOWN)
+                + " · 볼린저 " + found.getOrDefault("볼린저", Stance.UNKNOWN);
     }
 
     /** 종가 대비 종가. <b>MFE·MAE 는 여기서 재지 않는다</b> — 그것은 1분봉이 있어야 한다. */

@@ -308,16 +308,18 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
  * 중립으로 세면 "가운데 있다" 는 없는 사실이 생긴다.
  */
 function Stances({ stances }: { stances: Series["stances"] }) {
-  const 롱 = stances.filter((s) => s.stance === "LONG").length;
-  const 숏 = stances.filter((s) => s.stance === "SHORT").length;
+  const 위 = stances.filter((s) => s.stance === "LONG").length;
+  const 아래 = stances.filter((s) => s.stance === "SHORT").length;
 
   return (
     <section aria-label="지표가 선 자리" className="mt-2 rounded bg-surface-2 px-2 py-1.5">
       <div className="flex items-center gap-2 text-xs">
         <span className="text-ink-3">지표가 선 자리</span>
-        <SideChip side="LONG">{롱}</SideChip>
-        <SideChip side="SHORT">{숏}</SideChip>
-        <span className="ml-auto text-[10px] text-ink-4">셀 뿐 어느 쪽이 유리한지는 말하지 않는다</span>
+        <SideChip side="LONG" word={STANCE_WORD.LONG}>{위}</SideChip>
+        <SideChip side="SHORT" word={STANCE_WORD.SHORT}>{아래}</SideChip>
+        <span className="ml-auto text-[10px] text-ink-4">
+          선 자리일 뿐 방향이 아니다 — 7년에서 오히려 반대로 나왔다
+        </span>
       </div>
       <dl className="mt-1 divide-y divide-line-soft">
         {stances.map((stance) => (
@@ -333,7 +335,10 @@ function Stances({ stances }: { stances: Series["stances"] }) {
             </dt>
             <dd className="flex flex-wrap items-baseline gap-1.5">
               {STANCE_CHIP[stance.stance] && (
-                <SideChip side={STANCE_CHIP[stance.stance]!} />
+                <SideChip
+                  side={STANCE_CHIP[stance.stance]!}
+                  word={STANCE_WORD[STANCE_CHIP[stance.stance]!]}
+                />
               )}
               <span className={stance.stance === "UNKNOWN" ? "text-ink-4" : "text-ink-2"}>
                 {stance.statement}
@@ -390,6 +395,30 @@ const 정의: Record<string, string> = {
   이동평균: "종가의 단순 평균. 10·20·50·200·300 을 그린다. 20 은 볼린저 중심선과 같은 값이다. 짧은 것이 긴 것 위에 놓이면 최근 가격이 예전보다 높다는 뜻이고, 그것이 계속된다는 뜻은 아니다.",
   RSI: "오른 폭의 평균 ÷ 내린 폭의 평균을 0~100 으로 옮긴 것. 14봉이고 평활은 와일더 방식(RMA)이다 — EMA 로 짜면 값이 조금씩 다르면서 그럴듯해 보인다.",
   MACD: "12봉 EMA 에서 26봉 EMA 를 뺀 값과, 그것의 9봉 EMA(시그널). 막대는 둘의 차다. 가격이 아니라 가격의 차라 음수가 될 수 있다.",
+};
+
+/**
+ * 딱지에 적는 말. **`롱 / 숏` 이 아니라 `위 / 아래` 다.**
+ *
+ * 다섯 지표가 재는 것은 전부 **무엇의 위인가 아래인가**다 — 구름 위, 밴드 위, 50 위,
+ * 시그널 위, 짧은 이동평균이 위. 그것은 **자리에 대한 사실**이고 거기까지가 이 화면이 아는
+ * 것이다.
+ *
+ * **`롱` 이라는 글자는 사람에게 "이쪽으로 가라" 로 읽힌다.** 그런데 4시간봉 7년(15,110봉)에서
+ * 재 보니 그 자리들이 가리키는 방향은 **오히려 반대**였다 — 구름 위에서 하루 뒤 오를 확률이
+ * 49.9%, 구름 아래에서 53.6% 로 기준선(51.7%)을 사이에 두고 갈렸다. 차이가 작아 매매에 쓸
+ * 수는 없지만(왕복 비용 0.14% 를 못 넘는다) **적어도 `롱` 이라고 부를 근거는 없다.**
+ *
+ * 상태를 지우지는 않았다. 자리를 아는 것은 모르는 것보다 낫고, 무엇보다 그 자리가 **손절을
+ * 어디에 둘지**의 재료다. 바꾼 것은 이름뿐이다.
+ *
+ * 색은 그대로 둔다 — `SideChip` 이 초록·빨강을 쓰는 것은 이 저장소가 상승을 초록으로 쓰기
+ * 때문이지 좋다는 뜻이 아니고, 그 설명은 그쪽 주석에 이미 있다.
+ */
+const STANCE_WORD: Record<ChipSide, string> = {
+  LONG: "위",
+  SHORT: "아래",
+  NEUTRAL: "가운데",
 };
 
 /** 중립과 말할 수 없음에는 딱지가 없다 — 둘 다 "어느 쪽" 이 아니기 때문이다. */
