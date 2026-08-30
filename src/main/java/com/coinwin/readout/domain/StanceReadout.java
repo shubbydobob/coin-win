@@ -1,15 +1,13 @@
 package com.coinwin.readout.domain;
 
+import com.coinwin.common.domain.Percentage;
 import com.coinwin.indicator.domain.BollingerValue;
 import com.coinwin.indicator.domain.IchimokuValue;
-import com.coinwin.indicator.domain.IndicatorPoint;
 import com.coinwin.indicator.domain.MacdValue;
-import com.coinwin.market.domain.Candle;
-import com.coinwin.market.domain.CandleSeries;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.time.Instant;
 
 /**
  * 다섯 지표가 <b>지금</b> 어느 쪽에 서 있는지를 낸다.
@@ -27,6 +25,9 @@ import java.time.Instant;
  *
  * <p><b>50 · 정배열 같은 경계는 관습이다.</b> 이 저장소가 검증한 수가 아니고, 검증한 적이
  * 없다는 사실이 화면 설명에 적혀 있어야 한다.
+ *
+ * <p><b>다섯을 한 번에 세지 않는다.</b> 지표마다 {@link IndicatorFamily} 가 붙어 있고, 세는
+ * 것은 무리 안에서만 뜻이 있다 — 근거는 {@code docs/spec/indicator-usage.md} § 2 다.
  */
 final class StanceReadout {
 
@@ -34,42 +35,42 @@ final class StanceReadout {
     }
 
     static List<IndicatorStance> at(TimeframeSeries series, Instant bar) {
-        BigDecimal close = closeAt(series.candles(), bar);
+        BigDecimal close = BarLookup.closeAt(series.candles(), bar);
         List<IndicatorStance> out = new ArrayList<>(5);
-        out.add(ichimokuStance(close, valueAt(series.ichimoku(), bar)));
-        out.add(bollingerStance(close, valueAt(series.bollinger(), bar)));
+        out.add(ichimokuStance(close, BarLookup.valueAt(series.ichimoku(), bar)));
+        out.add(bollingerStance(close, BarLookup.valueAt(series.bollinger(), bar)));
         out.add(movingAverageStance(series.movingAverages(), bar));
-        out.add(rsiStance(valueAt(series.rsi(), bar)));
-        out.add(macdStance(valueAt(series.macd(), bar)));
+        out.add(rsiStance(BarLookup.valueAt(series.rsi(), bar)));
+        out.add(macdStance(BarLookup.valueAt(series.macd(), bar)));
         return List.copyOf(out);
     }
 
     private static IndicatorStance ichimokuStance(BigDecimal close, IchimokuValue value) {
         if (close == null || value == null) {
-            return IndicatorStance.unknown("일목");
+            return IndicatorStance.unknown(IndicatorKind.ICHIMOKU);
         }
         BigDecimal top = value.cloud().upper().value();
         BigDecimal bottom = value.cloud().lower().value();
         if (close.compareTo(top) > 0) {
-            return new IndicatorStance("일목", Stance.LONG, "종가가 구름 위에 있다");
+            return stance(IndicatorKind.ICHIMOKU, Stance.LONG, "종가가 구름 위에 있다");
         }
         if (close.compareTo(bottom) < 0) {
-            return new IndicatorStance("일목", Stance.SHORT, "종가가 구름 아래에 있다");
+            return stance(IndicatorKind.ICHIMOKU, Stance.SHORT, "종가가 구름 아래에 있다");
         }
-        return new IndicatorStance("일목", Stance.NEUTRAL, "종가가 구름 안에 있다");
+        return stance(IndicatorKind.ICHIMOKU, Stance.NEUTRAL, "종가가 구름 안에 있다");
     }
 
     private static IndicatorStance bollingerStance(BigDecimal close, BollingerValue value) {
         if (close == null || value == null) {
-            return IndicatorStance.unknown("볼린저");
+            return IndicatorStance.unknown(IndicatorKind.BOLLINGER);
         }
         if (close.compareTo(value.upper().value()) > 0) {
-            return new IndicatorStance("볼린저", Stance.LONG, "종가가 상단 위에 있다");
+            return stance(IndicatorKind.BOLLINGER, Stance.LONG, "종가가 상단 위에 있다");
         }
         if (close.compareTo(value.lower().value()) < 0) {
-            return new IndicatorStance("볼린저", Stance.SHORT, "종가가 하단 아래에 있다");
+            return stance(IndicatorKind.BOLLINGER, Stance.SHORT, "종가가 하단 아래에 있다");
         }
-        return new IndicatorStance("볼린저", Stance.NEUTRAL, "종가가 밴드 안에 있다");
+        return stance(IndicatorKind.BOLLINGER, Stance.NEUTRAL, "종가가 밴드 안에 있다");
     }
 
     /**
@@ -78,107 +79,51 @@ final class StanceReadout {
      */
     private static IndicatorStance movingAverageStance(
             List<MovingAverageLine> averages, Instant bar) {
-        // **구간을 이름으로 고른다.** 목록의 자리로 고르면 구간을 하나 더하는 날 판정의 뜻이
-        // 조용히 바뀐다 — 실제로 셋에서 다섯으로 늘리면서 그 자리가 생겼다.
-        BigDecimal fast = valueOf(averages, 20, bar);
-        BigDecimal mid = valueOf(averages, 50, bar);
-        BigDecimal slow = valueOf(averages, 200, bar);
+        BigDecimal fast = BarLookup.movingAverageAt(averages, 20, bar);
+        BigDecimal mid = BarLookup.movingAverageAt(averages, 50, bar);
+        BigDecimal slow = BarLookup.movingAverageAt(averages, 200, bar);
         if (fast == null || mid == null || slow == null) {
-            return IndicatorStance.unknown("이동평균");
+            return IndicatorStance.unknown(IndicatorKind.MOVING_AVERAGE);
         }
         if (fast.compareTo(mid) > 0 && mid.compareTo(slow) > 0) {
-            return new IndicatorStance("이동평균", Stance.LONG, "20 > 50 > 200 으로 놓여 있다");
+            return stance(IndicatorKind.MOVING_AVERAGE, Stance.LONG, "20 > 50 > 200 으로 놓여 있다");
         }
         if (fast.compareTo(mid) < 0 && mid.compareTo(slow) < 0) {
-            return new IndicatorStance("이동평균", Stance.SHORT, "20 < 50 < 200 으로 놓여 있다");
+            return stance(IndicatorKind.MOVING_AVERAGE, Stance.SHORT, "20 < 50 < 200 으로 놓여 있다");
         }
-        return new IndicatorStance("이동평균", Stance.NEUTRAL, "셋이 순서대로 놓여 있지 않다");
+        return stance(IndicatorKind.MOVING_AVERAGE, Stance.NEUTRAL, "셋이 순서대로 놓여 있지 않다");
     }
 
-    private static IndicatorStance rsiStance(com.coinwin.common.domain.Percentage value) {
+    private static IndicatorStance rsiStance(Percentage value) {
         if (value == null) {
-            return IndicatorStance.unknown("RSI");
+            return IndicatorStance.unknown(IndicatorKind.RSI);
         }
         int side = value.value().compareTo(BigDecimal.valueOf(50));
         String reading = value.value().toPlainString();
         if (side > 0) {
-            return new IndicatorStance("RSI", Stance.LONG, reading + " 로 50 위에 있다");
+            return stance(IndicatorKind.RSI, Stance.LONG, reading + " 로 50 위에 있다");
         }
         if (side < 0) {
-            return new IndicatorStance("RSI", Stance.SHORT, reading + " 로 50 아래에 있다");
+            return stance(IndicatorKind.RSI, Stance.SHORT, reading + " 로 50 아래에 있다");
         }
-        return new IndicatorStance("RSI", Stance.NEUTRAL, "정확히 50 이다");
+        return stance(IndicatorKind.RSI, Stance.NEUTRAL, "정확히 50 이다");
     }
 
     private static IndicatorStance macdStance(MacdValue value) {
         if (value == null) {
-            return IndicatorStance.unknown("MACD");
+            return IndicatorStance.unknown(IndicatorKind.MACD);
         }
         int side = value.histogram().signum();
         if (side > 0) {
-            return new IndicatorStance("MACD", Stance.LONG, "시그널 위에 있다");
+            return stance(IndicatorKind.MACD, Stance.LONG, "시그널 위에 있다");
         }
         if (side < 0) {
-            return new IndicatorStance("MACD", Stance.SHORT, "시그널 아래에 있다");
+            return stance(IndicatorKind.MACD, Stance.SHORT, "시그널 아래에 있다");
         }
-        return new IndicatorStance("MACD", Stance.NEUTRAL, "시그널과 같다");
+        return stance(IndicatorKind.MACD, Stance.NEUTRAL, "시그널과 같다");
     }
 
-    /** 그 구간 선의 그 봉 값. 선이 없거나 그 봉에 값이 없으면 없다. */
-    private static BigDecimal valueOf(List<MovingAverageLine> averages, int period, Instant bar) {
-        return averages.stream()
-                .filter(line -> line.period() == period)
-                .findFirst()
-                .map(line -> valueAt(line.points(), bar))
-                .map(com.coinwin.common.domain.Price::value)
-                .orElse(null);
-    }
-
-    /**
-     * 그 봉의 값. <b>인덱스가 아니라 시각으로 찾는다</b> — 지표마다 시작하는 봉이 달라 같은
-     * 인덱스가 같은 시각을 뜻하지 않는다.
-     *
-     * <p><b>이진 탐색인 이유는 과거를 훑는 쪽 때문이다.</b> 화면은 마지막 봉 하나만 물으므로
-     * 선형이어도 티가 안 나지만, 1만5천 봉을 훑으며 봉마다 다섯 지표를 물으면 그것이
-     * 1만5천 × 5 × 1만5천 이 된다. 점들은 시간순이므로 반씩 접을 수 있다.
-     */
-    private static <T> T valueAt(List<IndicatorPoint<T>> points, Instant bar) {
-        if (points == null || points.isEmpty()) {
-            return null;
-        }
-        int low = 0;
-        int high = points.size() - 1;
-        while (low <= high) {
-            int mid = (low + high) >>> 1;
-            int cmp = points.get(mid).at().compareTo(bar);
-            if (cmp == 0) {
-                return points.get(mid).value();
-            }
-            if (cmp < 0) {
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-        }
-        return null;
-    }
-
-    private static BigDecimal closeAt(CandleSeries candles, Instant bar) {
-        List<Candle> bars = candles.candles();
-        int low = 0;
-        int high = bars.size() - 1;
-        while (low <= high) {
-            int mid = (low + high) >>> 1;
-            int cmp = bars.get(mid).openTime().compareTo(bar);
-            if (cmp == 0) {
-                return bars.get(mid).close().value();
-            }
-            if (cmp < 0) {
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-        }
-        return null;
+    private static IndicatorStance stance(IndicatorKind kind, Stance side, String statement) {
+        return new IndicatorStance(kind, side, statement);
     }
 }

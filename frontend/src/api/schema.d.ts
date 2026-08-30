@@ -2476,6 +2476,14 @@ export interface components {
              */
             indicator: string;
             /**
+             * @description 무엇을 재는 부류인가. **TREND 와 REVERSION 을 함께 세면 안 된다** —
+             *     종가가 밴드 상단 위인 것은 되돌림에게 과열이고 추세에게 돌파인데
+             *     둘 다 LONG 으로 적히기 때문이다.
+             * @example TREND
+             * @enum {string}
+             */
+            family: "TREND" | "REVERSION";
+            /**
              * @description 어느 쪽에 서 있는가. **UNKNOWN 은 NEUTRAL 과 다른 사실이다** —
              *     앞은 봉이 모자라 말할 수 없는 것이고 뒤는 어느 쪽도 아닌 것이다.
              * @example SHORT
