@@ -1,5 +1,6 @@
 package com.coinwin.readout.api;
 
+import com.coinwin.indicator.domain.AtrMultiple;
 import com.coinwin.readout.domain.IchimokuReadout;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
@@ -51,7 +52,15 @@ public record IchimokuReadoutResponse(
 
         @Schema(description = "종가 − 기준선을 ATR 로 잰 값. 기준선에서 얼마나 떨어져 있나",
                 example = "1.10")
-        BigDecimal baseLineGap) {
+        BigDecimal baseLineGap,
+
+        @Schema(description = """
+                후행스팬 확인 — 지금 종가가 **변위만큼 전의 종가**보다 얼마나 위인가를 ATR 로
+                잰 값. 후행스팬은 지금 종가를 뒤로 민 선이라 그 비교와 같은 물음이다.
+
+                **없을 수 있다** — 변위만큼 전의 봉이 없으면 견줄 대상이 없다.""",
+                example = "0.85", nullable = true)
+        BigDecimal laggingSpanGap) {
 
     static IchimokuReadoutResponse from(IchimokuReadout readout) {
         return new IchimokuReadoutResponse(
@@ -63,6 +72,7 @@ public record IchimokuReadoutResponse(
                 readout.bullishCloud(),
                 readout.cloudThickness().value(),
                 readout.conversionGap().value(),
-                readout.baseLineGap().value());
+                readout.baseLineGap().value(),
+                readout.laggingSpanGap().map(AtrMultiple::value).orElse(null));
     }
 }

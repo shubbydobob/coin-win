@@ -100,6 +100,18 @@ export function ReadoutPanel({ readouts, symbol }: { readouts: Readout[]; symbol
               이름="밴드 안 어디"
               값={orNothing(보는것.bollinger.ratio, (안) => bandRatio(안))}
             />
+            <Fact 이름="밴드폭 순위" 값={percent(보는것.bollinger.bandWidthRank)} />
+            <Fact 이름="밴드 밖 연속" 값={`${보는것.bollinger.bandWalk}봉`} />
+            <Fact
+              이름="후행스팬"
+              값={orNothing(보는것.ichimoku.laggingSpanGap, (간격) => `${ratio(간격)} ATR`)}
+            />
+            <Fact 이름="MACD 이어진 봉" 값={`${보는것.macd.barsSinceCross}봉`} />
+            <Fact 이름="영선" 값={보는것.macd.aboveZero ? "위" : "아래"} />
+            <Fact
+              이름="20−200"
+              값={orNothing(보는것.movingAverage.spread, (간격) => `${ratio(간격)} ATR`)}
+            />
           </dl>
           <PriceChart symbol={symbol} readout={보는것} />
         </>

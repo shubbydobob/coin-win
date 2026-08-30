@@ -39,6 +39,7 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
       cloudThickness: 0.18,
       conversionGap: 1.34,
       baseLineGap: 0.2,
+      laggingSpanGap: 0.85,
     },
     bollinger: {
       position: "INSIDE",
@@ -47,7 +48,11 @@ function 판독(덮어쓸것: Partial<Readout> = {}): Readout {
       lower: 78320.44,
       bandWidthPercent: 2.0833,
       ratio: 0.2929,
+      bandWidthRank: 18.5053,
+      bandWalk: 0,
     },
+    macd: { histogram: 0.31, change: -0.04, aboveZero: true, barsSinceCross: 7 },
+    movingAverage: { spread: 2.4 },
     support: { near: 77803, far: 77650, touches: 26, distancePercent: 1.2691 },
     fibonacci: {
       low: 64000,
@@ -165,6 +170,33 @@ describe("지표 판독", () => {
     );
 
     expect(screen.getByText("밴드 안 어디").nextElementSibling).toHaveTextContent("—");
+  });
+
+  /**
+   * <b>한 봉만 봐서는 나오지 않는 것들.</b> 밴드폭이 창 안에서 몇 번째인지, 밖에서 몇 봉째
+   * 걷고 있는지, 시그널 위에 선 지 얼마나 됐는지 — 전부 딱지에서 통째로 빠져 있던 값이다.
+   */
+  it("이력이 있어야 나오는 값들을 함께 적는다", () => {
+    render(<ReadoutPanel readouts={[판독()]} symbol="BTCUSDT" />);
+
+    expect(screen.getByText("밴드폭 순위").nextElementSibling).toHaveTextContent("18.5053%");
+    expect(screen.getByText("밴드 밖 연속").nextElementSibling).toHaveTextContent("0봉");
+    expect(screen.getByText("후행스팬").nextElementSibling).toHaveTextContent("0.85 ATR");
+    expect(screen.getByText("MACD 이어진 봉").nextElementSibling).toHaveTextContent("7봉");
+    expect(screen.getByText("20−200").nextElementSibling).toHaveTextContent("2.40 ATR");
+  });
+
+  /** 200 이동평균이 없는 주기가 실제로 있다. 0 으로 적으면 두 선이 붙어 있다는 뜻이 된다. */
+  it("이동평균 간격이 없으면 없다고 적는다", () => {
+    const 없는것 = 판독();
+    render(
+      <ReadoutPanel
+        readouts={[{ ...없는것, movingAverage: { spread: null } }]}
+        symbol="BTCUSDT"
+      />,
+    );
+
+    expect(screen.getByText("20−200").nextElementSibling).toHaveTextContent("—");
   });
 
   /** 읽는 법은 한 번 읽으면 되는 것이다. 펼쳐 두면 매일 보는 값들이 그 글에 밀린다. */

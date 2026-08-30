@@ -83,7 +83,7 @@ class IchimokuReadoutTest {
      * 어느 넷이 일목의 선이고 무엇이 지금 가격인지가 호출부에서 읽힌다.
      */
     private static IchimokuReadout 판독(IchimokuValue value, int close) {
-        return IchimokuReadout.of(value, 가격(close), ATR);
+        return IchimokuReadout.of(value, 가격(close), ATR, Optional.empty());
     }
 
     private static IchimokuValue 일목(int conversion, int base, int spanA, int spanB) {

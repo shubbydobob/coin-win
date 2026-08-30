@@ -92,6 +92,11 @@ class ResponseSchemaContractTest {
             // 밴드 폭이 0 이면 "밴드 안 어디" 라는 물음이 성립하지 않는다. 0 이나 0.5 로
             // 채우면 그것이 없는 사실이 된다 — 손익비를 0 으로 적지 않는 것과 같은 자리다.
             Map.entry("BollingerReadoutResponse", List.of("ratio")),
+            // 200 이동평균은 봉 200 개가 있어야 값을 낸다. 0 으로 채우면 "두 선이 붙어 있다"
+            // 는 없는 사실이 생긴다.
+            Map.entry("MovingAverageReadoutResponse", List.of("spread")),
+            // 후행스팬은 변위만큼 전의 봉과 견주는 값이라 그 봉이 없으면 견줄 대상이 없다.
+            Map.entry("IchimokuReadoutResponse", List.of("laggingSpanGap")),
             // 후행스팬은 뒤로 미는 값이라 최근 봉에는 밀 자리가 없다. 0 으로 채우면 차트
             // 바닥에 없는 선이 생긴다 — 도메인이 Optional 로 들고 있는 것과 같은 이유다.
             Map.entry("IchimokuPointResponse", List.of("laggingSpan")));

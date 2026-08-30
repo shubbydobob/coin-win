@@ -2193,6 +2193,21 @@ export interface components {
              * @example 0.7412
              */
             ratio: number | null;
+            /**
+             * @description 판독 창 안에서 지금 폭의 백분위. **수축은 절대값이 아니라 순위다** —
+             *     3% 가 좁은지 넓은지는 그 종목의 최근 이력 위에서만 뜻을 갖는다.
+             *     100 이면 이 창에서 가장 넓다.
+             * @example 18.5053
+             */
+            bandWidthRank: number;
+            /**
+             * Format: int32
+             * @description 밴드 밖에 **연속으로 머문 봉 수**. 양수면 상단 밖, 음수면 하단 밖이고
+             *     0 이면 지금 안에 있다. 「밖」 하나로는 방금 나간 것과 닷새째 걷는 것이
+             *     같은 사실이 된다.
+             * @example 3
+             */
+            bandWalk: number;
         };
         /** @description 되돌림 레벨 하나 */
         FibonacciLevelResponse: {
@@ -2287,6 +2302,52 @@ export interface components {
              * @example 1.1
              */
             baseLineGap: number;
+            /**
+             * @description 후행스팬 확인 — 지금 종가가 **변위만큼 전의 종가**보다 얼마나 위인가를 ATR 로
+             *     잰 값. 후행스팬은 지금 종가를 뒤로 민 선이라 그 비교와 같은 물음이다.
+             *
+             *     **없을 수 있다** — 변위만큼 전의 봉이 없으면 견줄 대상이 없다.
+             * @example 0.85
+             */
+            laggingSpanGap: number | null;
+        };
+        /** @description MACD 판독. 부호와 크기와 이어진 길이를 함께 낸다 */
+        MacdReadoutResponse: {
+            /**
+             * @description 히스토그램을 ATR 로 잰 값. **가격의 차라 그대로 두면 시대가 비교되지 않는다** —
+             *     60,000 시절의 100 과 100,000 시절의 100 은 다른 크기다.
+             * @example 0.31
+             */
+            histogram: number;
+            /**
+             * @description 직전 봉 대비 히스토그램 변화. 붙는 중인지 벌어지는 중인지를 말한다
+             * @example -0.04
+             */
+            change: number;
+            /**
+             * @description MACD 선이 영선 위인가. **시그널 대비와 다른 사실이다** — 시그널 위이면서
+             *     영선 아래인 자리가 있고, 그것을 한 부호로 접으면 둘이 구별되지 않는다.
+             * @example true
+             */
+            aboveZero: boolean;
+            /**
+             * Format: int32
+             * @description 지금 부호가 **이어진 봉 수**. 양수면 시그널 위, 음수면 아래이고
+             *     0 이면 히스토그램이 정확히 0 이다.
+             * @example 7
+             */
+            barsSinceCross: number;
+        };
+        /** @description 이동평균 판독. 순서가 아니라 벌어진 정도를 낸다 */
+        MovingAverageReadoutResponse: {
+            /**
+             * @description (20 − 200) 을 ATR 로 잰 값. 부호가 어느 쪽이 위인지를 말한다.
+             *
+             *     **없을 수 있다** — 200 구간은 봉 200 개가 있어야 값을 낸다. 0 으로 채우면
+             *     "두 선이 붙어 있다" 는 없는 사실이 생긴다.
+             * @example 2.4
+             */
+            spread: number | null;
         };
         /** @description 한 주기의 지표·지지저항 판독 */
         TimeframeReadoutResponse: {
@@ -2323,6 +2384,16 @@ export interface components {
              *     것과 상단 바로 아래인 것이 구별되지 않는다.
              */
             bollinger: components["schemas"]["BollingerReadoutResponse"];
+            /**
+             * @description MACD 판독. **부호 하나로 접지 않는다** — 방금 넘어온 것과 스무 봉째 위에
+             *     있는 것은 다른 자리다.
+             */
+            macd: components["schemas"]["MacdReadoutResponse"];
+            /**
+             * @description 이동평균 판독. **순서가 아니라 벌어진 정도를 낸다** — 「정배열」 은 1 만큼
+             *     위인 것과 다섯 배 벌어진 것을 같은 사실로 만든다.
+             */
+            movingAverage: components["schemas"]["MovingAverageReadoutResponse"];
             /**
              * @description 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
              *     채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.

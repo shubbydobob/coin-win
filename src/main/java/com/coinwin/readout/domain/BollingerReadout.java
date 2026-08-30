@@ -6,6 +6,10 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.BandPosition;
 import com.coinwin.indicator.domain.BandRatio;
 import com.coinwin.indicator.domain.BollingerValue;
+import com.coinwin.indicator.domain.IndicatorPoint;
+import com.coinwin.market.domain.CandleSeries;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -28,6 +32,9 @@ import java.util.Optional;
  * @param lower 밴드 하단
  * @param bandWidthPercent 중심선 대비 폭. 가격대가 달라도 비교되도록 비율이다
  * @param ratio 밴드 안에서 어디쯤인가. 폭이 0 이면 비어 있다
+ * @param bandWidthRank 판독 창 안에서 지금 폭의 백분위. <b>수축은 절대값이 아니라 순위다</b> —
+ *     3% 가 좁은지 넓은지는 그 종목의 최근 이력 위에서만 뜻을 갖는다
+ * @param bandWalk 밖에 연속으로 머문 봉 수. 부호가 어느 쪽인지를 말하고 0 이면 지금 안에 있다
  */
 public record BollingerReadout(
         BandPosition position,
@@ -35,7 +42,9 @@ public record BollingerReadout(
         Price middle,
         Price lower,
         Percentage bandWidthPercent,
-        Optional<BandRatio> ratio) {
+        Optional<BandRatio> ratio,
+        Percentage bandWidthRank,
+        int bandWalk) {
 
     public BollingerReadout {
         DomainValues.required(position, "밴드 위치");
@@ -44,6 +53,7 @@ public record BollingerReadout(
         DomainValues.required(lower, "밴드 하단");
         DomainValues.required(bandWidthPercent, "밴드 폭");
         DomainValues.required(ratio, "밴드 안 위치");
+        DomainValues.required(bandWidthRank, "밴드 폭 순위");
     }
 
     /**
@@ -52,7 +62,18 @@ public record BollingerReadout(
      * <p><b>위치와 비율은 지표가 판정한다.</b> 같은 밴드에 대해 두 곳이 각자 계산하면 경계
      * 처리가 갈라진다.
      */
-    public static BollingerReadout of(BollingerValue value, Price close) {
+    static BollingerReadout over(List<IndicatorPoint<BollingerValue>> points, CandleSeries series) {
+        BollingerValue value = points.getLast().value();
+        Price close = series.candles().getLast().close();
+        return of(value, close, rank(points, value.bandWidth()), walk(points, series));
+    }
+
+    /**
+     * 한 시점의 값들만으로 읽는다. <b>이력이 필요한 둘은 받아서 담는다</b> — 여기서 다시
+     * 세면 어느 창에서 잰 것인가가 호출부마다 달라진다.
+     */
+    static BollingerReadout of(
+            BollingerValue value, Price close, Percentage rank, int walk) {
         DomainValues.required(value, "볼린저 값");
         DomainValues.required(close, "현재가");
         return new BollingerReadout(
@@ -61,6 +82,52 @@ public record BollingerReadout(
                 value.middle(),
                 value.lower(),
                 value.bandWidth(),
-                value.band().ratioOf(close));
+                value.band().ratioOf(close),
+                rank,
+                walk);
+    }
+
+    /**
+     * 지금 폭이 판독 창 안에서 몇 번째인가. <b>같거나 좁은 봉의 비율</b>이므로 100 이면
+     * 이 창에서 가장 넓은 것이고 작을수록 수축이다.
+     *
+     * <p><b>창은 판독이 보는 봉 수 그대로다.</b> 여기서 더 긴 창을 따로 받으면 화면의 다른
+     * 값들과 다른 구간을 말하게 되고, 같은 줄에 놓인 수들이 서로 다른 과거를 가리킨다.
+     */
+    private static Percentage rank(List<IndicatorPoint<BollingerValue>> points, Percentage now) {
+        long atOrBelow = points.stream()
+                .filter(point -> point.value().bandWidth().value().compareTo(now.value()) <= 0)
+                .count();
+        return Percentage.ofRatio(atOrBelow, points.size());
+    }
+
+    /**
+     * 밖에 연속으로 머문 봉 수. <b>부호를 그대로 실어 낸다</b> — 방향과 길이를 따로 두면
+     * 부르는 쪽이 둘을 맞대는 규칙을 또 갖게 된다.
+     */
+    private static int walk(List<IndicatorPoint<BollingerValue>> points, CandleSeries series) {
+        int side = sideAt(points, series, points.size() - 1);
+        if (side == 0) {
+            return 0;
+        }
+        int count = 0;
+        for (int i = points.size() - 1; i >= 0 && sideAt(points, series, i) == side; i--) {
+            count++;
+        }
+        return side * count;
+    }
+
+    /** 그 봉의 종가가 밴드 밖 어느 쪽인가. 안이거나 봉을 못 찾으면 0 이다. */
+    private static int sideAt(
+            List<IndicatorPoint<BollingerValue>> points, CandleSeries series, int index) {
+        BigDecimal close = BarLookup.closeAt(series, points.get(index).at());
+        if (close == null) {
+            return 0;
+        }
+        return switch (points.get(index).value().positionOf(Price.of(close))) {
+            case ABOVE -> 1;
+            case BELOW -> -1;
+            case INSIDE -> 0;
+        };
     }
 }

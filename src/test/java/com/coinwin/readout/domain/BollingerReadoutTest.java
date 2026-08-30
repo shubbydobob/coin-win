@@ -2,6 +2,7 @@ package com.coinwin.readout.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.BandPosition;
 import com.coinwin.indicator.domain.BandRatio;
@@ -41,7 +42,10 @@ class BollingerReadoutTest {
     @DisplayName("폭이 0 이면 밴드 안 위치가 비어 있다")
     void 폭이_없으면() {
         BollingerReadout 판독 = BollingerReadout.of(
-                new BollingerValue(가격(60000), 가격(60000), 가격(60000)), 가격(60000));
+                new BollingerValue(가격(60000), 가격(60000), 가격(60000)),
+                가격(60000),
+                Percentage.of(BigDecimal.ZERO),
+                0);
 
         assertThat(판독.ratio()).isEmpty();
         assertThat(판독.position()).isEqualTo(BandPosition.INSIDE);
@@ -60,7 +64,10 @@ class BollingerReadoutTest {
 
     private static BollingerReadout 판독(int close) {
         return BollingerReadout.of(
-                new BollingerValue(가격(61000), 가격(60000), 가격(59000)), 가격(close));
+                new BollingerValue(가격(61000), 가격(60000), 가격(59000)),
+                가격(close),
+                Percentage.of(BigDecimal.ZERO),
+                0);
     }
 
     private static Price 가격(int value) {

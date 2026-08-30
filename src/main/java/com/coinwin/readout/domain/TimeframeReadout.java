@@ -8,10 +8,6 @@ import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.AverageTrueRange;
-import com.coinwin.indicator.domain.BollingerBands;
-import com.coinwin.indicator.domain.BollingerValue;
-import com.coinwin.indicator.domain.IchimokuCloud;
-import com.coinwin.indicator.domain.IchimokuValue;
 import com.coinwin.indicator.domain.IndicatorPoint;
 import com.coinwin.indicator.domain.VolumeProfile;
 import com.coinwin.indicator.domain.VolumeProfileSettings;
@@ -98,18 +94,13 @@ public record TimeframeReadout(
                 pivots, zoneSettings.toleranceFor(atr), zoneSettings.minTouches());
         return new TimeframeReadout(
                 interval, lastCandleTime(series), close, atr,
-                indicatorsOf(series, close, atr),
+                IndicatorReadout.over(series, atr),
                 zones.nearestSupport(close).map(zone -> ZoneReadout.of(zone, close)),
                 zones.nearestResistance(close).map(zone -> ZoneReadout.of(zone, close)),
                 FibonacciRetracement.over(pivots),
                 VolumeProfileReadout.of(VolumeProfile.over(series, volumeSettings), close));
     }
 
-    private static IndicatorReadout indicatorsOf(CandleSeries series, Price close, Money atr) {
-        IchimokuValue ichimoku = last(IchimokuCloud.standard().over(series));
-        BollingerValue bollinger = last(BollingerBands.standard().over(series));
-        return IndicatorReadout.of(ichimoku, bollinger, close, atr);
-    }
 
     private static Price lastCandleClose(CandleSeries series) {
         return series.candles().getLast().close();

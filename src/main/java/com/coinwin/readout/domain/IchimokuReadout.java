@@ -6,6 +6,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.indicator.domain.AtrMultiple;
 import com.coinwin.indicator.domain.BandPosition;
 import com.coinwin.indicator.domain.IchimokuValue;
+import java.util.Optional;
 
 /**
  * 일목이 지금 말하는 것.
@@ -32,6 +33,8 @@ import com.coinwin.indicator.domain.IchimokuValue;
  * @param cloudThickness 구름 두께를 ATR 로 잰 값. 언제나 0 이상이다
  * @param conversionGap 전환선 − 기준선. <b>부호가 절반이다</b>
  * @param baseLineGap 종가 − 기준선. 기준선에서 얼마나 떨어져 있나
+ * @param laggingSpanGap 후행스팬 확인 — 지금 종가가 변위만큼 전의 종가보다 얼마나 위인가.
+ *     <b>봉이 모자라면 비어 있다</b>
  */
 public record IchimokuReadout(
         BandPosition position,
@@ -42,7 +45,8 @@ public record IchimokuReadout(
         boolean bullishCloud,
         AtrMultiple cloudThickness,
         AtrMultiple conversionGap,
-        AtrMultiple baseLineGap) {
+        AtrMultiple baseLineGap,
+        Optional<AtrMultiple> laggingSpanGap) {
 
     public IchimokuReadout {
         DomainValues.required(position, "구름 위치");
@@ -53,6 +57,7 @@ public record IchimokuReadout(
         DomainValues.required(cloudThickness, "구름 두께");
         DomainValues.required(conversionGap, "전환·기준 간격");
         DomainValues.required(baseLineGap, "기준선까지 거리");
+        DomainValues.required(laggingSpanGap, "후행스팬 간격");
     }
 
     /**
@@ -62,10 +67,12 @@ public record IchimokuReadout(
      * 구간에 포함된다" 는 규칙이 두 곳에 생기고, 한쪽만 바뀌는 순간 화면과 백테스트가 다른
      * 답을 낸다.
      */
-    public static IchimokuReadout of(IchimokuValue value, Price close, Money atr) {
+    public static IchimokuReadout of(
+            IchimokuValue value, Price close, Money atr, Optional<Money> laggingGap) {
         DomainValues.required(value, "일목 값");
         DomainValues.required(close, "현재가");
         DomainValues.required(atr, "ATR");
+        DomainValues.required(laggingGap, "후행스팬 간격");
         return new IchimokuReadout(
                 value.positionOf(close),
                 value.conversionLine(),
@@ -75,6 +82,7 @@ public record IchimokuReadout(
                 value.bullishCloud(),
                 AtrMultiple.of(value.cloud().width(), atr),
                 AtrMultiple.between(value.conversionLine(), value.baseLine(), atr),
-                AtrMultiple.between(close, value.baseLine(), atr));
+                AtrMultiple.between(close, value.baseLine(), atr),
+                laggingGap.map(gap -> AtrMultiple.of(gap, atr)));
     }
 }

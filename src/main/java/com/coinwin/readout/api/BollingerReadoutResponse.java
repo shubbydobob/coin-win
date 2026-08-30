@@ -40,7 +40,21 @@ public record BollingerReadoutResponse(
                 **없을 수 있다** — 폭이 0 이면 "어디쯤" 이라는 물음이 성립하지 않는다.
                 0 이나 0.5 로 채우지 않는다.""",
                 example = "0.7412", nullable = true)
-        BigDecimal ratio) {
+        BigDecimal ratio,
+
+        @Schema(description = """
+                판독 창 안에서 지금 폭의 백분위. **수축은 절대값이 아니라 순위다** —
+                3% 가 좁은지 넓은지는 그 종목의 최근 이력 위에서만 뜻을 갖는다.
+                100 이면 이 창에서 가장 넓다.""",
+                example = "18.5053")
+        BigDecimal bandWidthRank,
+
+        @Schema(description = """
+                밴드 밖에 **연속으로 머문 봉 수**. 양수면 상단 밖, 음수면 하단 밖이고
+                0 이면 지금 안에 있다. 「밖」 하나로는 방금 나간 것과 닷새째 걷는 것이
+                같은 사실이 된다.""",
+                example = "3")
+        int bandWalk) {
 
     static BollingerReadoutResponse from(BollingerReadout readout) {
         return new BollingerReadoutResponse(
@@ -49,6 +63,8 @@ public record BollingerReadoutResponse(
                 readout.middle().value(),
                 readout.lower().value(),
                 readout.bandWidthPercent().value(),
-                readout.ratio().map(BandRatio::value).orElse(null));
+                readout.ratio().map(BandRatio::value).orElse(null),
+                readout.bandWidthRank().value(),
+                readout.bandWalk());
     }
 }

@@ -50,6 +50,16 @@ public record TimeframeReadoutResponse(
         BollingerReadoutResponse bollinger,
 
         @Schema(description = """
+                MACD 판독. **부호 하나로 접지 않는다** — 방금 넘어온 것과 스무 봉째 위에
+                있는 것은 다른 자리다.""")
+        MacdReadoutResponse macd,
+
+        @Schema(description = """
+                이동평균 판독. **순서가 아니라 벌어진 정도를 낸다** — 「정배열」 은 1 만큼
+                위인 것과 다섯 배 벌어진 것을 같은 사실로 만든다.""")
+        MovingAverageReadoutResponse movingAverage,
+
+        @Schema(description = """
                 아래에서 가장 가까운 대. **없을 수 있다** — 지금 가격 아래에 최소 터치 수를
                 채운 대가 하나도 없으면 null 이다. 0 으로 채우지 않는다.""",
                 nullable = true)
@@ -80,6 +90,8 @@ public record TimeframeReadoutResponse(
                 readout.close().value(), readout.atr().value(),
                 IchimokuReadoutResponse.from(indicators.ichimoku()),
                 BollingerReadoutResponse.from(indicators.bollinger()),
+                MacdReadoutResponse.from(indicators.macd()),
+                MovingAverageReadoutResponse.from(indicators.movingAverage()),
                 zone(readout.support()), zone(readout.resistance()), fibonacci(readout),
                 VolumeProfileResponse.from(readout.volume()));
     }
