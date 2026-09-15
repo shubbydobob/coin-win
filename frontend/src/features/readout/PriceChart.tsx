@@ -35,6 +35,14 @@ const 초 = (iso: string) => (Date.parse(iso) / 1000) as UTCTimestamp;
 const 보여줄봉 = 150;
 
 /**
+ * 마지막 봉과 오른끝 사이에 남기는 봉 수.
+ *
+ * **여백이 있어야 방금 그려진 봉이 축에 붙지 않는다.** 그리고 이 수가 곧 오른쪽 한계다 —
+ * `fixRightEdge` 가 여기까지만 끌리게 막는다.
+ */
+const 오른여백 = 4;
+
+/**
  * 캔들 차트와 지표 곡선.
  *
  * **수평선이던 것이 곡선이 됐다.** 앞판은 구름과 밴드를 지금 봉의 값으로 가로선을 그었다 —
@@ -93,7 +101,24 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
       },
       grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
       rightPriceScale: { borderColor: "#2b3139" },
-      timeScale: { borderColor: "#2b3139", timeVisible: true },
+      /*
+        **오른쪽으로는 끌리지 않는다.** 마지막 봉 너머는 아직 일어나지 않은 시간이고, 그쪽으로
+        끌면 화면이 빈 칸으로 가득 찬다 — 캔들이 왼쪽 밖으로 밀려나 **지금 값이 안 보이는**
+        상태가 되고, 그것은 이 차트가 답하는 질문("지금 가격이 어디에 서 있나")을 지운다.
+
+        **왼쪽은 그대로 열려 있다.** 과거로 끄는 것은 이 화면이 시키는 일이다 — 700봉을
+        계산해 최근 150봉만 띄우므로 나머지는 끌어서 본다.
+
+        `rightOffset` 은 마지막 봉과 오른끝 사이의 여백이다. 0 이면 방금 그려진 봉이 축에
+        딱 붙어 읽기 어렵다. 아래 `setVisibleLogicalRange` 와 **같은 상수**를 쓴다 — 둘이
+        갈라지면 처음 띄운 폭과 끌었다 놓은 폭이 달라진다.
+      */
+      timeScale: {
+        borderColor: "#2b3139",
+        timeVisible: true,
+        fixRightEdge: true,
+        rightOffset: 오른여백,
+      },
       crosshair: { mode: 0 },
       autoSize: true,
     });
@@ -220,7 +245,9 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
       맞춘주기.current = readout.interval;
       chart.timeScale().setVisibleLogicalRange({
         from: Math.max(0, 봉수 - 보여줄봉),
-        to: 봉수 + 4,
+        // 마지막 봉의 자리는 `봉수 - 1` 이다. 여백을 그 위에 얹어야 `rightOffset` 과 정확히
+        // 같은 폭이 되고, 어긋나면 처음 띄운 뒤 한 번 끌었다 놓을 때 폭이 달라진다.
+        to: 봉수 - 1 + 오른여백,
       });
     }
     이전봉수.current = 봉수;
@@ -283,7 +310,7 @@ export function PriceChart({ symbol, readout }: { symbol: string; readout: Reado
         {series.isError
           ? "지표를 가져오지 못했다"
           : series.data
-            ? `${series.data.count}봉을 계산해 최근 ${보여줄봉}봉을 띄운다 · 끌거나 휠로 과거로 · 마지막 ${price(readout.close)}${빈것(series.data)}`
+            ? `${series.data.count}봉을 계산해 최근 ${보여줄봉}봉을 띄운다 · 끌거나 휠로 과거로만 · 마지막 ${price(readout.close)}${빈것(series.data)}`
             : "지표를 가져오는 중"}
       </p>
 
