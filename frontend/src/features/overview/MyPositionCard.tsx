@@ -2,12 +2,15 @@ import { instant, money, multiple, percent, price, quantity, riskPercent } from 
 import { Light, type Level } from "../../shared/Light";
 import { SmallButton } from "../../shared/SmallButton";
 import { SideChip } from "../../shared/SideChip";
+import { StopLossGuard } from "./StopLossGuard";
 import { Term } from "../../shared/Term";
 import type { components } from "../../api/schema";
 
 type Reconciliation = components["schemas"]["PositionReconciliationResponse"];
 type Match = components["schemas"]["PositionMatchResponse"];
 type Outliers = components["schemas"]["MetricOutliersResponse"];
+type StopLoss = components["schemas"]["StopLossReviewResponse"];
+type Protection = components["schemas"]["PositionProtectionResponse"];
 type Direction = "LONG" | "SHORT";
 
 /**
@@ -28,12 +31,18 @@ type Direction = "LONG" | "SHORT";
 export function MyPositionCard({
   reconciliation,
   outliers,
+  stopLoss,
+  stopLossFailed = false,
   onRefresh,
   refreshing = false,
   failed = false,
 }: {
   reconciliation: Reconciliation;
   outliers?: Outliers;
+  /** 손절 보호 판정. 못 읽었으면 없고, 그때 화면은 "없다" 가 아니라 "모른다" 를 말한다. */
+  stopLoss?: StopLoss;
+  /** 손절 질의가 실패했다. **포지션 갱신 실패와 다른 사실이라 따로 받는다.** */
+  stopLossFailed?: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
   /** 마지막 갱신이 실패했다. 아래 수는 그때 값이고, 계좌 폴링은 멈춰 있다. */
@@ -70,7 +79,15 @@ export function MyPositionCard({
       ) : (
         <div className="mt-3 space-y-3">
           {열린것.map((match) => (
-            <Open key={match.direction} match={match} outliers={outliers} />
+            <Open
+              key={match.direction}
+              match={match}
+              outliers={outliers}
+              protection={stopLoss?.protections.find(
+                (candidate) => candidate.direction === match.direction,
+              )}
+              protectionFailed={stopLossFailed}
+            />
           ))}
           {기록에만.map((match) => (
             <RecordedOnly key={match.direction} match={match} />
@@ -125,8 +142,23 @@ function RecordedOnly({ match }: { match: Match }) {
   );
 }
 
-/** 열려 있는 포지션 하나. 위에서 아래로 **무엇을 · 얼마나 · 어디까지 · 어느 편에** 순서다. */
-function Open({ match, outliers }: { match: Match; outliers?: Outliers }) {
+/**
+ * 열려 있는 포지션 하나. 위에서 아래로 **무엇을 · 얼마나 · 어디까지 · 어느 편에** 순서다.
+ *
+ * **손절은 청산보다 위에 놓는다.** 청산가는 최악의 경계이고 손절은 내가 정한 경계인데,
+ * 이 저장소를 만든 손실은 후자가 비어 있어서 났다.
+ */
+function Open({
+  match,
+  outliers,
+  protection,
+  protectionFailed = false,
+}: {
+  match: Match;
+  outliers?: Outliers;
+  protection?: Protection;
+  protectionFailed?: boolean;
+}) {
   const 포지션 = match.actual;
   if (!포지션) {
     return null;
@@ -178,6 +210,7 @@ function Open({ match, outliers }: { match: Match; outliers?: Outliers }) {
         />
       </dl>
 
+      <StopLossGuard protection={protection} failed={protectionFailed} />
       <Liquidation 포지션={포지션} />
       <Crowd 방향={방향} outliers={outliers} />
     </div>

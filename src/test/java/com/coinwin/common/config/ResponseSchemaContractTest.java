@@ -99,7 +99,16 @@ class ResponseSchemaContractTest {
             Map.entry("IchimokuReadoutResponse", List.of("laggingSpanGap")),
             // 후행스팬은 뒤로 미는 값이라 최근 봉에는 밀 자리가 없다. 0 으로 채우면 차트
             // 바닥에 없는 선이 생긴다 — 도메인이 Optional 로 들고 있는 것과 같은 이유다.
-            Map.entry("IchimokuPointResponse", List.of("laggingSpan")));
+            Map.entry("IchimokuPointResponse", List.of("laggingSpan")),
+            // 있어야 할 손절가는 기록된 계획에서만 온다. 앱 밖에서 연 포지션은 계획이 없고,
+            // 손절 거리의 기본값은 아직 재지 않았다 — 지어낸 수를 놓으면 사람이 그것을
+            // 기준으로 읽는다. 열려 있는 위험은 그 손절가가 있어야만 말할 수 있다.
+            Map.entry("PositionProtectionResponse",
+                    List.of("plannedStopLoss", "exposureWithoutStop")),
+            // 추격 손절은 고점을 따라 움직이므로 트리거가 미리 정해져 있지 않고, 전량 주문은
+            // 수량을 갖지 않는다. 둘 다 0 으로 적으면 '지금 당장' 과 '아무것도 안 닫음' 이
+            // 된다 — 없는 것과 0 은 다른 사실이다.
+            Map.entry("ProtectiveOrderResponse", List.of("triggerPrice", "quantity")));
 
     @Autowired
     private WebApplicationContext context;

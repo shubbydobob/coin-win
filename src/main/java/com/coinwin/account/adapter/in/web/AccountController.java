@@ -1,6 +1,7 @@
 package com.coinwin.account.adapter.in.web;
 
 import com.coinwin.account.application.port.in.ReconcilePositionsUseCase;
+import com.coinwin.account.application.port.in.ReviewStopLossUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,9 +26,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AccountController {
 
     private final ReconcilePositionsUseCase reconcile;
+    private final ReviewStopLossUseCase stopLoss;
 
-    public AccountController(ReconcilePositionsUseCase reconcile) {
+    public AccountController(
+            ReconcilePositionsUseCase reconcile, ReviewStopLossUseCase stopLoss) {
         this.reconcile = reconcile;
+        this.stopLoss = stopLoss;
     }
 
     @Operation(
@@ -49,5 +53,28 @@ public class AccountController {
     @GetMapping("/positions")
     public PositionReconciliationResponse positions() {
         return PositionReconciliationResponse.from(reconcile.reconcile());
+    }
+
+    @Operation(
+            summary = "손절이 걸려 있는지 본다",
+            description = """
+                    열려 있는 포지션마다 거래소의 미체결 주문을 맞춰 보고, 손절이 전량을 덮고
+                    있는지 낸다. 규칙은 docs/spec/exit-automation.md 의 R1 —
+                    손절 없는 포지션은 존재할 수 없다.
+
+                    읽기만 한다. 손절을 대신 걸어 주지 않는다 — 그것은 거래 권한이 필요한
+                    3단계이고 그때 scope.md 를 먼저 고친다.
+
+                    있어야 할 손절가는 기록된 계획에서만 온다. 앱 밖에서 연 포지션은 계획이
+                    없으므로 null 이고, 지어내지 않는다.""")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "포지션별 손절 보호 상태"),
+        @ApiResponse(responseCode = "503",
+                description = "거래소 계정이 연결되지 않았거나 거래소를 읽지 못했다. "
+                        + "COINWIN_ACCOUNT_BINANCE_API_KEY 와 SECRET_KEY 가 필요하다")
+    })
+    @GetMapping("/stop-loss")
+    public StopLossReviewResponse stopLossReview() {
+        return StopLossReviewResponse.from(stopLoss.review());
     }
 }

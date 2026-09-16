@@ -1542,6 +1542,38 @@
         }
       }
     },
+    "/api/account/stop-loss": {
+      "get": {
+        "tags": [
+          "거래소 계정"
+        ],
+        "summary": "손절이 걸려 있는지 본다",
+        "description": "열려 있는 포지션마다 거래소의 미체결 주문을 맞춰 보고, 손절이 전량을 덮고\n있는지 낸다. 규칙은 docs/spec/exit-automation.md 의 R1 —\n손절 없는 포지션은 존재할 수 없다.\n\n읽기만 한다. 손절을 대신 걸어 주지 않는다 — 그것은 거래 권한이 필요한\n3단계이고 그때 scope.md 를 먼저 고친다.\n\n있어야 할 손절가는 기록된 계획에서만 온다. 앱 밖에서 연 포지션은 계획이\n없으므로 null 이고, 지어내지 않는다.",
+        "operationId": "stopLossReview",
+        "responses": {
+          "200": {
+            "description": "포지션별 손절 보호 상태",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StopLossReviewResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "거래소 계정이 연결되지 않았거나 거래소를 읽지 못했다. COINWIN_ACCOUNT_BINANCE_API_KEY 와 SECRET_KEY 가 필요하다",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/account/positions": {
       "get": {
         "tags": [
@@ -5044,6 +5076,145 @@
           "last",
           "roundTheClock",
           "symbol"
+        ]
+      },
+      "PositionProtectionResponse": {
+        "type": "object",
+        "description": "포지션 하나가 손절로 얼마나 덮여 있는가",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "description": "이 줄이 어느 방향의 포지션인가",
+            "enum": [
+              "LONG",
+              "SHORT"
+            ],
+            "example": "SHORT"
+          },
+          "coverage": {
+            "type": "string",
+            "description": "NONE 은 손절이 하나도 없다 — 규칙상 존재할 수 없는 상태다.\nPARTIAL 은 손절이 있는데 전량을 덮지 못한다(물타기 뒤에 흔하다).\nFULL 은 전량이 덮여 있다.",
+            "enum": [
+              "NONE",
+              "PARTIAL",
+              "FULL"
+            ],
+            "example": "NONE"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "보유 수량",
+            "example": 0.114
+          },
+          "stoppedQuantity": {
+            "type": "number",
+            "description": "그중 손절로 덮인 수량",
+            "example": 0.0
+          },
+          "plannedStopLoss": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "기록된 계획의 손절가. **앱 밖에서 연 포지션이면 null 이다** —\n있어야 할 손절가를 지어내지 않는다. 손절 거리의 기본값은 아직 재지 않았고,\n재지 않은 수를 놓으면 사람이 그것을 기준으로 읽는다.",
+            "example": 65280.0
+          },
+          "takeProfitWithoutStopLoss": {
+            "type": "boolean",
+            "description": "익절은 걸어 두었는데 손절이 없다. 아무것도 안 건 것과 다른 사실이다 —\n버는 쪽만 준비하고 잃는 쪽을 비워 둔 것이다.",
+            "example": true
+          },
+          "exposureWithoutStop": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "덮이지 않은 수량이 계획된 손절가까지 갔을 때 잃는 돈(USDT).\n계획이 없거나 전량이 덮여 있으면 null 이다 — 0 은 '위험 없음'으로 읽힌다.",
+            "example": 183.24
+          },
+          "orders": {
+            "type": "array",
+            "description": "이 포지션에 걸려 있는 종료 주문 전부",
+            "items": {
+              "$ref": "#/components/schemas/ProtectiveOrderResponse"
+            }
+          }
+        },
+        "required": [
+          "coverage",
+          "direction",
+          "exposureWithoutStop",
+          "orders",
+          "plannedStopLoss",
+          "quantity",
+          "stoppedQuantity",
+          "takeProfitWithoutStopLoss"
+        ]
+      },
+      "ProtectiveOrderResponse": {
+        "type": "object",
+        "description": "포지션을 닫는 미체결 주문 한 건",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "STOP_LOSS 는 불리한 쪽에서 트리거된다.\nTAKE_PROFIT 은 유리한 쪽에서 트리거된다.\nTRAILING_STOP 은 고점(저점)을 따라가는 손절이며 손절로 센다.",
+            "enum": [
+              "STOP_LOSS",
+              "TAKE_PROFIT",
+              "TRAILING_STOP"
+            ],
+            "example": "STOP_LOSS"
+          },
+          "triggerPrice": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "트리거 가격. 추격 손절은 고점을 따라 움직이므로 미리 정해진 값이 없어 null 이다.\n0 을 넣지 않는다 — 0 원짜리 트리거는 '지금 당장'으로 읽힌다.",
+            "example": 58000.0
+          },
+          "quantity": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "닫을 수량. **null 이면 전량이다**(거래소의 closePosition=true).\n0 으로 적지 않는다 — 전량과 '아무것도 안 닫음'이 같은 값이 된다.",
+            "example": 0.05
+          }
+        },
+        "required": [
+          "kind",
+          "quantity",
+          "triggerPrice"
+        ]
+      },
+      "StopLossReviewResponse": {
+        "type": "object",
+        "description": "열려 있는 포지션이 손절로 덮여 있는가",
+        "properties": {
+          "protections": {
+            "type": "array",
+            "description": "거래소에 열려 있는 포지션마다 한 줄. 기록에만 있는 거래는 없다",
+            "items": {
+              "$ref": "#/components/schemas/PositionProtectionResponse"
+            }
+          },
+          "allProtected": {
+            "type": "boolean",
+            "description": "전부 전량 덮여 있는가. 포지션이 하나도 없어도 true 다",
+            "example": false
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "거래소 값을 읽은 시각",
+            "example": "2026-09-16T04:10:00Z"
+          }
+        },
+        "required": [
+          "allProtected",
+          "observedAt",
+          "protections"
         ]
       },
       "ExchangeSideResponse": {

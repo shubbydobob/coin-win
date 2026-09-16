@@ -629,6 +629,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/stop-loss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 손절이 걸려 있는지 본다
+         * @description 열려 있는 포지션마다 거래소의 미체결 주문을 맞춰 보고, 손절이 전량을 덮고
+         *     있는지 낸다. 규칙은 docs/spec/exit-automation.md 의 R1 —
+         *     손절 없는 포지션은 존재할 수 없다.
+         *
+         *     읽기만 한다. 손절을 대신 걸어 주지 않는다 — 그것은 거래 권한이 필요한
+         *     3단계이고 그때 scope.md 를 먼저 고친다.
+         *
+         *     있어야 할 손절가는 기록된 계획에서만 온다. 앱 밖에서 연 포지션은 계획이
+         *     없으므로 null 이고, 지어내지 않는다.
+         */
+        get: operations["stopLossReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/account/positions": {
         parameters: {
             query?: never;
@@ -3157,6 +3185,93 @@ export interface components {
              */
             roundTheClock: boolean;
         };
+        /** @description 포지션 하나가 손절로 얼마나 덮여 있는가 */
+        PositionProtectionResponse: {
+            /**
+             * @description 이 줄이 어느 방향의 포지션인가
+             * @example SHORT
+             * @enum {string}
+             */
+            direction: "LONG" | "SHORT";
+            /**
+             * @description NONE 은 손절이 하나도 없다 — 규칙상 존재할 수 없는 상태다.
+             *     PARTIAL 은 손절이 있는데 전량을 덮지 못한다(물타기 뒤에 흔하다).
+             *     FULL 은 전량이 덮여 있다.
+             * @example NONE
+             * @enum {string}
+             */
+            coverage: "NONE" | "PARTIAL" | "FULL";
+            /**
+             * @description 보유 수량
+             * @example 0.114
+             */
+            quantity: number;
+            /**
+             * @description 그중 손절로 덮인 수량
+             * @example 0
+             */
+            stoppedQuantity: number;
+            /**
+             * @description 기록된 계획의 손절가. **앱 밖에서 연 포지션이면 null 이다** —
+             *     있어야 할 손절가를 지어내지 않는다. 손절 거리의 기본값은 아직 재지 않았고,
+             *     재지 않은 수를 놓으면 사람이 그것을 기준으로 읽는다.
+             * @example 65280
+             */
+            plannedStopLoss: number | null;
+            /**
+             * @description 익절은 걸어 두었는데 손절이 없다. 아무것도 안 건 것과 다른 사실이다 —
+             *     버는 쪽만 준비하고 잃는 쪽을 비워 둔 것이다.
+             * @example true
+             */
+            takeProfitWithoutStopLoss: boolean;
+            /**
+             * @description 덮이지 않은 수량이 계획된 손절가까지 갔을 때 잃는 돈(USDT).
+             *     계획이 없거나 전량이 덮여 있으면 null 이다 — 0 은 '위험 없음'으로 읽힌다.
+             * @example 183.24
+             */
+            exposureWithoutStop: number | null;
+            /** @description 이 포지션에 걸려 있는 종료 주문 전부 */
+            orders: components["schemas"]["ProtectiveOrderResponse"][];
+        };
+        /** @description 포지션을 닫는 미체결 주문 한 건 */
+        ProtectiveOrderResponse: {
+            /**
+             * @description STOP_LOSS 는 불리한 쪽에서 트리거된다.
+             *     TAKE_PROFIT 은 유리한 쪽에서 트리거된다.
+             *     TRAILING_STOP 은 고점(저점)을 따라가는 손절이며 손절로 센다.
+             * @example STOP_LOSS
+             * @enum {string}
+             */
+            kind: "STOP_LOSS" | "TAKE_PROFIT" | "TRAILING_STOP";
+            /**
+             * @description 트리거 가격. 추격 손절은 고점을 따라 움직이므로 미리 정해진 값이 없어 null 이다.
+             *     0 을 넣지 않는다 — 0 원짜리 트리거는 '지금 당장'으로 읽힌다.
+             * @example 58000
+             */
+            triggerPrice: number | null;
+            /**
+             * @description 닫을 수량. **null 이면 전량이다**(거래소의 closePosition=true).
+             *     0 으로 적지 않는다 — 전량과 '아무것도 안 닫음'이 같은 값이 된다.
+             * @example 0.05
+             */
+            quantity: number | null;
+        };
+        /** @description 열려 있는 포지션이 손절로 덮여 있는가 */
+        StopLossReviewResponse: {
+            /** @description 거래소에 열려 있는 포지션마다 한 줄. 기록에만 있는 거래는 없다 */
+            protections: components["schemas"]["PositionProtectionResponse"][];
+            /**
+             * @description 전부 전량 덮여 있는가. 포지션이 하나도 없어도 true 다
+             * @example false
+             */
+            allProtected: boolean;
+            /**
+             * Format: date-time
+             * @description 거래소 값을 읽은 시각
+             * @example 2026-09-16T04:10:00Z
+             */
+            observedAt: string;
+        };
         /** @description 거래소가 말하는 지금 이 순간의 포지션 */
         ExchangeSideResponse: {
             /**
@@ -4400,6 +4515,35 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["MacroQuoteListResponse"];
+                };
+            };
+        };
+    };
+    stopLossReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 포지션별 손절 보호 상태 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StopLossReviewResponse"];
+                };
+            };
+            /** @description 거래소 계정이 연결되지 않았거나 거래소를 읽지 못했다. COINWIN_ACCOUNT_BINANCE_API_KEY 와 SECRET_KEY 가 필요하다 */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

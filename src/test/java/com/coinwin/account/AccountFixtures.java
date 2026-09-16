@@ -1,6 +1,8 @@
 package com.coinwin.account;
 
 import com.coinwin.account.domain.ExchangePosition;
+import com.coinwin.account.domain.ProtectiveOrder;
+import com.coinwin.account.domain.ProtectiveOrderKind;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
@@ -44,5 +46,28 @@ public final class AccountFixtures {
 
     public static ExchangePosition longPosition(String quantity) {
         return longPosition(quantity, OBSERVED_AT);
+    }
+
+    /** 전량을 닫는 손절. 거래소의 {@code closePosition=true} 가 이것이다. */
+    public static ProtectiveOrder stop(Direction closes, String trigger) {
+        return ProtectiveOrder.entirePosition(
+                Symbol.BTC_USDT, closes, ProtectiveOrderKind.STOP_LOSS, Price.of(trigger));
+    }
+
+    /** 수량을 정해 닫는 손절. 물타기 뒤에 옛 수량 그대로 남아 있는 모양이다. */
+    public static ProtectiveOrder partialStop(Direction closes, String trigger, String quantity) {
+        return ProtectiveOrder.partial(Symbol.BTC_USDT, closes, ProtectiveOrderKind.STOP_LOSS,
+                new ProtectiveOrder.PartialSize(Price.of(trigger), Quantity.of(quantity)));
+    }
+
+    public static ProtectiveOrder takeProfit(Direction closes, String trigger) {
+        return ProtectiveOrder.entirePosition(
+                Symbol.BTC_USDT, closes, ProtectiveOrderKind.TAKE_PROFIT, Price.of(trigger));
+    }
+
+    /** 추격 손절. 고점을 따라 움직이므로 트리거 가격이 없다. */
+    public static ProtectiveOrder trailingStop(Direction closes) {
+        return ProtectiveOrder.entirePosition(
+                Symbol.BTC_USDT, closes, ProtectiveOrderKind.TRAILING_STOP, null);
     }
 }

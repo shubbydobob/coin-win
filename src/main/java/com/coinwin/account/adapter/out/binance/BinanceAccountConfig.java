@@ -42,4 +42,17 @@ public class BinanceAccountConfig {
             BinanceServerClock binanceServerClock) {
         return new BinancePositionAdapter(binanceRestClient, credentials, binanceServerClock);
     }
+
+    /**
+     * 미체결 주문 어댑터. <b>포지션과 같은 조건을 쓴다</b> — 손절이 걸려 있는지는 포지션을
+     * 읽을 수 있을 때만 물을 수 있는 질문이고, 둘의 조건이 갈리면 "포지션은 보이는데 보호는
+     * 알 수 없다" 는 반쪽 상태가 생긴다.
+     */
+    @Bean
+    @Conditional(BinanceCredentialsPresent.class)
+    BinanceOpenOrderAdapter binanceOpenOrderAdapter(
+            RestClient binanceRestClient, BinanceCredentials credentials,
+            BinanceServerClock binanceServerClock) {
+        return new BinanceOpenOrderAdapter(binanceRestClient, credentials, binanceServerClock);
+    }
 }

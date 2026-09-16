@@ -88,6 +88,20 @@ export function NowScreen() {
     retry: false,
     refetchInterval: (query) => (query.state.error ? false : READOUT_POLL_MS),
   });
+  /*
+    **손절이 걸려 있나.** 포지션과 같은 주기로 묻는다 — 둘이 다른 시점의 사실이면 "손절이
+    없다" 가 이미 닫힌 포지션에 대한 말일 수 있다.
+
+    **따로 묻는 이유**는 실패가 갈리기 때문이다. 미체결 주문은 포지션과 다른 엔드포인트이고,
+    한쪽이 실패했다고 다른 쪽을 숨기면 볼 수 있는 것까지 사라진다. 대신 실패했다는 사실은
+    카드에 그대로 실린다 — **침묵이 "손절이 있다" 로 읽히면 안 된다.**
+  */
+  const stopLoss = useQuery({
+    queryKey: ["account", "stop-loss"],
+    queryFn: () => get("/api/account/stop-loss"),
+    retry: false,
+    refetchInterval: (query) => (query.state.error ? false : ACCOUNT_POLL_MS),
+  });
   const outliers = useQuery({
     queryKey: ["markets", SYMBOL, "outliers"],
     queryFn: () => get("/api/markets/{symbol}/outliers", { path: { symbol: SYMBOL } }),
@@ -100,6 +114,8 @@ export function NowScreen() {
         <MyPositionCard
           reconciliation={positions.data}
           outliers={outliers.data}
+          stopLoss={stopLoss.data}
+          stopLossFailed={Boolean(stopLoss.error)}
           onRefresh={() => positions.refetch()}
           refreshing={positions.isFetching}
           failed={Boolean(positions.error)}

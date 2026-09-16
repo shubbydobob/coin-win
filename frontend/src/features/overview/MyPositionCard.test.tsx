@@ -8,6 +8,7 @@ type Reconciliation = components["schemas"]["PositionReconciliationResponse"];
 type Outliers = components["schemas"]["MetricOutliersResponse"];
 
 type Actual = NonNullable<components["schemas"]["PositionMatchResponse"]["actual"]>;
+type StopLoss = components["schemas"]["StopLossReviewResponse"];
 
 const 거래소: Actual = {
   symbol: "BTCUSDT",
@@ -72,7 +73,60 @@ const 시장 = (fundingSide: components["schemas"]["MetricOutlierResponse"]["sid
   metrics: [지표("FUNDING_RATE", 0.01, fundingSide)],
 });
 
+/** 방향 하나짜리 손절 판정. 어느 줄에 붙는지를 보는 것이 이 픽스처의 목적이다. */
+const 손절 = (direction: "LONG" | "SHORT", coverage: "NONE" | "FULL"): StopLoss => ({
+  protections: [
+    {
+      direction,
+      coverage,
+      quantity: 0.13,
+      stoppedQuantity: coverage === "FULL" ? 0.13 : 0,
+      plannedStopLoss: null,
+      takeProfitWithoutStopLoss: false,
+      exposureWithoutStop: null,
+      orders:
+        coverage === "FULL" ? [{ kind: "STOP_LOSS", triggerPrice: 80000, quantity: null }] : [],
+    },
+  ],
+  allProtected: coverage === "FULL",
+  observedAt: "2026-08-23T14:27:28Z",
+});
+
 describe("내 자리", () => {
+  /**
+   * <b>포지션 옆에 손절이 있는지가 함께 있어야 한다.</b> 이 저장소를 만든 −2,000 은 신호를
+   * 잘못 읽어서가 아니라 손절이 없어서 났고, 그 사실이 현황 화면에 없었다.
+   */
+  it("손절이 없는 포지션에 그 사실을 붙인다", () => {
+    render(
+      <MyPositionCard reconciliation={숏()} outliers={시장("LONG")} stopLoss={손절("SHORT", "NONE")} />,
+    );
+    const 카드 = screen.getByRole("region", { name: "내 자리" });
+
+    expect(within(카드).getByText("손절이 걸려 있지 않다")).toBeVisible();
+  });
+
+  /**
+   * 롱의 손절이 숏 줄에 붙으면 <b>보호되지 않은 포지션이 보호된 것으로 보인다.</b>
+   * 짝짓기는 서버가 방향으로 하고 화면은 같은 방향만 고른다.
+   */
+  it("다른 방향의 손절 판정을 이 줄에 붙이지 않는다", () => {
+    render(
+      <MyPositionCard reconciliation={숏()} outliers={시장("LONG")} stopLoss={손절("LONG", "FULL")} />,
+    );
+    const 카드 = screen.getByRole("region", { name: "내 자리" });
+
+    expect(within(카드).queryByText(/손절 걸려 있다/)).not.toBeInTheDocument();
+    expect(within(카드).getByText(/확인하는 중/)).toBeVisible();
+  });
+
+  /** 침묵이 "손절이 있다" 로 읽히면 안 된다. 못 읽었으면 못 읽었다고 적는다. */
+  it("손절 질의가 실패하면 모른다고 적는다", () => {
+    render(<MyPositionCard reconciliation={숏()} outliers={시장("LONG")} stopLossFailed />);
+
+    expect(screen.getByText(/걸려 있다는 뜻이 아니다/)).toBeVisible();
+  });
+
   /**
    * <b>수량이 아니라 명목이 위험의 크기다.</b> 0.13 BTC 라는 수는 얼마를 걸었는지를 말해
    * 주지 않는다 — 이 프로젝트를 만든 손실이 정확히 그 자리에서 났다.
