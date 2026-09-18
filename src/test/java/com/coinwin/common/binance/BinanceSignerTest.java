@@ -1,4 +1,4 @@
-package com.coinwin.account.adapter.out.binance;
+package com.coinwin.common.binance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

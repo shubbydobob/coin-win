@@ -2,11 +2,15 @@ package com.coinwin.account.adapter.out.binance;
 
 import com.coinwin.account.application.port.out.LoadExchangePositionsPort;
 import com.coinwin.account.domain.ExchangePosition;
+import com.coinwin.common.binance.BinanceServerClock;
+import com.coinwin.common.binance.SignedBinanceApi;
+import com.coinwin.common.domain.ExternalDataUnavailableException;
 import com.coinwin.market.domain.Symbol;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 /**
  * 바이낸스 {@code /fapi/v3/positionRisk} 에서 열려 있는 포지션을 읽는다.
@@ -30,23 +34,33 @@ public class BinancePositionAdapter implements LoadExchangePositionsPort {
 
     private static final String POSITION_RISK = "/fapi/v3/positionRisk";
 
-    private final SignedBinanceClient signed;
+    private final SignedBinanceApi signed;
 
     BinancePositionAdapter(
             RestClient binanceRestClient, BinanceCredentials credentials,
             BinanceServerClock clock) {
-        this.signed = new SignedBinanceClient(binanceRestClient, credentials, clock);
+        this.signed = new SignedBinanceApi(
+                binanceRestClient, credentials.apiKey(), credentials.secretKey(), clock);
     }
 
     @Override
     public List<ExchangePosition> positionsFor(Symbol symbol) {
         Instant observedAt = signed.now();
-        BinancePositionRisk[] body = signed.get(
-                new SignedBinanceClient.Request(POSITION_RISK, symbol, observedAt, "포지션"),
-                BinancePositionRisk[].class);
+        BinancePositionRisk[] body = fetch(symbol);
         return body == null ? List.of() : Arrays.stream(body)
                 .filter(BinancePositionRisk::isOpen)
                 .map(risk -> risk.toDomain(observedAt))
                 .toList();
+    }
+
+    /** 질의 문자열을 메시지에 넣지 않는다. 계좌를 특정할 수 있는 값이 섞인다. */
+    private BinancePositionRisk[] fetch(Symbol symbol) {
+        try {
+            return signed.get(POSITION_RISK, "symbol=" + symbol.value(),
+                    BinancePositionRisk[].class);
+        } catch (RestClientException e) {
+            throw new ExternalDataUnavailableException(
+                    "바이낸스에서 포지션을 가져오지 못했다: " + symbol.value(), e);
+        }
     }
 }

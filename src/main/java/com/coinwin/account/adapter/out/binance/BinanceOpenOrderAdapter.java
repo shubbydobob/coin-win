@@ -2,10 +2,14 @@ package com.coinwin.account.adapter.out.binance;
 
 import com.coinwin.account.application.port.out.LoadOpenOrdersPort;
 import com.coinwin.account.domain.ProtectiveOrder;
+import com.coinwin.common.binance.BinanceServerClock;
+import com.coinwin.common.binance.SignedBinanceApi;
+import com.coinwin.common.domain.ExternalDataUnavailableException;
 import com.coinwin.market.domain.Symbol;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 /**
  * 바이낸스 {@code /fapi/v1/openOrders} 에서 걸려 있는 미체결 주문을 읽는다.
@@ -21,23 +25,31 @@ public class BinanceOpenOrderAdapter implements LoadOpenOrdersPort {
 
     private static final String OPEN_ORDERS = "/fapi/v1/openOrders";
 
-    private final SignedBinanceClient signed;
+    private final SignedBinanceApi signed;
 
     BinanceOpenOrderAdapter(
             RestClient binanceRestClient, BinanceCredentials credentials,
             BinanceServerClock clock) {
-        this.signed = new SignedBinanceClient(binanceRestClient, credentials, clock);
+        this.signed = new SignedBinanceApi(
+                binanceRestClient, credentials.apiKey(), credentials.secretKey(), clock);
     }
 
     @Override
     public List<ProtectiveOrder> protectiveOrdersFor(Symbol symbol) {
-        BinanceOpenOrder[] body = signed.get(
-                new SignedBinanceClient.Request(
-                        OPEN_ORDERS, symbol, signed.now(), "미체결 주문"),
-                BinanceOpenOrder[].class);
+        BinanceOpenOrder[] body = fetch(symbol);
         return body == null ? List.of() : Arrays.stream(body)
                 .filter(BinanceOpenOrder::isProtective)
                 .map(BinanceOpenOrder::toDomain)
                 .toList();
+    }
+
+    /** 질의 문자열을 메시지에 넣지 않는다. 계좌를 특정할 수 있는 값이 섞인다. */
+    private BinanceOpenOrder[] fetch(Symbol symbol) {
+        try {
+            return signed.get(OPEN_ORDERS, "symbol=" + symbol.value(), BinanceOpenOrder[].class);
+        } catch (RestClientException e) {
+            throw new ExternalDataUnavailableException(
+                    "바이낸스에서 미체결 주문을 가져오지 못했다: " + symbol.value(), e);
+        }
     }
 }

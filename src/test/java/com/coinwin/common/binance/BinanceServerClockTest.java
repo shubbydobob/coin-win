@@ -1,9 +1,8 @@
-package com.coinwin.account.adapter.out.binance;
+package com.coinwin.common.binance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.coinwin.common.domain.ExternalDataUnavailableException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -118,7 +117,7 @@ class BinanceServerClockTest {
         exchange.enqueue(500, "{\"msg\":\"고장\"}");
 
         assertThatThrownBy(() -> clockAt(LOCAL_NOW).now())
-                .isInstanceOf(ExternalDataUnavailableException.class);
+                .isInstanceOf(BinanceUnavailableException.class);
     }
 
     @Test
@@ -126,7 +125,7 @@ class BinanceServerClockTest {
         exchange.enqueue(200, "{}");
 
         assertThatThrownBy(() -> clockAt(LOCAL_NOW).now())
-                .isInstanceOf(ExternalDataUnavailableException.class);
+                .isInstanceOf(BinanceUnavailableException.class);
     }
 
     private BinanceServerClock clockAt(Instant local) {

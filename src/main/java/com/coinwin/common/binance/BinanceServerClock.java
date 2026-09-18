@@ -1,6 +1,5 @@
-package com.coinwin.account.adapter.out.binance;
+package com.coinwin.common.binance;
 
-import com.coinwin.common.domain.ExternalDataUnavailableException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -28,7 +27,7 @@ import org.springframework.web.client.RestClientException;
  * 사실 자체는 다른 곳에 영향을 준다 — 캔들 조회 구간, 기록의 체결 시각. 조용히 고쳐 주면
  * 그 사실이 사라진다.
  */
-class BinanceServerClock {
+public class BinanceServerClock {
 
     private static final Logger LOG = LoggerFactory.getLogger(BinanceServerClock.class);
 
@@ -46,13 +45,13 @@ class BinanceServerClock {
     private volatile Duration offset = Duration.ZERO;
     private volatile Instant resyncAfter = Instant.MIN;
 
-    BinanceServerClock(RestClient binanceRestClient, Clock local) {
+    public BinanceServerClock(RestClient binanceRestClient, Clock local) {
         this.client = binanceRestClient;
         this.local = local;
     }
 
     /** 거래소 기준 지금. 서명 타임스탬프와 관측 시각이 모두 이 값을 쓴다. */
-    Instant now() {
+    public Instant now() {
         Instant here = local.instant();
         if (here.isAfter(resyncAfter)) {
             resync(here);
@@ -77,11 +76,11 @@ class BinanceServerClock {
                     .retrieve()
                     .body(BinanceServerTime.class);
             if (body == null || body.serverTime() == null) {
-                throw new ExternalDataUnavailableException("바이낸스가 서버 시각을 주지 않았다");
+                throw new BinanceUnavailableException("바이낸스가 서버 시각을 주지 않았다");
             }
             return body.serverTime();
         } catch (RestClientException e) {
-            throw new ExternalDataUnavailableException("바이낸스 서버 시각을 읽지 못했다", e);
+            throw new BinanceUnavailableException("바이낸스 서버 시각을 읽지 못했다", e);
         }
     }
 }

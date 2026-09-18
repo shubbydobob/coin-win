@@ -1,5 +1,6 @@
 package com.coinwin.account.adapter.out.binance;
 
+import com.coinwin.common.binance.BinanceServerClock;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;

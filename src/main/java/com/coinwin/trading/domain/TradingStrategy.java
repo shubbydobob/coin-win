@@ -1,7 +1,6 @@
 package com.coinwin.trading.domain;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 언제 들어가고 언제 나가는가. <b>봇에서 유일하게 갈아 끼우는 부품이다.</b>
@@ -29,9 +28,8 @@ public interface TradingStrategy {
     /**
      * 이번 사이클에 내고 싶은 주문.
      *
-     * @param view 이 순간의 시장
-     * @param open 열려 있는 포지션. 없으면 비어 있다
+     * @param now 이 사이클이 본 세상 전부 — 시장 · 계좌 · 열린 포지션 · 걸려 있는 주문
      * @return 주문 의도. <b>비어 있는 것이 정상이다</b> — 대부분의 사이클은 아무것도 하지 않는다
      */
-    List<OrderIntent> decide(MarketView view, Optional<BotPosition> open);
+    List<OrderIntent> decide(BotContext now);
 }

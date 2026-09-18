@@ -1,4 +1,4 @@
-package com.coinwin.account.adapter.out.binance;
+package com.coinwin.common.binance;
 
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;

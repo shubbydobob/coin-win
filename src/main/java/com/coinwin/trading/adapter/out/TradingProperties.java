@@ -26,6 +26,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param takerFeePercent 체결 수수료. 바이낸스 테이커 기본값
  * @param slippagePercent 미끄러짐. <b>근거 있는 수가 아니라 자리표시자다</b> — 복리 계산기가
  *     같은 값을 같은 이유로 쓴다
+ * @param strategy 무엇이 판단하는가. {@code hold} 는 아무것도 하지 않고,
+ *     {@code stop-guard} 는 진입하지 않고 손절만 지킨다
+ * @param stopDistancePercent {@code stop-guard} 의 손절 거리(%). <b>자리표시자다</b>
+ * @param exchangeUrl 주문을 보낼 주소. <b>기본값이 테스트넷이다</b> — 실계좌 주소는
+ *     손으로 적어야 하고, 그 한 줄이 돈이 움직이는 것을 뜻한다
  */
 @ConfigurationProperties("coinwin.trading")
 public record TradingProperties(
@@ -35,15 +40,27 @@ public record TradingProperties(
         int candles,
         BigDecimal equity,
         BigDecimal takerFeePercent,
-        BigDecimal slippagePercent) {
+        BigDecimal slippagePercent,
+        String strategy,
+        BigDecimal stopDistancePercent,
+        String exchangeUrl) {
 
+    /**
+     * 빠진 값을 기본값으로 채운다.
+     *
+     * <p>{@code orDefault} 로 뽑은 이유는 Checkstyle 의 순환 복잡도 한계(8) 때문만이 아니다 —
+     * 삼항 연산자 여덟 개가 늘어서면 <b>어느 칸이 무엇으로 채워지는지 읽히지 않는다.</b>
+     */
     public TradingProperties {
-        mode = mode == null ? TradingMode.PAPER : mode;
-        cycle = cycle == null ? Duration.ofMinutes(1) : cycle;
-        candles = candles <= 0 ? 300 : candles;
-        equity = equity == null ? new BigDecimal("800") : equity;
-        takerFeePercent = takerFeePercent == null ? new BigDecimal("0.05") : takerFeePercent;
-        slippagePercent = slippagePercent == null ? new BigDecimal("0.02") : slippagePercent;
+        mode = orDefault(mode, TradingMode.PAPER);
+        cycle = orDefault(cycle, Duration.ofMinutes(1));
+        candles = orDefault(candles);
+        equity = orDefault(equity, new BigDecimal("800"));
+        takerFeePercent = orDefault(takerFeePercent, new BigDecimal("0.05"));
+        slippagePercent = orDefault(slippagePercent, new BigDecimal("0.02"));
+        strategy = orDefault(blankToNull(strategy), "hold");
+        stopDistancePercent = orDefault(stopDistancePercent, new BigDecimal("2"));
+        exchangeUrl = orDefault(blankToNull(exchangeUrl), "https://testnet.binancefuture.com");
     }
 
     public Money startingEquity() {
@@ -56,5 +73,23 @@ public record TradingProperties(
 
     public Percentage slippage() {
         return Percentage.of(slippagePercent);
+    }
+
+    /** 손절 거리. <b>근거 있는 수가 아니라 자리표시자다</b> — 이 저장소가 잰 적이 없다. */
+    public Percentage stopDistance() {
+        return Percentage.of(stopDistancePercent);
+    }
+
+    private static <T> T orDefault(T value, T fallback) {
+        return value == null ? fallback : value;
+    }
+
+    /** 봉 수는 {@code int} 라 {@code null} 이 없다. 0 이하가 "안 적었다" 는 뜻이다. */
+    private static int orDefault(int candles) {
+        return candles <= 0 ? 300 : candles;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

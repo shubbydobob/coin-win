@@ -38,7 +38,7 @@ class TradingBotServiceTest {
     private static final CostModel FREE = CostModel.free();
 
     private final PaperBrokerAdapter broker =
-            new PaperBrokerAdapter(FREE, Clock.fixed(AT, ZoneOffset.UTC));
+            new PaperBrokerAdapter(FREE, Clock.fixed(AT, ZoneOffset.UTC), EQUITY);
 
     /** 대부분의 사이클이 이렇다. 그리고 그 침묵이 기록에 남는다. */
     @Test
@@ -138,7 +138,7 @@ class TradingBotServiceTest {
     private static BotContext context(AccountState account, BotPosition open) {
         return new BotContext(
                 new MarketView(Symbol.BTC_USDT, Price.of("78000"), List.of(), AT),
-                account, Optional.ofNullable(open));
+                account, Optional.ofNullable(open), List.of());
     }
 
     private static OrderIntent entry(String quantity) {
@@ -170,9 +170,9 @@ class TradingBotServiceTest {
         }
 
         @Override
-        public List<OrderIntent> decide(MarketView view, Optional<BotPosition> open) {
+        public List<OrderIntent> decide(BotContext now) {
             asked = true;
-            sawPosition = open;
+            sawPosition = now.open();
             return intents;
         }
     }

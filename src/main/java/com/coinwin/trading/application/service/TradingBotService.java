@@ -69,7 +69,7 @@ public class TradingBotService implements RunTradingCycleUseCase {
             return TradingCycle.halted(now.view().at(), broker.mode(),
                     "누적 손실 한계를 넘었다. 사람이 켜야 다시 돈다");
         }
-        List<RiskVerdict> judged = strategy.decide(now.view(), now.open()).stream()
+        List<RiskVerdict> judged = strategy.decide(now).stream()
                 .map(intent -> limits.judge(intent, now.account()))
                 .toList();
         List<PlacedOrder> placed = judged.stream()

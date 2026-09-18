@@ -28,11 +28,9 @@ import java.util.Optional;
  * <p><b>조립이 어댑터에 있는 것이 요점이다.</b> {@code trading.application} 은 다른 모듈을
  * 하나도 모르고, 알아야 할 것은 {@code BotContext} 뿐이다.
  *
- * <p><b>아직 모자란 자리 — 계좌가 고정값이다.</b> 시작 자산은 설정에서 오고 실현 손익은
- * 언제나 0 이며 열린 포지션도 언제나 비어 있다. 장부 브로커가 체결을 포지션으로 쌓지 않기
- * 때문이다. 기본 전략이 아무것도 하지 않으므로 지금은 드러나지 않지만, <b>전략을 꽂는
- * 순간 이 자리부터 고쳐야 한다</b> — 그 전에 꽂으면 동시 포지션 한계와 손실 한계가 둘 다
- * 헛돈다. {@code docs/spec/trading-bot.md} § 8 에 적어 두었다.
+ * <p><b>계좌는 이 어댑터의 일이 아니다.</b> 여기서 내는 것은 시작 자산과 빈 포지션이고,
+ * 실제 계좌는 감싸는 쪽이 얹는다({@code PaperBotContextAdapter}). 시장을 읽는 코드를 두 모드가
+ * 나눠 갖게 하려는 것이고, 그래야 장부와 실계좌가 <b>같은 값을 본다.</b>
  */
 public class MarketBotContextAdapter implements LoadBotContextPort {
 
@@ -55,7 +53,7 @@ public class MarketBotContextAdapter implements LoadBotContextPort {
         return new BotContext(
                 new MarketView(symbol, ticker.last(), recent(symbol, ticker.at()), ticker.at()),
                 AccountState.flat(properties.startingEquity()),
-                Optional.empty());
+                Optional.empty(), List.of());
     }
 
     /**

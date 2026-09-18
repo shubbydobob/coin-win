@@ -26,7 +26,7 @@ class BotContextTest {
     @Test
     void 포지션이_있는데_계좌가_0_개라고_하면_거부한다() {
         assertThatThrownBy(() -> new BotContext(
-                view(), AccountState.flat(EQUITY), Optional.of(position())))
+                view(), AccountState.flat(EQUITY), Optional.of(position()), List.of()))
                 .isInstanceOf(InvalidOrderException.class)
                 .hasMessageContaining("두 값이 어긋났다");
     }
@@ -35,14 +35,15 @@ class BotContextTest {
     void 포지션과_수가_맞으면_성립한다() {
         BotContext context = new BotContext(
                 view(), new AccountState(EQUITY, 1, Money.of("0"), Money.of("0")),
-                Optional.of(position()));
+                Optional.of(position()), List.of());
 
         assertThat(context.open()).contains(position());
     }
 
     @Test
     void 포지션이_없으면_수가_0_이어도_된다() {
-        assertThat(new BotContext(view(), AccountState.flat(EQUITY), Optional.empty()).open())
+        assertThat(new BotContext(
+                view(), AccountState.flat(EQUITY), Optional.empty(), List.of()).open())
                 .isEmpty();
     }
 
@@ -59,7 +60,9 @@ class BotContextTest {
     void 기본_전략은_아무것도_하지_않는다() {
         HoldStrategy hold = new HoldStrategy();
 
-        assertThat(hold.decide(view(), Optional.of(position()))).isEmpty();
+        assertThat(hold.decide(new BotContext(
+                view(), new AccountState(EQUITY, 1, Money.of("0"), Money.of("0")),
+                Optional.of(position()), List.of()))).isEmpty();
         assertThat(hold.name()).isNotBlank();
     }
 

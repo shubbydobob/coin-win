@@ -1,6 +1,7 @@
 package com.coinwin.trading.domain;
 
 import com.coinwin.common.domain.DomainValues;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -15,14 +16,29 @@ import java.util.Optional;
  * @param view 이 순간의 시장
  * @param account 한계를 판정하는 데 필요한 수 네 개
  * @param open 열려 있는 포지션. 없으면 비어 있다
+ * @param resting 걸려 있는 미체결 주문. <b>이것이 없으면 전략이 "손절이 이미 있는가" 를
+ *     물을 수 없고, 사이클마다 같은 손절을 다시 건다</b>
  */
-public record BotContext(MarketView view, AccountState account, Optional<BotPosition> open) {
+public record BotContext(
+        MarketView view,
+        AccountState account,
+        Optional<BotPosition> open,
+        List<PlacedOrder> resting) {
 
     public BotContext {
         DomainValues.required(view, "시장");
         DomainValues.required(account, "계좌 상태");
         DomainValues.required(open, "열린 포지션");
+        DomainValues.required(resting, "걸려 있는 주문");
         assertPositionCountAgrees(account, open);
+        resting = List.copyOf(resting);
+    }
+
+    /** 이 포지션을 덮는 손절이 이미 걸려 있는가. */
+    public boolean hasStopLoss() {
+        return open.isPresent() && resting.stream()
+                .anyMatch(order -> order.intent().kind() == OrderKind.STOP_LOSS
+                        && order.intent().position() == open.orElseThrow().direction());
     }
 
     /**

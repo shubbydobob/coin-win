@@ -33,6 +33,8 @@
 com.coinwin
 ├── common/
 │   ├── domain/                  # Money, Price, Quantity, Percentage, Won, ExchangeRate
+│   ├── binance/                 # BinanceSigner, SignedBinanceApi, BinanceServerClock
+│   │                            #   — 도메인 어휘를 모르는 전송 계층. 계층 밖
 │   └── config/
 │
 ├── market/                      # ◆ 포트/어댑터
@@ -95,8 +97,9 @@ com.coinwin
 │   └── adapter/
 │       ├── in/web/
 │       └── out/
-│           ├── paper/           # PaperBrokerAdapter — 기본값. 장부에만 적는다
-│           └── binance/         # 테스트넷 · 실계좌. 출금 엔드포인트가 없다
+│           ├── paper/           # PaperBrokerAdapter · PaperExchange — 기본값. 장부에만 적는다
+│           └── binance/         # BinanceOrderAdapter — 테스트넷 · 실계좌.
+│                                #   출금 엔드포인트가 없다
 │
 └── ai/                          # ◆ 포트/어댑터
     ├── config/                  # SpringAiEnabledOnlyWithApiKey — 계층 밖. 기동 시점 스위치
@@ -159,7 +162,8 @@ ai                  → position.domain, indicator.domain,
 backtest.api        → ai.application.port.in, ai.domain
 account             → journal.application.port.in, journal.domain,
                       position.domain, market.domain
-trading             → backtest.domain(CostModel), position.domain, market.domain
+trading             → backtest.domain(CostModel), position.domain, market.domain,
+                      market.application.port.in (어댑터에서만), common.binance
 그 외 모듈 간 직접 참조 금지
 ```
 
@@ -263,6 +267,13 @@ trading             → backtest.domain(CostModel), position.domain, market.doma
 오늘 손익 · 누적 손익). 한계는 "무엇을 들고 있나" 가 아니라 "얼마나 걸려 있고 얼마를 잃었나"
 로 정해지므로 그 넷이면 충분하고, 그 이상을 끌어오면 `trading ↔ account` 를 만들 자리가 생긴다.
 조립은 `adapter.in` 이 한다.
+
+**`common/binance` 는 도메인 어휘를 모른다.** 서명 호출이 세 자리(포지션 · 미체결 주문 ·
+주문 실행)에서 필요해지면서 뽑았는데, 그 패키지는 네 층 어디에도 속하지 않으므로 **규칙 2 가
+`common.domain` 참조를 거부한다.** 제약이 더 나은 모양을 만들었다 — 문자열과 클래스만 오가는
+순수한 전송 계층이 됐고, 도메인의 말로 바꾸는 일은 어댑터가 한다. 실패도 그래서
+`BinanceUnavailableException extends RestClientException` 이다: 어댑터들이 이미 그 타입을
+잡고 있어 새 `catch` 를 빠뜨릴 자리가 없다.
 
 **`trading` 에 출금 엔드포인트가 없다.** `scope.md` 가 주문 실행만 조건부로 해제했고 출금은
 그대로 금지다. 키에서도 끈다 — **코드와 권한 양쪽에서 막는 것은 한쪽이 무너져도 다른 쪽이

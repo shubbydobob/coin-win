@@ -1,7 +1,6 @@
 package com.coinwin.trading.domain;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 아무것도 하지 않는다. <b>기본 전략이다.</b>
@@ -22,7 +21,7 @@ public final class HoldStrategy implements TradingStrategy {
     }
 
     @Override
-    public List<OrderIntent> decide(MarketView view, Optional<BotPosition> open) {
+    public List<OrderIntent> decide(BotContext now) {
         return List.of();
     }
 }
