@@ -111,11 +111,12 @@ class ResponseSchemaContractTest {
             Map.entry("ProtectiveOrderResponse", List.of("triggerPrice", "quantity")),
             // 봇이 멈추지 않았으면 이유가 없다. 빈 문자열로 적으면 "이유 없이 멈췄다" 가 된다.
             Map.entry("TradingCycleResponse", List.of("halted")),
-            // 전량 주문은 수량이 없고, 시장가는 트리거가 없고, 트리거 주문은 아직 체결가가
-            // 없다. 셋 다 0 으로 적으면 각각 "아무것도 안 닫음" · "지금 당장" · "0 원에
-            // 체결됨" 이라는 없는 사실이 생긴다.
+            // 전량 주문은 수량이 없고, 시장가와 추격 손절은 트리거가 없고, 걸린 주문은 아직
+            // 체결가가 없고, 추격이 아닌 주문은 폭이 없다. 넷 다 0 으로 적으면 각각
+            // "아무것도 안 닫음" · "지금 당장" · "0 원에 체결됨" · "되돌아오면 즉시 닫음"
+            // 이라는 없는 사실이 생긴다.
             Map.entry("PlacedOrderResponse",
-                    List.of("quantity", "triggerPrice", "fillPrice")));
+                    List.of("quantity", "triggerPrice", "callbackRate", "fillPrice")));
 
     @Autowired
     private WebApplicationContext context;

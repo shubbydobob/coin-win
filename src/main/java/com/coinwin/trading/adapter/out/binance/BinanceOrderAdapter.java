@@ -70,7 +70,7 @@ public final class BinanceOrderAdapter implements PlaceOrderPort {
         return new PlacedOrder(
                 new OrderId(String.valueOf(response.orderId())),
                 intent,
-                intent.kind().needsTrigger() ? Optional.empty() : filledAt(response, intent),
+                intent.kind().rests() ? Optional.empty() : filledAt(response, intent),
                 signed.now(),
                 mode);
     }
@@ -119,6 +119,7 @@ public final class BinanceOrderAdapter implements PlaceOrderPort {
             case ENTRY, EXIT -> "MARKET";
             case STOP_LOSS -> "STOP_MARKET";
             case TAKE_PROFIT -> "TAKE_PROFIT_MARKET";
+            case TRAILING_STOP -> "TRAILING_STOP_MARKET";
         };
     }
 

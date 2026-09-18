@@ -86,8 +86,8 @@ class RiskLimitsTest {
     @Test
     void 포지션이_다_차_있어도_닫는_것은_할_수_있다() {
         AccountState busy = new AccountState(EQUITY, 1, Money.of("0"), Money.of("0"));
-        OrderIntent exit = new OrderIntent(Symbol.BTC_USDT, Direction.SHORT, OrderKind.EXIT,
-                java.util.Optional.empty(), java.util.Optional.empty(), Price.of("78000"));
+        OrderIntent exit = OrderIntent.closeNow(
+                Symbol.BTC_USDT, Direction.SHORT, Price.of("78000"));
 
         assertThat(LIMITS.judge(exit, busy).allowed()).isTrue();
     }

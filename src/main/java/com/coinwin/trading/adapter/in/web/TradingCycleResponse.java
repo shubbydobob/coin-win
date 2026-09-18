@@ -79,9 +79,11 @@ public record TradingCycleResponse(
 
             @Schema(description = """
                     ENTRY 는 시장가 진입, EXIT 은 지금 닫기,
-                    STOP_LOSS 와 TAKE_PROFIT 은 트리거 주문이다.""",
+                    STOP_LOSS 와 TAKE_PROFIT 은 트리거 주문,
+                    TRAILING_STOP 은 최고점에서 정해진 폭만큼 되돌아오면 닫는 주문이다.""",
                     example = "ENTRY",
-                    allowableValues = {"ENTRY", "STOP_LOSS", "TAKE_PROFIT", "EXIT"})
+                    allowableValues = {
+                        "ENTRY", "STOP_LOSS", "TAKE_PROFIT", "TRAILING_STOP", "EXIT"})
             String kind,
 
             @Schema(description = "닫을 수량. null 이면 전량이다 — 0 으로 적으면 전량과 "
@@ -89,9 +91,15 @@ public record TradingCycleResponse(
                     nullable = true, example = "0.01000000")
             BigDecimal quantity,
 
-            @Schema(description = "트리거 가격. 시장가 주문은 null 이다",
+            @Schema(description = "트리거 가격. 시장가 주문과 추격 손절은 null 이다 — "
+                    + "추격은 어디서 터질지가 앞으로 가격이 어디까지 가는지에 달려 있다",
                     nullable = true, example = "77000.00")
             BigDecimal triggerPrice,
+
+            @Schema(description = "추격 폭(%). 추격 손절만 갖는다 — 최고점에서 이만큼 "
+                    + "되돌아오면 닫는다",
+                    nullable = true, example = "1.0")
+            BigDecimal callbackRate,
 
             @Schema(description = "체결가. 트리거 주문은 걸려만 있으므로 null 이다",
                     nullable = true, example = "78015.60")
@@ -104,6 +112,7 @@ public record TradingCycleResponse(
                     order.intent().kind().name(),
                     order.intent().quantity().map(amount -> amount.value()).orElse(null),
                     order.intent().trigger().map(price -> price.value()).orElse(null),
+                    order.intent().callbackRate().map(rate -> rate.asPercent()).orElse(null),
                     order.fillPrice().map(price -> price.value()).orElse(null));
         }
     }
@@ -116,7 +125,8 @@ public record TradingCycleResponse(
             String position,
 
             @Schema(description = "무슨 주문이었나", example = "ENTRY",
-                    allowableValues = {"ENTRY", "STOP_LOSS", "TAKE_PROFIT", "EXIT"})
+                    allowableValues = {
+                        "ENTRY", "STOP_LOSS", "TAKE_PROFIT", "TRAILING_STOP", "EXIT"})
             String kind,
 
             @Schema(description = "왜 막혔나. 사람이 읽는 한 문장이다",

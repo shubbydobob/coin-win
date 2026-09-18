@@ -17,7 +17,8 @@ class OrderIntentTest {
     @Test
     void 진입은_수량을_말해야_한다() {
         assertThatThrownBy(() -> new OrderIntent(Symbol.BTC_USDT, Direction.LONG,
-                OrderKind.ENTRY, Optional.empty(), Optional.empty(), Price.of("78000")))
+                OrderKind.ENTRY, Optional.empty(), Optional.empty(), Optional.empty(),
+                Price.of("78000")))
                 .isInstanceOf(InvalidOrderException.class)
                 .hasMessageContaining("수량을 말해야");
     }
@@ -25,8 +26,8 @@ class OrderIntentTest {
     /** 전량 청산은 수량이 어긋나도 남는 포지션이 없다. 그것이 비워 두는 이유다. */
     @Test
     void 닫는_주문은_수량을_비워_전량을_뜻한다() {
-        OrderIntent exit = new OrderIntent(Symbol.BTC_USDT, Direction.SHORT, OrderKind.EXIT,
-                Optional.empty(), Optional.empty(), Price.of("78000"));
+        OrderIntent exit = OrderIntent.closeNow(
+                Symbol.BTC_USDT, Direction.SHORT, Price.of("78000"));
 
         assertThat(exit.closesEntirePosition()).isTrue();
     }
@@ -34,7 +35,8 @@ class OrderIntentTest {
     @Test
     void 트리거_주문에_트리거가_없으면_성립하지_않는다() {
         assertThatThrownBy(() -> new OrderIntent(Symbol.BTC_USDT, Direction.LONG,
-                OrderKind.STOP_LOSS, Optional.empty(), Optional.empty(), Price.of("78000")))
+                OrderKind.STOP_LOSS, Optional.empty(), Optional.empty(), Optional.empty(),
+                Price.of("78000")))
                 .isInstanceOf(InvalidOrderException.class)
                 .hasMessageContaining("트리거 가격이 맞지 않는다");
     }
@@ -43,7 +45,7 @@ class OrderIntentTest {
     void 시장가_주문에_트리거가_있으면_성립하지_않는다() {
         assertThatThrownBy(() -> new OrderIntent(Symbol.BTC_USDT, Direction.LONG,
                 OrderKind.ENTRY, Optional.of(Quantity.of("0.01")),
-                Optional.of(Price.of("77000")), Price.of("78000")))
+                Optional.of(Price.of("77000")), Optional.empty(), Price.of("78000")))
                 .isInstanceOf(InvalidOrderException.class);
     }
 

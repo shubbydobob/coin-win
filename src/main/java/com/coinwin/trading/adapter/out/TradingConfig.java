@@ -51,7 +51,7 @@ public class TradingConfig {
      * 없다고 나왔다({@code docs/adr/021} · {@code docs/adr/022}).
      *
      * <p>{@code stop-guard} 는 손절만 지키고, {@code exit-rules} 는 거기에 <b>절반 익절과
-     * 본전 이동</b>을 더한다. 둘 다 진입은 하지 않는다 — 엣지를 요구하지 않는 규칙이라
+     * 본전 이동, 그리고 추격</b>을 더한다. 둘 다 진입은 하지 않는다 — 엣지를 요구하지 않는 규칙이라
      * 진입 규칙이 없는 지금도 꽂을 수 있다({@link ExitRuleStrategy}).
      */
     @Bean
@@ -59,7 +59,8 @@ public class TradingConfig {
         return switch (properties.strategy().toLowerCase(java.util.Locale.ROOT)) {
             case "stop-guard" -> new StopLossGuardStrategy(properties.stopDistance());
             case "exit-rules" -> new ExitRuleStrategy(properties.stopDistance(),
-                    properties.firstTarget(), properties.roundTripCost());
+                    properties.firstTarget(), properties.roundTripCost(),
+                    properties.trailing());
             default -> new HoldStrategy();
         };
     }

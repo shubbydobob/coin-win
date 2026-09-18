@@ -15,7 +15,12 @@ import com.coinwin.trading.domain.OrderIntent;
  *
  * <p><b>{@code workingType=MARK_PRICE} 다.</b> 청산이 마크 가격으로 일어나므로 손절도 같은
  * 자를 써야 한다 — 체결가 기준 손절은 꼬리에 스치고, 마크 기준 손절은 청산과 같은 눈금이다.
- * 근거는 {@code docs/spec/exit-automation.md} 의 R1.
+ * 근거는 {@code docs/spec/exit-automation.md} 의 R1. 추격 손절도 같은 자를 쓴다.
+ *
+ * <p><b>추격 손절에 {@code activationPrice} 를 안 보낸다.</b> 안 보내면 지금 값에서 바로
+ * 따라오기 시작하는데, R5 는 <b>1차 목표에 닿은 뒤</b>에만 이 주문을 내므로 "지금부터" 가
+ * 정확히 원하는 것이다. 값을 보내면 그 자리가 하나 더 생기고 <b>그 값이 이미 지나간 값이면
+ * 거래소가 거절한다</b>({@code -2021}).
  */
 record BinanceOrderRequest(OrderIntent intent) {
 
@@ -34,6 +39,9 @@ record BinanceOrderRequest(OrderIntent intent) {
                 BinanceOrderAdapter.typeOf(intent.kind())));
         intent.trigger().ifPresent(trigger -> query
                 .append("&stopPrice=").append(trigger.value().toPlainString())
+                .append("&workingType=MARK_PRICE"));
+        intent.callbackRate().ifPresent(rate -> query
+                .append("&callbackRate=").append(rate.asPercent().toPlainString())
                 .append("&workingType=MARK_PRICE"));
         appendSize(query);
         return query.toString();

@@ -92,6 +92,42 @@ class BinanceOrderAdapterContractTest extends PlaceOrderPortContract {
                 .contains("closePosition=true");
     }
 
+    /**
+     * <b>추격 손절은 {@code TRAILING_STOP_MARKET} 과 {@code callbackRate} 로 나간다.</b>
+     *
+     * <p>{@code stopPrice} 가 없다 — 어디서 터질지는 앞으로 가격이 어디까지 가는지에 달렸고,
+     * 지금 값으로 채워 보내면 그것은 추격이 아니라 그냥 손절이다.
+     */
+    @Test
+    void 추격_손절은_폭과_함께_나가고_트리거_가격을_보내지_않는다() {
+        port().place(trailing());
+
+        assertThat(lastRequest()).contains("type=TRAILING_STOP_MARKET")
+                .contains("callbackRate=1.0")
+                .contains("workingType=MARK_PRICE")
+                .doesNotContain("stopPrice=");
+    }
+
+    /**
+     * 수량을 명시하고 {@code reduceOnly} 를 붙인다. {@code closePosition} 은 이 종류에 쓸 수
+     * 없는 것으로 <b>읽었고 확인하지 못했다</b> — 어느 쪽이 맞든 받아들여지는 모양을 고른다.
+     */
+    @Test
+    void 추격_손절은_수량과_reduceOnly_로_나간다() {
+        port().place(trailing());
+
+        assertThat(lastRequest()).contains("quantity=0.01000000").contains("reduceOnly=true")
+                .doesNotContain("closePosition=true");
+    }
+
+    /** 폭을 스케일 4 로 보내면 거래소가 받아 주는지 알 수 없다. 자기가 쓰는 모양으로 맞춘다. */
+    @Test
+    void 폭은_소수_한_자리로_적는다() {
+        port().place(trailing());
+
+        assertThat(lastRequest()).doesNotContain("callbackRate=1.0000");
+    }
+
     @Test
     void 서명과_타임스탬프가_붙는다() {
         port().place(entry());

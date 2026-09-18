@@ -2,9 +2,11 @@ package com.coinwin.trading.adapter.out;
 
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
+import com.coinwin.trading.domain.CallbackRate;
 import com.coinwin.trading.domain.TradingMode;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.Optional;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -30,6 +32,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     {@code stop-guard} 는 진입하지 않고 손절만 지킨다
  * @param stopDistancePercent 손절 거리(%). <b>자리표시자다</b>
  * @param firstTargetPercent 1차 익절 거리(%). <b>자리표시자다</b>
+ * @param trailingCallbackPercent 추격 손절이 따라오는 폭(%). <b>0 이하면 R5 를 하지 않는다</b> —
+ *     거래소가 정한 허용 범위를 확인하지 못했으므로 끌 수 있어야 한다({@code CallbackRate}).
+ *     끄는 값이 {@code 0} 인 것은 하한이 0.1 이라 유효한 폭과 겹칠 수 없기 때문이다
  * @param exchangeUrl 주문을 보낼 주소. <b>기본값이 테스트넷이다</b> — 실계좌 주소는
  *     손으로 적어야 하고, 그 한 줄이 돈이 움직이는 것을 뜻한다
  */
@@ -45,6 +50,7 @@ public record TradingProperties(
         String strategy,
         BigDecimal stopDistancePercent,
         BigDecimal firstTargetPercent,
+        BigDecimal trailingCallbackPercent,
         String exchangeUrl) {
 
     /**
@@ -63,6 +69,7 @@ public record TradingProperties(
         strategy = orDefault(blankToNull(strategy), "hold");
         stopDistancePercent = orDefault(stopDistancePercent, new BigDecimal("2"));
         firstTargetPercent = orDefault(firstTargetPercent, new BigDecimal("2"));
+        trailingCallbackPercent = orDefault(trailingCallbackPercent, new BigDecimal("1"));
         exchangeUrl = orDefault(blankToNull(exchangeUrl), "https://testnet.binancefuture.com");
     }
 
@@ -86,6 +93,19 @@ public record TradingProperties(
     /** 1차 익절 거리. 같은 자리표시자다. */
     public Percentage firstTarget() {
         return Percentage.of(firstTargetPercent);
+    }
+
+    /**
+     * 추격 폭. <b>비어 있으면 R5 를 하지 않는다.</b>
+     *
+     * <p>끌 수 있어야 하는 이유는 {@code CallbackRate} 가 적은 것과 같다 — 거래소가 정한
+     * 허용 범위를 확인하지 못했다. 테스트넷에서 거절당하면 사람이 이 한 줄로 끄고 나머지
+     * 규칙은 계속 돈다.
+     */
+    public Optional<CallbackRate> trailing() {
+        return trailingCallbackPercent.signum() <= 0
+                ? Optional.empty()
+                : Optional.of(CallbackRate.of(trailingCallbackPercent));
     }
 
     /**

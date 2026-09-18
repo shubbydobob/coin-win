@@ -1677,11 +1677,12 @@
           },
           "kind": {
             "type": "string",
-            "description": "ENTRY 는 시장가 진입, EXIT 은 지금 닫기,\nSTOP_LOSS 와 TAKE_PROFIT 은 트리거 주문이다.",
+            "description": "ENTRY 는 시장가 진입, EXIT 은 지금 닫기,\nSTOP_LOSS 와 TAKE_PROFIT 은 트리거 주문,\nTRAILING_STOP 은 최고점에서 정해진 폭만큼 되돌아오면 닫는 주문이다.",
             "enum": [
               "ENTRY",
               "STOP_LOSS",
               "TAKE_PROFIT",
+              "TRAILING_STOP",
               "EXIT"
             ],
             "example": "ENTRY"
@@ -1699,8 +1700,16 @@
               "number",
               "null"
             ],
-            "description": "트리거 가격. 시장가 주문은 null 이다",
+            "description": "트리거 가격. 시장가 주문과 추격 손절은 null 이다 — 추격은 어디서 터질지가 앞으로 가격이 어디까지 가는지에 달려 있다",
             "example": 77000.0
+          },
+          "callbackRate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "추격 폭(%). 추격 손절만 갖는다 — 최고점에서 이만큼 되돌아오면 닫는다",
+            "example": 1.0
           },
           "fillPrice": {
             "type": [
@@ -1712,6 +1721,7 @@
           }
         },
         "required": [
+          "callbackRate",
           "fillPrice",
           "id",
           "kind",
@@ -1740,6 +1750,7 @@
               "ENTRY",
               "STOP_LOSS",
               "TAKE_PROFIT",
+              "TRAILING_STOP",
               "EXIT"
             ],
             "example": "ENTRY"

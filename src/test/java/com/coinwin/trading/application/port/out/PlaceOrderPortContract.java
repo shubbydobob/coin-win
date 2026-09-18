@@ -6,10 +6,10 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.position.domain.Direction;
+import com.coinwin.trading.domain.CallbackRate;
 import com.coinwin.trading.domain.OrderIntent;
 import com.coinwin.trading.domain.OrderKind;
 import com.coinwin.trading.domain.PlacedOrder;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,6 +59,20 @@ public abstract class PlaceOrderPortContract {
         assertThat(placed.fillPrice()).isEmpty();
     }
 
+    /**
+     * 추격 손절도 걸려만 있다. <b>트리거 가격이 없다고 시장가로 읽으면</b> 두 구현 중
+     * 한쪽이 그 자리에서 포지션을 닫는다 — 감시 화면이 호가 단수에서 배운 것과 같은 종류의
+     * 갈라짐이고, 여기서는 그 대가가 돈이다.
+     */
+    @Test
+    void 추격_손절도_걸려만_있고_체결가가_없다() {
+        PlacedOrder placed = port().place(trailing());
+
+        assertThat(placed.resting()).isTrue();
+        assertThat(placed.intent().trigger()).isEmpty();
+        assertThat(placed.intent().callbackRate()).isPresent();
+    }
+
     /** 취소할 때 이것으로 가리킨다. 비어 있으면 지울 수 없다. */
     @Test
     void 낸_주문은_식별자를_갖는다() {
@@ -98,7 +112,15 @@ public abstract class PlaceOrderPortContract {
     }
 
     protected static OrderIntent exit() {
-        return new OrderIntent(SYMBOL, Direction.LONG, OrderKind.EXIT,
-                Optional.empty(), Optional.empty(), MARK);
+        return OrderIntent.closeNow(SYMBOL, Direction.LONG, MARK);
+    }
+
+    /**
+     * 추격 손절. <b>걸려만 있으면서 트리거 가격이 없는 유일한 주문</b>이라 두 구현이
+     * 갈라지기 가장 쉬운 자리다 — 한쪽이 이것을 시장가로 읽으면 포지션이 그 자리에서 닫힌다.
+     */
+    protected static OrderIntent trailing() {
+        return OrderIntent.trail(SYMBOL, Direction.LONG, new OrderIntent.Trailing(
+                CallbackRate.of("1"), Quantity.of("0.01"), MARK));
     }
 }

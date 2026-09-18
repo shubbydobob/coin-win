@@ -9,6 +9,7 @@ import com.coinwin.common.domain.Price;
 import com.coinwin.common.domain.Quantity;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.position.domain.Direction;
+import com.coinwin.trading.domain.CallbackRate;
 import com.coinwin.trading.domain.OrderIntent;
 import com.coinwin.trading.domain.OrderKind;
 import com.coinwin.trading.domain.PlacedOrder;
@@ -16,7 +17,6 @@ import com.coinwin.trading.domain.TradingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,6 +34,10 @@ class PaperBrokerAdapterTest {
 
     private final PaperBrokerAdapter broker =
             new PaperBrokerAdapter(COSTS, Clock.fixed(AT, ZoneOffset.UTC), EQUITY);
+
+    /** 비용 0. 추격이 <b>어디서</b> 터지는지만 보는 테스트들이 쓴다. */
+    private final PaperBrokerAdapter free =
+            new PaperBrokerAdapter(CostModel.free(), Clock.fixed(AT, ZoneOffset.UTC), EQUITY);
 
     @Test
     void 장부_모드로_낸다() {
@@ -164,11 +168,80 @@ class PaperBrokerAdapterTest {
     /** 열린 것이 없는데 닫는 주문이 나가는 것은 실패가 아니라 이미 원하던 상태다. */
     @Test
     void 포지션이_없을_때_닫아도_던지지_않는다() {
-        OrderIntent exit = new OrderIntent(Symbol.BTC_USDT, Direction.LONG, OrderKind.EXIT,
-                Optional.empty(), Optional.empty(), Price.of("78000"));
+        OrderIntent exit = OrderIntent.closeNow(
+                Symbol.BTC_USDT, Direction.LONG, Price.of("78000"));
 
         assertThat(broker.place(exit).fillPrice()).isPresent();
         assertThat(broker.ledger().position()).isEmpty();
+    }
+
+    /**
+     * <b>추격 손절은 최고점을 기억한다.</b> 80,000 을 찍었으면 1% 아래인 79,200 에서 터지고,
+     * 그 뒤 79,250 으로 내려와도 아직 아니다.
+     *
+     * <p>비용을 0 으로 둔 브로커를 쓴다 — 여기서 보려는 것은 <b>어디서 터지는가</b> 하나이고,
+     * 1% 슬리피지가 섞이면 경계가 흐려진다.
+     */
+    @Test
+    void 추격_손절은_최고점에서_정해진_폭만큼_내려오면_터진다() {
+        free.place(entry(Direction.LONG));
+        free.place(trailing(Direction.LONG));
+
+        free.advanceTo(Price.of("80000"));
+        free.advanceTo(Price.of("79250"));
+        assertThat(free.ledger().position()).isPresent();
+
+        free.advanceTo(Price.of("79190"));
+        assertThat(free.ledger().position()).isEmpty();
+    }
+
+    /**
+     * <b>최고점은 내려오지 않는다.</b> 79,250 까지 되돌아왔다가 다시 올라간다고 해서 기준이
+     * 그 자리로 옮겨지면, 그것은 추격이 아니라 <b>손절이 따라 내려가는 고장</b>이다.
+     */
+    @Test
+    void 되돌아왔다_다시_올라가도_기준은_최고점이다() {
+        free.place(entry(Direction.LONG));
+        free.place(trailing(Direction.LONG));
+
+        free.advanceTo(Price.of("80000"));
+        free.advanceTo(Price.of("79250"));
+        free.advanceTo(Price.of("79600"));
+
+        // 기준이 79,250 으로 내려갔다면 손절은 78,457 이고 여기서 터지지 않는다.
+        free.advanceTo(Price.of("79190"));
+        assertThat(free.ledger().position()).isEmpty();
+    }
+
+    /** 새 최고점을 쓰는 걸음에서는 터지지 않는다. 올라가는 봉의 손절은 방향이 뒤집힌 고장이다. */
+    @Test
+    void 최고점을_새로_쓰는_걸음에서는_터지지_않는다() {
+        free.place(entry(Direction.LONG));
+        free.place(trailing(Direction.LONG));
+
+        free.advanceTo(Price.of("80000"));
+        free.advanceTo(Price.of("95000"));
+
+        assertThat(free.ledger().position()).isPresent();
+    }
+
+    /** 숏은 <b>최저점</b>을 기억하고 위로 그만큼 오르면 터진다. 부호가 전부 뒤집힌다. */
+    @Test
+    void 숏의_추격은_최저점에서_위로_올라오면_터진다() {
+        free.place(entry(Direction.SHORT));
+        free.place(trailing(Direction.SHORT));
+
+        free.advanceTo(Price.of("70000"));
+        free.advanceTo(Price.of("70650"));
+        assertThat(free.ledger().position()).isPresent();
+
+        free.advanceTo(Price.of("70750"));
+        assertThat(free.ledger().position()).isEmpty();
+    }
+
+    private static OrderIntent trailing(Direction direction) {
+        return OrderIntent.trail(Symbol.BTC_USDT, direction, new OrderIntent.Trailing(
+                CallbackRate.of("1"), Quantity.of("0.01"), Price.of("78000")));
     }
 
     private static OrderIntent entry(Direction direction) {

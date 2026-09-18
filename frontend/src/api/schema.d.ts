@@ -754,21 +754,27 @@ export interface components {
             position: "LONG" | "SHORT";
             /**
              * @description ENTRY 는 시장가 진입, EXIT 은 지금 닫기,
-             *     STOP_LOSS 와 TAKE_PROFIT 은 트리거 주문이다.
+             *     STOP_LOSS 와 TAKE_PROFIT 은 트리거 주문,
+             *     TRAILING_STOP 은 최고점에서 정해진 폭만큼 되돌아오면 닫는 주문이다.
              * @example ENTRY
              * @enum {string}
              */
-            kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT";
+            kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "TRAILING_STOP" | "EXIT";
             /**
              * @description 닫을 수량. null 이면 전량이다 — 0 으로 적으면 전량과 '아무것도 안 닫음'이 같은 값이 된다
              * @example 0.01
              */
             quantity: number | null;
             /**
-             * @description 트리거 가격. 시장가 주문은 null 이다
+             * @description 트리거 가격. 시장가 주문과 추격 손절은 null 이다 — 추격은 어디서 터질지가 앞으로 가격이 어디까지 가는지에 달려 있다
              * @example 77000
              */
             triggerPrice: number | null;
+            /**
+             * @description 추격 폭(%). 추격 손절만 갖는다 — 최고점에서 이만큼 되돌아오면 닫는다
+             * @example 1
+             */
+            callbackRate: number | null;
             /**
              * @description 체결가. 트리거 주문은 걸려만 있으므로 null 이다
              * @example 78015.6
@@ -788,7 +794,7 @@ export interface components {
              * @example ENTRY
              * @enum {string}
              */
-            kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT";
+            kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "TRAILING_STOP" | "EXIT";
             /**
              * @description 왜 막혔나. 사람이 읽는 한 문장이다
              * @example 명목 2340.00 가 계좌의 2배 한계를 넘는다

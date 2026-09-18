@@ -131,15 +131,24 @@ coinwin:
     # 무엇이 판단하는가.
     #   hold       — 아무것도 하지 않는다. **옳은 기본값이다** (진입 규칙이 두 번 반증됐다)
     #   stop-guard — 진입은 여전히 안 하고, 손절 없는 포지션에 손절만 건다(R1·R2).
-    #   exit-rules — 거기에 절반 익절(R3)과 본전 이동(R4)을 더한다.
-    #                R4 가 "벌고 있다가 다 반납" 하는 경로를 구조적으로 없앤다.
-    #                셋 다 엣지를 요구하지 않는 규칙이라 진입 규칙 없이도 꽂을 수 있다.
+    #   exit-rules — 거기에 절반 익절(R3) · 본전 이동(R4) · 추격 손절(R5)을 더한다.
+    #                R4 가 "벌고 있다가 다 반납" 하는 경로를 구조적으로 없애고,
+    #                R5 는 추세가 이어질 때 더 먹는 일만 한다 — 본전 손절을 대신하지
+    #                않으므로 R4 의 보장이 추격 폭에 흔들리지 않는다.
+    #                넷 다 엣지를 요구하지 않는 규칙이라 진입 규칙 없이도 꽂을 수 있다.
     strategy: ${COINWIN_TRADING_STRATEGY:hold}
     # stop-guard 의 손절 거리(%). **근거 있는 수가 아니라 자리표시자다** —
     # 얼마나 멀어야 무효화만 잡고 잡음에 안 걸리는지는 이 저장소가 잰 적이 없다.
     stop-distance-percent: ${COINWIN_TRADING_STOP_DISTANCE:2}
     # 1차 익절 거리(%). 여기 닿으면 절반이 확정되고 손절이 본전으로 간다. 자리표시자다.
     first-target-percent: ${COINWIN_TRADING_FIRST_TARGET:2}
+    # 추격 손절이 따라오는 폭(%). 최고점에서 이만큼 되돌아오면 남은 수량을 닫는다.
+    # **0 이면 R5 만 끈다** — 나머지 규칙은 그대로 돈다.
+    #
+    # **거래소가 정한 허용 범위를 확인하지 못했다.** 이 환경의 네트워크 정책이 바이낸스
+    # 문서와 엔드포인트를 둘 다 막는다. 코드가 막는 범위(0.1~10, 소수 한 자리)와 그것이
+    # 어디서 온 값인지는 CallbackRate 에 적혀 있고, 테스트넷 주문 한 번이 그것을 답한다.
+    trailing-callback-percent: ${COINWIN_TRADING_TRAILING_CALLBACK:1}
     # 주문을 보낼 주소. **기본값이 테스트넷이다** — 실계좌 주소(https://fapi.binance.com)는
     # 손으로 적어야 하고, 그 한 줄이 돈이 움직인다는 뜻이다.
     exchange-url: ${COINWIN_TRADING_EXCHANGE_URL:https://testnet.binancefuture.com}

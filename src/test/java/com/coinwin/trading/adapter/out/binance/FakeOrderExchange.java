@@ -61,7 +61,8 @@ final class FakeOrderExchange implements AutoCloseable {
             respond(exchange, "{\"orderId\":1,\"status\":\"CANCELED\"}");
             return;
         }
-        boolean trigger = query != null && query.contains("stopPrice=");
+        boolean trigger = query != null
+                && (query.contains("stopPrice=") || query.contains("callbackRate="));
         respond(exchange, """
                 {"orderId":%d,"status":"%s","avgPrice":"%s"}"""
                 .formatted(orderId.incrementAndGet(),

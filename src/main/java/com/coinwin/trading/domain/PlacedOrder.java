@@ -41,15 +41,19 @@ public record PlacedOrder(
     }
 
     /**
-     * 시장가 주문은 체결가를 갖고 트리거 주문은 갖지 않는다.
+     * 시장가 주문은 체결가를 갖고 걸려 있는 주문은 갖지 않는다.
      *
      * <p>이 규칙이 타입에 있어야 장부 브로커와 거래소 어댑터가 같은 약속을 지킨다 —
      * 한쪽만 체결가를 채우면 두 기록을 나란히 놓을 수 없다.
+     *
+     * <p><b>묻는 것이 "트리거가 있는가" 가 아니라 "걸려 있는가" 다.</b> 추격 손절은 트리거
+     * 가격 없이 걸려 있으므로, 앞의 물음으로 두면 그것이 시장가로 분류돼 <b>체결가를
+     * 요구받는다</b> — 그리고 걸려만 있는 주문에는 체결가가 없다.
      */
     private static void assertFillMatchesKind(OrderIntent intent, Optional<Price> fillPrice) {
-        if (intent.kind().needsTrigger() == fillPrice.isPresent()) {
+        if (intent.kind().rests() == fillPrice.isPresent()) {
             throw new InvalidOrderException(
-                    "%s 주문의 체결가가 맞지 않는다 — 시장가는 체결되고 트리거는 걸려만 있다"
+                    "%s 주문의 체결가가 맞지 않는다 — 시장가는 체결되고 걸린 주문은 기다린다"
                             .formatted(intent.kind()));
         }
     }
