@@ -144,15 +144,17 @@ class ExitRuleBotScenarioTest {
      * <b>R5 가 존재하는 이유가 이 테스트다.</b> 같은 길을 두 봇이 걷는다 — 목표를 지나
      * 85,000 까지 갔다가 본전까지 통째로 되돌아온다.
      *
-     * <p>추격이 없으면 남은 절반이 <b>본전에서 끊긴다</b>. 사용자의 말로는
-     * "300~400달러 벌고 있다가 다 반납" 이고, 여기서는 그 절반이 5.46 으로 끝나는 것이다.
-     * 추격은 최고점에서 1% 떨어진 자리에서 놓는다.
+     * <p>절반 익절은 둘 다 78.00 으로 같다. <b>갈리는 것은 남은 절반</b>이고, 추격은
+     * 최고점에서 1% 떨어진 80,000 에서 +100.00 을, 본전 손절은 78,109.20 에서 +5.46 을 낸다.
+     * 사용자의 말로 "300~400달러 벌고 있다가 다 반납" 하는 자리가 이 5.46 이다.
      */
     @Test
     void 추세가_이어지면_추격이_본전보다_많이_남긴다() {
         Rig trailed = rig(Optional.of(CallbackRate.of("1")));
         rig.enters(Direction.LONG);
         trailed.enters(Direction.LONG);
+        rig.bot().runOnce();                             // 규칙이 붙는다 — 절반 익절이 걸린다
+        trailed.bot().runOnce();
 
         for (String price : List.of("79560", "85000", "80000", "78109.20")) {
             rig.walkTo(price);
@@ -161,8 +163,10 @@ class ExitRuleBotScenarioTest {
 
         assertThat(trailed.broker().ledger().position()).isEmpty();
         assertThat(rig.broker().ledger().position()).isEmpty();
-        assertThat(trailed.broker().ledger().realizedTotal()
-                .isGreaterThan(rig.broker().ledger().realizedTotal())).isTrue();
+        // 절반 익절 +78.00 은 둘이 같다. 갈리는 것은 남은 절반이다 —
+        // 추격은 80,000 에서 +100.00, 본전은 78,109.20 에서 +5.46.
+        assertThat(trailed.broker().ledger().realizedTotal()).isEqualTo(Money.of("178.00"));
+        assertThat(rig.broker().ledger().realizedTotal()).isEqualTo(Money.of("83.46"));
     }
 
     /**
@@ -176,6 +180,7 @@ class ExitRuleBotScenarioTest {
     void 추격이_넓어도_본전_손절이_먼저_받는다() {
         Rig wide = rig(Optional.of(CallbackRate.of("10")));
         wide.enters(Direction.LONG);
+        wide.bot().runOnce();
 
         wide.walkTo("79560");
         wide.walkTo("78000");
@@ -189,6 +194,7 @@ class ExitRuleBotScenarioTest {
     void 최고점을_새로_쓰는_동안에는_추격이_터지지_않는다() {
         Rig trailed = rig(Optional.of(CallbackRate.of("1")));
         trailed.enters(Direction.LONG);
+        trailed.bot().runOnce();
 
         trailed.walkTo("79560");
         trailed.walkTo("82000");
