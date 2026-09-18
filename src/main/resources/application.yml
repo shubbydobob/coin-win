@@ -109,6 +109,26 @@ coinwin:
       base-url: ${COINWIN_YAHOO_URL:https://query1.finance.yahoo.com}
       connect-timeout: 3s
       read-timeout: 10s
+  # 매매 봇. 근거와 조건은 docs/spec/trading-bot.md, 해제 범위는 .claude/docs/scope.md.
+  #
+  # **기본이 꺼짐이다.** 앱을 띄운 것과 봇을 켠 것은 다른 결정이고, 기본이 켜짐이면 이
+  # 저장소를 처음 실행하는 사람의 계좌에서 루프가 돈다.
+  #
+  # **모드의 기본은 장부(PAPER)다.** 지금은 장부 브로커밖에 없어 실계좌로 갈 수도 없다.
+  # 테스트넷·실계좌 어댑터가 생겨도 전환은 환경변수를 명시적으로 바꿔야 하고, 실패하면
+  # 앱이 실패한다 — 조용히 장부로 내려오지 않는다.
+  trading:
+    enabled: ${COINWIN_TRADING_ENABLED:false}
+    mode: ${COINWIN_TRADING_MODE:PAPER}
+    # 주기는 전략의 일부인데 전략이 없다. 1분은 자리표시자다.
+    cycle: ${COINWIN_TRADING_CYCLE:PT1M}
+    candles: 300
+    # 장부의 시작 자산. 한계가 전부 이것의 비율이다.
+    equity: ${COINWIN_TRADING_EQUITY:800}
+    # 봇은 지정가를 내지 않으므로 메이커가 될 수 없다. 미끄러짐은 자리표시자다.
+    taker-fee-percent: 0.05
+    slippage-percent: 0.02
+
   watch:
     binance:
       # 공지는 시세와 호스트가 다르다. 그리고 이것은 문서화된 공개 API 가 아니라

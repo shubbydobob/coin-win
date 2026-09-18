@@ -108,7 +108,14 @@ class ResponseSchemaContractTest {
             // 추격 손절은 고점을 따라 움직이므로 트리거가 미리 정해져 있지 않고, 전량 주문은
             // 수량을 갖지 않는다. 둘 다 0 으로 적으면 '지금 당장' 과 '아무것도 안 닫음' 이
             // 된다 — 없는 것과 0 은 다른 사실이다.
-            Map.entry("ProtectiveOrderResponse", List.of("triggerPrice", "quantity")));
+            Map.entry("ProtectiveOrderResponse", List.of("triggerPrice", "quantity")),
+            // 봇이 멈추지 않았으면 이유가 없다. 빈 문자열로 적으면 "이유 없이 멈췄다" 가 된다.
+            Map.entry("TradingCycleResponse", List.of("halted")),
+            // 전량 주문은 수량이 없고, 시장가는 트리거가 없고, 트리거 주문은 아직 체결가가
+            // 없다. 셋 다 0 으로 적으면 각각 "아무것도 안 닫음" · "지금 당장" · "0 원에
+            // 체결됨" 이라는 없는 사실이 생긴다.
+            Map.entry("PlacedOrderResponse",
+                    List.of("quantity", "triggerPrice", "fillPrice")));
 
     @Autowired
     private WebApplicationContext context;

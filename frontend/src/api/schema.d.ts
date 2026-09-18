@@ -4,6 +4,33 @@
  */
 
 export interface paths {
+    "/api/trading/cycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 사이클을 지금 한 번 돌린다
+         * @description 스케줄러를 기다리지 않고 한 번 깨운다. 읽고 · 전략에게 묻고 ·
+         *     안전장치에 통과시키고 · 남은 것을 낸다.
+         *
+         *     **봇이 꺼져 있어도 돈다.** 끄는 것은 스스로 깨어나지 않게 하는 것이고,
+         *     사람이 한 번 돌려 보는 것은 그것과 다른 결정이다. 모드는 그대로 지켜지므로
+         *     장부 모드에서는 여기서도 돈이 움직이지 않는다.
+         *
+         *     던지지 않는다 — 거래소를 못 읽어도 그 사실이 사이클에 담겨 200 으로 온다.
+         */
+        post: operations["runCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trades": {
         parameters: {
             query?: never;
@@ -398,6 +425,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/trading/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 봇의 상태와 한계
+         * @description 어느 모드로 도는지, 무엇이 판단하는지, 한계가 얼마인지.
+         *
+         *     모드가 첫 칸인 이유는 어느 모드로 돌고 있는지 모르는 상태가 존재하면
+         *     안 되기 때문이다 — 장부인 줄 알았는데 실계좌인 것이 가장 나쁜 고장이다.
+         *
+         *     한계 기본값은 근거 있는 수가 아니라 자리표시자다.
+         */
+        get: operations["status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trades/{id}": {
         parameters: {
             query?: never;
@@ -687,6 +739,98 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description 브로커에 닿은 주문 하나 */
+        PlacedOrderResponse: {
+            /**
+             * @description 브로커가 정한 식별자
+             * @example paper-1
+             */
+            id: string;
+            /**
+             * @description 어느 방향의 포지션에 대한 주문인가. 매수/매도가 아니다
+             * @example LONG
+             * @enum {string}
+             */
+            position: "LONG" | "SHORT";
+            /**
+             * @description ENTRY 는 시장가 진입, EXIT 은 지금 닫기,
+             *     STOP_LOSS 와 TAKE_PROFIT 은 트리거 주문이다.
+             * @example ENTRY
+             * @enum {string}
+             */
+            kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT";
+            /**
+             * @description 닫을 수량. null 이면 전량이다 — 0 으로 적으면 전량과 '아무것도 안 닫음'이 같은 값이 된다
+             * @example 0.01
+             */
+            quantity: number | null;
+            /**
+             * @description 트리거 가격. 시장가 주문은 null 이다
+             * @example 77000
+             */
+            triggerPrice: number | null;
+            /**
+             * @description 체결가. 트리거 주문은 걸려만 있으므로 null 이다
+             * @example 78015.6
+             */
+            fillPrice: number | null;
+        };
+        /** @description 한계에 걸려 나가지 못한 주문 */
+        RejectedOrderResponse: {
+            /**
+             * @description 어느 방향의 포지션에 대한 주문이었나
+             * @example LONG
+             * @enum {string}
+             */
+            position: "LONG" | "SHORT";
+            /**
+             * @description 무슨 주문이었나
+             * @example ENTRY
+             * @enum {string}
+             */
+            kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT";
+            /**
+             * @description 왜 막혔나. 사람이 읽는 한 문장이다
+             * @example 명목 2340.00 가 계좌의 2배 한계를 넘는다
+             */
+            reason: string;
+        };
+        /** @description 봇이 한 번 깨어나서 한 일의 전부 */
+        TradingCycleResponse: {
+            /**
+             * Format: date-time
+             * @description 이 사이클이 본 시각. 거래소가 말한 것을 그대로 쓴다
+             * @example 2026-09-18T03:00:00Z
+             */
+            at: string;
+            /**
+             * @description 주문이 어디로 갔나. PAPER 는 장부에만 적고 돈이 들지 않는다.
+             *     TESTNET 은 가짜 돈, LIVE 만 진짜 돈이다.
+             * @example PAPER
+             * @enum {string}
+             */
+            mode: "PAPER" | "TESTNET" | "LIVE";
+            /**
+             * @description 판단한 전략의 이름
+             * @example 가만히 있기
+             */
+            strategy: string;
+            /** @description 실제로 브로커에 닿은 주문 */
+            placed: components["schemas"]["PlacedOrderResponse"][];
+            /** @description 한계에 걸려 나가지 못한 주문과 그 이유 */
+            rejected: components["schemas"]["RejectedOrderResponse"][];
+            /**
+             * @description 봇이 멈춘 이유. 있으면 전략에게 묻지도 않았다는 뜻이다.
+             *     멈추지 않았으면 null 이다 — 빈 문자열로 적으면 '이유 없이 멈췄다'가 된다.
+             * @example 누적 손실 한계를 넘었다. 사람이 켜야 다시 돈다
+             */
+            halted: string | null;
+            /**
+             * @description 아무 일도 없었는가. 대부분의 사이클이 그렇다
+             * @example true
+             */
+            quiet: boolean;
+        };
         /** @description 분할 진입 한 회차. 비중의 합은 정확히 100 이어야 한다 */
         PlannedEntryRequest: {
             /**
@@ -2092,6 +2236,57 @@ export interface components {
              */
             warning: boolean;
         };
+        /** @description 봇의 지금 상태와 한계 */
+        TradingStatusResponse: {
+            /**
+             * @description 루프가 도는가. 꺼져 있으면 열린 포지션도 건드리지 않는다
+             * @example false
+             */
+            enabled: boolean;
+            /**
+             * @description 주문이 어디로 가는가. PAPER 는 장부에만 적고 돈이 들지 않는다.
+             *     지금 이 저장소에는 장부 브로커밖에 없어 LIVE 로 뜰 수 없다.
+             * @example PAPER
+             * @enum {string}
+             */
+            mode: "PAPER" | "TESTNET" | "LIVE";
+            /**
+             * @description 이 모드에서 잃을 수 있는 것이 진짜 돈인가
+             * @example false
+             */
+            realMoney: boolean;
+            /**
+             * @description 무엇이 판단하는가
+             * @example 가만히 있기
+             */
+            strategy: string;
+            /**
+             * @description 얼마나 자주 깨어나는가(ISO-8601). 주기는 전략의 일부인데 전략이 없어 자리표시자다
+             * @example PT1M
+             */
+            cycle: string;
+            /**
+             * @description 한 포지션 명목이 계좌의 몇 배까지인가
+             * @example 2
+             */
+            maxNotionalMultiple: number;
+            /**
+             * Format: int32
+             * @description 동시에 열 수 있는 포지션 수
+             * @example 1
+             */
+            maxConcurrentPositions: number;
+            /**
+             * @description 하루에 잃을 수 있는 계좌 대비 비율(%)
+             * @example 5
+             */
+            maxDailyLossPercent: number;
+            /**
+             * @description 넘으면 사람이 켜야 다시 도는 누적 손실 비율(%)
+             * @example 20
+             */
+            maxTotalLossPercent: number;
+        };
         /** @description 거래 사이의 간격 */
         IntervalsResponse: {
             /**
@@ -3445,6 +3640,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    runCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 그 사이클이 한 일 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TradingCycleResponse"];
+                };
+            };
+        };
+    };
     closedTrades: {
         parameters: {
             query?: {
@@ -4141,6 +4356,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 봇의 상태 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TradingStatusResponse"];
                 };
             };
         };

@@ -1,0 +1,37 @@
+package com.coinwin.trading.domain;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * 언제 들어가고 언제 나가는가. <b>봇에서 유일하게 갈아 끼우는 부품이다.</b>
+ *
+ * <p><b>이 저장소에는 아직 쓸 만한 구현이 없다.</b> {@code docs/adr/021} 이 7년 15,110봉에서
+ * 18조합 전부 손익비 1 미만을, {@code docs/adr/022} 가 21만 슬롯에서 유효 후보 0 을 냈다.
+ * 그래서 기본 구현이 {@link HoldStrategy} — 아무것도 하지 않는 것 — 이다.
+ *
+ * <p><b>결정론이어야 한다.</b> 같은 {@link MarketView} 와 같은 포지션을 먹이면 같은 주문이
+ * 나와야 한다. 난수를 쓰면 씨앗을 고정하고, 시계를 읽으면 안 된다 — 시각은 뷰가 갖고 있다.
+ * 그 성질이 없으면 모의 기록과 백테스트를 대조할 수 없고, 그 대조가 봇이 실계좌로 갈 수
+ * 있는지를 정하는 유일한 시험이다({@code docs/spec/trading-bot.md} § 5).
+ *
+ * <p><b>거래소를 부르지 않는다.</b> 전략이 스스로 읽으면 같은 사이클 안에서 "지금 가격" 이
+ * 둘이 되고 재현성이 무너진다. 필요한 것은 전부 뷰에 실려 온다.
+ *
+ * <p><b>안전장치를 여기서 하지 않는다.</b> 전략은 내고 싶은 것을 내고, 한계는
+ * {@link RiskLimits} 가 판정한다 — 전략이 스스로 지키게 두면 새 전략이 그 검사를 빠뜨린다.
+ */
+public interface TradingStrategy {
+
+    /** 사이클 기록에 남는 이름. 어느 규칙이 낸 주문인지가 나중에 유일한 단서다. */
+    String name();
+
+    /**
+     * 이번 사이클에 내고 싶은 주문.
+     *
+     * @param view 이 순간의 시장
+     * @param open 열려 있는 포지션. 없으면 비어 있다
+     * @return 주문 의도. <b>비어 있는 것이 정상이다</b> — 대부분의 사이클은 아무것도 하지 않는다
+     */
+    List<OrderIntent> decide(MarketView view, Optional<BotPosition> open);
+}
