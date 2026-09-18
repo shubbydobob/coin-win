@@ -130,12 +130,16 @@ coinwin:
     slippage-percent: 0.02
     # 무엇이 판단하는가.
     #   hold       — 아무것도 하지 않는다. **옳은 기본값이다** (진입 규칙이 두 번 반증됐다)
-    #   stop-guard — 진입은 여전히 안 하고, 손절 없는 포지션에 손절만 건다.
-    #                엣지를 요구하지 않는 유일한 규칙이라 지금도 꽂을 수 있다.
+    #   stop-guard — 진입은 여전히 안 하고, 손절 없는 포지션에 손절만 건다(R1·R2).
+    #   exit-rules — 거기에 절반 익절(R3)과 본전 이동(R4)을 더한다.
+    #                R4 가 "벌고 있다가 다 반납" 하는 경로를 구조적으로 없앤다.
+    #                셋 다 엣지를 요구하지 않는 규칙이라 진입 규칙 없이도 꽂을 수 있다.
     strategy: ${COINWIN_TRADING_STRATEGY:hold}
     # stop-guard 의 손절 거리(%). **근거 있는 수가 아니라 자리표시자다** —
     # 얼마나 멀어야 무효화만 잡고 잡음에 안 걸리는지는 이 저장소가 잰 적이 없다.
     stop-distance-percent: ${COINWIN_TRADING_STOP_DISTANCE:2}
+    # 1차 익절 거리(%). 여기 닿으면 절반이 확정되고 손절이 본전으로 간다. 자리표시자다.
+    first-target-percent: ${COINWIN_TRADING_FIRST_TARGET:2}
     # 주문을 보낼 주소. **기본값이 테스트넷이다** — 실계좌 주소(https://fapi.binance.com)는
     # 손으로 적어야 하고, 그 한 줄이 돈이 움직인다는 뜻이다.
     exchange-url: ${COINWIN_TRADING_EXCHANGE_URL:https://testnet.binancefuture.com}

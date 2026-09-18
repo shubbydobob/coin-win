@@ -36,6 +36,11 @@ public record TradingCycleResponse(
         List<RejectedOrderResponse> rejected,
 
         @Schema(description = """
+                지운 주문의 식별자. 손절을 본전으로 옮길 때 옛 손절이 여기 들어간다.
+                안 적으면 규칙이 옮긴 것과 누가 지운 것이 기록에서 구별되지 않는다.""")
+        List<String> cancelled,
+
+        @Schema(description = """
                 봇이 멈춘 이유. 있으면 전략에게 묻지도 않았다는 뜻이다.
                 멈추지 않았으면 null 이다 — 빈 문자열로 적으면 '이유 없이 멈췄다'가 된다.""",
                 nullable = true, example = "누적 손실 한계를 넘었다. 사람이 켜야 다시 돈다")
@@ -47,6 +52,7 @@ public record TradingCycleResponse(
     public TradingCycleResponse {
         placed = List.copyOf(placed);
         rejected = List.copyOf(rejected);
+        cancelled = List.copyOf(cancelled);
     }
 
     public static TradingCycleResponse from(TradingCycle cycle) {
@@ -56,6 +62,7 @@ public record TradingCycleResponse(
                 cycle.strategy(),
                 cycle.placed().stream().map(PlacedOrderResponse::from).toList(),
                 cycle.rejected().stream().map(RejectedOrderResponse::from).toList(),
+                cycle.cancelled().stream().map(id -> id.value()).toList(),
                 cycle.halted().orElse(null),
                 cycle.quiet());
     }

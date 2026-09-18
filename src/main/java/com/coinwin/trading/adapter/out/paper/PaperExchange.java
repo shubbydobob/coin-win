@@ -4,7 +4,6 @@ import com.coinwin.backtest.domain.CostModel;
 import com.coinwin.common.domain.DomainValues;
 import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Price;
-import com.coinwin.common.domain.Quantity;
 import com.coinwin.position.domain.Direction;
 import com.coinwin.trading.domain.OrderId;
 import com.coinwin.trading.domain.OrderIntent;
@@ -123,16 +122,23 @@ final class PaperExchange {
                 nextId(), intent, Optional.of(fill), clock.instant(), TradingMode.PAPER);
     }
 
-    /** 닫고 나면 남은 트리거를 지운다. 안 지우면 다음 진입이 앞 거래의 손절을 물려받는다. */
+    /**
+     * 주문이 말한 만큼 닫는다. <b>전량이 닫힌 뒤에만</b> 남은 트리거를 지운다 — 절반만
+     * 나갔는데 지우면 남은 절반이 보호 없이 열려 있게 된다. 전량이 닫혔는데 안 지우면
+     * 다음 진입이 앞 거래의 손절을 물려받는다.
+     */
     private void closeAt(OrderIntent intent, Price fill) {
-        Quantity quantity = ledger.position().map(open -> open.quantity()).orElse(null);
-        Money fees = quantity == null
-                ? Money.of("0")
-                : costs.exitFee(quantity.times(fill.asAmount()));
-        ledger = ledger.closed(fill, fees, today());
+        ledger = ledger.closed(fill, intent.quantity(), feesFor(intent, fill), today());
         if (ledger.position().isEmpty()) {
             resting.clear();
         }
+    }
+
+    private Money feesFor(OrderIntent intent, Price fill) {
+        return ledger.position()
+                .map(open -> intent.quantity().orElse(open.quantity()))
+                .map(quantity -> costs.exitFee(quantity.times(fill.asAmount())))
+                .orElse(Money.of("0"));
     }
 
     /**

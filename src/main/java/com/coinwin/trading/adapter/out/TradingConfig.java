@@ -11,6 +11,7 @@ import com.coinwin.trading.adapter.out.paper.PaperBotContextAdapter;
 import com.coinwin.trading.adapter.out.paper.PaperBrokerAdapter;
 import com.coinwin.trading.application.port.out.LoadBotContextPort;
 import com.coinwin.trading.application.port.out.PlaceOrderPort;
+import com.coinwin.trading.domain.ExitRuleStrategy;
 import com.coinwin.trading.domain.HoldStrategy;
 import com.coinwin.trading.domain.RiskLimits;
 import com.coinwin.trading.domain.StopLossGuardStrategy;
@@ -49,15 +50,18 @@ public class TradingConfig {
      * <p>임시 구현이 아니라 옳은 기본값이다 — 이 저장소가 두 번 쟀고 두 번 다 진입 규칙이
      * 없다고 나왔다({@code docs/adr/021} · {@code docs/adr/022}).
      *
-     * <p>{@code stop-guard} 로 바꾸면 <b>진입은 여전히 안 하고 손절만 지킨다.</b> 그 규칙은
-     * 엣지를 요구하지 않으므로 진입 규칙이 없는 지금도 꽂을 수 있다 —
-     * {@link StopLossGuardStrategy} 에 근거가 적혀 있다.
+     * <p>{@code stop-guard} 는 손절만 지키고, {@code exit-rules} 는 거기에 <b>절반 익절과
+     * 본전 이동</b>을 더한다. 둘 다 진입은 하지 않는다 — 엣지를 요구하지 않는 규칙이라
+     * 진입 규칙이 없는 지금도 꽂을 수 있다({@link ExitRuleStrategy}).
      */
     @Bean
     TradingStrategy tradingStrategy(TradingProperties properties) {
-        return "stop-guard".equalsIgnoreCase(properties.strategy())
-                ? new StopLossGuardStrategy(properties.stopDistance())
-                : new HoldStrategy();
+        return switch (properties.strategy().toLowerCase(java.util.Locale.ROOT)) {
+            case "stop-guard" -> new StopLossGuardStrategy(properties.stopDistance());
+            case "exit-rules" -> new ExitRuleStrategy(properties.stopDistance(),
+                    properties.firstTarget(), properties.roundTripCost());
+            default -> new HoldStrategy();
+        };
     }
 
     /** 자리표시자 한계. 근거 있는 수가 아니라는 것이 {@code RiskLimits} 에 적혀 있다. */

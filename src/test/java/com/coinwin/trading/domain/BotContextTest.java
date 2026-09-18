@@ -62,7 +62,7 @@ class BotContextTest {
 
         assertThat(hold.decide(new BotContext(
                 view(), new AccountState(EQUITY, 1, Money.of("0"), Money.of("0")),
-                Optional.of(position()), List.of()))).isEmpty();
+                Optional.of(position()), List.of())).isEmpty()).isTrue();
         assertThat(hold.name()).isNotBlank();
     }
 

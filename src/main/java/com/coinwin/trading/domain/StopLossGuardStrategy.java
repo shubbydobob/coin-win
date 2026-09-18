@@ -5,7 +5,6 @@ import com.coinwin.common.domain.Money;
 import com.coinwin.common.domain.Percentage;
 import com.coinwin.common.domain.Price;
 import com.coinwin.position.domain.Direction;
-import java.util.List;
 
 /**
  * <b>진입은 하지 않는다. 손절 없는 포지션에 손절을 건다.</b>
@@ -51,14 +50,14 @@ public record StopLossGuardStrategy(Percentage distance) implements TradingStrat
      * 끊는다" 라는 같은 뜻이 된다.
      */
     @Override
-    public List<OrderIntent> decide(BotContext now) {
+    public CycleDecision decide(BotContext now) {
         DomainValues.required(now, "사이클 컨텍스트");
         if (now.open().isEmpty() || now.hasStopLoss()) {
-            return List.of();
+            return CycleDecision.none();
         }
         Direction direction = now.open().orElseThrow().direction();
         Price mark = now.view().mark();
-        return List.of(OrderIntent.protectAll(now.view().symbol(), direction,
+        return CycleDecision.place(OrderIntent.protectAll(now.view().symbol(), direction,
                 new OrderIntent.Protection(OrderKind.STOP_LOSS, triggerFor(direction, mark), mark)));
     }
 

@@ -21,6 +21,8 @@ import java.util.Optional;
  * @param strategy 판단한 전략의 이름
  * @param judged 전략이 낸 주문 전부와 그 판정. 비어 있는 것이 정상이다
  * @param placed 실제로 브로커에 닿은 것
+ * @param cancelled 지운 주문. <b>손절이 사라진 것도 사건이다</b> — 안 적으면 R4 가 손절을
+ *     옮긴 것과 누가 지운 것이 기록에서 구별되지 않는다
  * @param halted 봇이 멈춘 이유. 있으면 전략에게 묻지도 않았다는 뜻이다
  */
 public record TradingCycle(
@@ -29,6 +31,7 @@ public record TradingCycle(
         String strategy,
         List<RiskVerdict> judged,
         List<PlacedOrder> placed,
+        List<OrderId> cancelled,
         Optional<String> halted) {
 
     public TradingCycle {
@@ -36,17 +39,20 @@ public record TradingCycle(
         DomainValues.required(mode, "모드");
         DomainValues.required(judged, "판정");
         DomainValues.required(placed, "낸 주문");
+        DomainValues.required(cancelled, "지운 주문");
         DomainValues.required(halted, "멈춘 이유");
         if (strategy == null || strategy.isBlank()) {
             throw new InvalidOrderException("어느 전략이 판단했는지 적어야 한다");
         }
         judged = List.copyOf(judged);
         placed = List.copyOf(placed);
+        cancelled = List.copyOf(cancelled);
     }
 
     /** 봇이 멈춰 있어 전략에게 묻지도 않은 사이클. */
     public static TradingCycle halted(Instant at, TradingMode mode, String reason) {
-        return new TradingCycle(at, mode, "멈춤", List.of(), List.of(), Optional.of(reason));
+        return new TradingCycle(
+                at, mode, "멈춤", List.of(), List.of(), List.of(), Optional.of(reason));
     }
 
     /** 한계에 걸려 나가지 못한 주문. <b>아무것도 안 한 것과 막힌 것은 다른 사실이다.</b> */
@@ -59,6 +65,6 @@ public record TradingCycle(
 
     /** 이 사이클에 아무 일도 없었는가. 대부분의 사이클이 그렇다. */
     public boolean quiet() {
-        return judged.isEmpty() && placed.isEmpty() && halted.isEmpty();
+        return judged.isEmpty() && placed.isEmpty() && cancelled.isEmpty() && halted.isEmpty();
     }
 }

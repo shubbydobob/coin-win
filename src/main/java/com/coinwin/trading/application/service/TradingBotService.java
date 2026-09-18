@@ -4,6 +4,7 @@ import com.coinwin.market.domain.Symbol;
 import com.coinwin.trading.application.port.in.RunTradingCycleUseCase;
 import com.coinwin.trading.application.port.out.LoadBotContextPort;
 import com.coinwin.trading.domain.BotContext;
+import com.coinwin.trading.domain.CycleDecision;
 import com.coinwin.trading.domain.PlacedOrder;
 import com.coinwin.trading.domain.RiskLimits;
 import com.coinwin.trading.domain.RiskVerdict;
@@ -63,21 +64,27 @@ public class TradingBotService implements RunTradingCycleUseCase {
      *
      * <p><b>누적 손실 한계는 전략에게 묻기도 전에 본다.</b> 물어 놓고 전부 거부하면 기록이
      * "전략이 내려 했는데 막혔다" 로 읽히는데, 사실은 봇이 꺼져 있어야 하는 상태다.
+     *
+     * <p><b>먼저 내고 나중에 지운다.</b> 손절을 옮길 때 반대로 하면 새 손절이 실패했을 때
+     * <b>보호가 없는 순간</b>이 생긴다. 잠깐 손절이 둘인 것은 안전하다 — 둘 다 전량 청산이라
+     * 하나가 터지면 나머지는 거래소가 지운다.
      */
     private TradingCycle cycle(BotContext now) {
         if (limits.halts(now.account())) {
             return TradingCycle.halted(now.view().at(), broker.mode(),
                     "누적 손실 한계를 넘었다. 사람이 켜야 다시 돈다");
         }
-        List<RiskVerdict> judged = strategy.decide(now).stream()
+        CycleDecision decision = strategy.decide(now);
+        List<RiskVerdict> judged = decision.place().stream()
                 .map(intent -> limits.judge(intent, now.account()))
                 .toList();
         List<PlacedOrder> placed = judged.stream()
                 .filter(RiskVerdict::allowed)
                 .map(verdict -> broker.place(verdict.intent()))
                 .toList();
+        decision.cancel().forEach(broker::cancel);
         return new TradingCycle(now.view().at(), broker.mode(), strategy.name(),
-                judged, placed, Optional.empty());
+                judged, placed, decision.cancel(), Optional.empty());
     }
 
     /**

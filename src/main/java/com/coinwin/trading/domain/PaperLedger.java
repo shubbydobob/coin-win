@@ -58,14 +58,58 @@ public record PaperLedger(
     /**
      * 포지션을 닫고 손익을 실현한다. 열린 것이 없으면 그대로 둔다 — 없는 포지션을 닫는
      * 주문이 나가는 것은 <b>실패가 아니라 이미 원하던 상태</b>다.
+     *
+     * <p><b>일부만 닫을 수 있다.</b> R3 가 절반만 가져가므로 이것이 없으면 1차 익절이
+     * 포지션을 통째로 닫고, 그러면 <b>R4 가 옮길 손절도 남은 절반도 존재하지 않는다</b> —
+     * 시나리오 테스트가 그 거짓 초록을 잡았다.
+     *
+     * @param part 닫을 수량. <b>비어 있으면 전량</b>이다. 남은 것보다 크면 남은 만큼만 닫는다
      */
-    public PaperLedger closed(Price fill, Money fees, LocalDate at) {
+    public PaperLedger closed(Price fill, Optional<Quantity> part, Money fees, LocalDate at) {
         DomainValues.required(fill, "체결가");
+        DomainValues.required(part, "닫을 수량");
         DomainValues.required(fees, "수수료");
         DomainValues.required(at, "체결 날짜");
-        return position
-                .map(open -> realize(pnlOf(open, fill).minus(fees), at))
+        return position.map(open -> reduce(open, new Closing(fill, closing(open, part), fees), at))
                 .orElse(this);
+    }
+
+    /** 전량을 닫는다. */
+    public PaperLedger closed(Price fill, Money fees, LocalDate at) {
+        return closed(fill, Optional.empty(), fees, at);
+    }
+
+    /** 실제로 닫히는 수량. 남은 것보다 크게 주문돼 있어도 남은 만큼만 닫힌다. */
+    private static Quantity closing(BotPosition open, Optional<Quantity> part) {
+        return part.filter(asked -> asked.value().compareTo(open.quantity().value()) < 0)
+                .orElse(open.quantity());
+    }
+
+    /**
+     * 한 번의 청산이 말하는 것 — 얼마에 · 얼마나 · 비용은 얼마.
+     *
+     * <p>셋을 묶은 이유는 파라미터 한계(4) 때문만이 아니다. 셋은 <b>같은 체결의 세 얼굴</b>
+     * 이라 따로 다니면 어느 체결의 수수료인지 헷갈릴 자리가 생긴다.
+     */
+    private record Closing(Price fill, Quantity part, Money fees) {
+    }
+
+    /**
+     * 일부(또는 전부)를 닫는다.
+     *
+     * <p>남은 수량이 0 이면 포지션이 사라지고, 아니면 <b>같은 평단으로 줄어든 포지션</b>이
+     * 남는다 — 평단은 진입에서 정해진 것이라 일부 청산으로 달라지지 않는다.
+     */
+    private PaperLedger reduce(BotPosition open, Closing closing, LocalDate at) {
+        Money profit = pnlOf(open, closing.fill(), closing.part()).minus(closing.fees());
+        BigDecimal left = open.quantity().value().subtract(closing.part().value());
+        Optional<BotPosition> remaining = left.signum() <= 0
+                ? Optional.<BotPosition>empty()
+                : Optional.of(new BotPosition(
+                        open.direction(), Quantity.of(left.toPlainString()), open.entry()));
+        Money todayBefore = at.equals(day) ? realizedToday : Money.of("0");
+        return new PaperLedger(startingEquity, remaining,
+                realizedTotal.plus(profit), todayBefore.plus(profit), at);
     }
 
     /** 안전장치가 보는 네 수. 지금 자산은 시작 자산에 누적 실현을 더한 것이다. */
@@ -78,24 +122,14 @@ public record PaperLedger(
     }
 
     /**
-     * 실현. <b>날이 바뀌면 오늘 치가 0 에서 다시 센다</b> — 일일 한계는 하루가 지나면
-     * 풀리는 것이 정의이고, 그 초기화를 잊으면 한 번 걸린 봇이 영원히 안 들어간다.
-     */
-    private PaperLedger realize(Money profit, LocalDate at) {
-        Money todayBefore = at.equals(day) ? realizedToday : Money.of("0");
-        return new PaperLedger(startingEquity, Optional.empty(),
-                realizedTotal.plus(profit), todayBefore.plus(profit), at);
-    }
-
-    /**
-     * 비용을 빼기 전 손익. {@code (청산가 − 평단) × 수량}, 숏이면 부호가 뒤집힌다.
+     * 비용을 빼기 전 손익. {@code (청산가 − 평단) × 닫는 수량}, 숏이면 부호가 뒤집힌다.
      *
      * <p>{@code ClosedTrade.grossPnl()} 과 같은 식이다. 갈라지면 모의 기록과 매매 기록을
-     * 나란히 놓을 수 없다.
+     * 나란히 놓을 수 없다. 수량은 <b>닫는 만큼</b>이지 보유 전량이 아니다.
      */
-    private static Money pnlOf(BotPosition open, Price exit) {
+    private static Money pnlOf(BotPosition open, Price exit, Quantity part) {
         BigDecimal moved = exit.value().subtract(open.entry().value());
         BigDecimal signed = open.direction() == Direction.LONG ? moved : moved.negate();
-        return Money.of(signed.multiply(open.quantity().value()));
+        return Money.of(signed.multiply(part.value()));
     }
 }

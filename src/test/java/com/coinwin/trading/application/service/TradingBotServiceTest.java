@@ -13,6 +13,7 @@ import com.coinwin.trading.adapter.out.paper.PaperBrokerAdapter;
 import com.coinwin.trading.domain.AccountState;
 import com.coinwin.trading.domain.BotContext;
 import com.coinwin.trading.domain.BotPosition;
+import com.coinwin.trading.domain.CycleDecision;
 import com.coinwin.trading.domain.MarketView;
 import com.coinwin.trading.domain.OrderIntent;
 import com.coinwin.trading.domain.TradingCycle;
@@ -170,10 +171,10 @@ class TradingBotServiceTest {
         }
 
         @Override
-        public List<OrderIntent> decide(BotContext now) {
+        public CycleDecision decide(BotContext now) {
             asked = true;
             sawPosition = now.open();
-            return intents;
+            return new CycleDecision(intents, List.of());
         }
     }
 }

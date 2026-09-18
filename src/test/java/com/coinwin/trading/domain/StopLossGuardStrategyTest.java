@@ -29,13 +29,13 @@ class StopLossGuardStrategyTest {
 
     @Test
     void 열린_포지션이_없으면_아무것도_하지_않는다() {
-        assertThat(GUARD.decide(context(null, List.of()))).isEmpty();
+        assertThat(GUARD.decide(context(null, List.of())).isEmpty()).isTrue();
     }
 
     /** 롱의 손절은 <b>아래</b>에 놓인다. 78,000 의 2% 아래인 76,440 이다. */
     @Test
     void 손절이_없는_롱에_아래쪽_손절을_건다() {
-        List<OrderIntent> intents = GUARD.decide(context(Direction.LONG, List.of()));
+        List<OrderIntent> intents = GUARD.decide(context(Direction.LONG, List.of())).place();
 
         assertThat(intents).singleElement().satisfies(intent -> {
             assertThat(intent.kind()).isEqualTo(OrderKind.STOP_LOSS);
@@ -47,7 +47,7 @@ class StopLossGuardStrategyTest {
     /** 숏의 손절은 <b>위</b>에 놓인다. 부호를 뒤집으면 손절이 이익 구간에서 터진다. */
     @Test
     void 손절이_없는_숏에_위쪽_손절을_건다() {
-        assertThat(GUARD.decide(context(Direction.SHORT, List.of())))
+        assertThat(GUARD.decide(context(Direction.SHORT, List.of())).place())
                 .singleElement()
                 .satisfies(intent -> assertThat(intent.trigger()).contains(Price.of("79560.00")));
     }
@@ -55,8 +55,8 @@ class StopLossGuardStrategyTest {
     /** 이미 있으면 다시 걸지 않는다. 안 그러면 사이클마다 손절이 쌓인다. */
     @Test
     void 손절이_이미_걸려_있으면_다시_걸지_않는다() {
-        assertThat(GUARD.decide(context(Direction.LONG, List.of(restingStop(Direction.LONG)))))
-                .isEmpty();
+        assertThat(GUARD.decide(context(Direction.LONG, List.of(restingStop(Direction.LONG))))
+                .isEmpty()).isTrue();
     }
 
     /**
@@ -68,21 +68,21 @@ class StopLossGuardStrategyTest {
         BotContext withStop = context(Direction.LONG, List.of(restingStop(Direction.LONG)));
         BotContext afterDeleted = context(Direction.LONG, List.of());
 
-        assertThat(GUARD.decide(withStop)).isEmpty();
-        assertThat(GUARD.decide(afterDeleted)).hasSize(1);
+        assertThat(GUARD.decide(withStop).isEmpty()).isTrue();
+        assertThat(GUARD.decide(afterDeleted).place()).hasSize(1);
     }
 
     /** 반대 방향의 손절은 이 포지션을 덮지 않는다. 세면 보호되지 않은 것이 보호된 것으로 보인다. */
     @Test
     void 반대_방향의_손절은_이_포지션을_덮지_않는다() {
-        assertThat(GUARD.decide(context(Direction.LONG, List.of(restingStop(Direction.SHORT)))))
-                .hasSize(1);
+        assertThat(GUARD.decide(context(Direction.LONG, List.of(restingStop(Direction.SHORT))))
+                .place()).hasSize(1);
     }
 
     /** 익절은 손절이 아니다. § 0 의 실패 모드가 정확히 이 모양이다. */
     @Test
     void 익절만_걸려_있으면_손절을_건다() {
-        assertThat(GUARD.decide(context(Direction.LONG, List.of(restingTakeProfit()))))
+        assertThat(GUARD.decide(context(Direction.LONG, List.of(restingTakeProfit()))).place())
                 .hasSize(1);
     }
 

@@ -28,7 +28,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     같은 값을 같은 이유로 쓴다
  * @param strategy 무엇이 판단하는가. {@code hold} 는 아무것도 하지 않고,
  *     {@code stop-guard} 는 진입하지 않고 손절만 지킨다
- * @param stopDistancePercent {@code stop-guard} 의 손절 거리(%). <b>자리표시자다</b>
+ * @param stopDistancePercent 손절 거리(%). <b>자리표시자다</b>
+ * @param firstTargetPercent 1차 익절 거리(%). <b>자리표시자다</b>
  * @param exchangeUrl 주문을 보낼 주소. <b>기본값이 테스트넷이다</b> — 실계좌 주소는
  *     손으로 적어야 하고, 그 한 줄이 돈이 움직이는 것을 뜻한다
  */
@@ -43,6 +44,7 @@ public record TradingProperties(
         BigDecimal slippagePercent,
         String strategy,
         BigDecimal stopDistancePercent,
+        BigDecimal firstTargetPercent,
         String exchangeUrl) {
 
     /**
@@ -60,6 +62,7 @@ public record TradingProperties(
         slippagePercent = orDefault(slippagePercent, new BigDecimal("0.02"));
         strategy = orDefault(blankToNull(strategy), "hold");
         stopDistancePercent = orDefault(stopDistancePercent, new BigDecimal("2"));
+        firstTargetPercent = orDefault(firstTargetPercent, new BigDecimal("2"));
         exchangeUrl = orDefault(blankToNull(exchangeUrl), "https://testnet.binancefuture.com");
     }
 
@@ -78,6 +81,20 @@ public record TradingProperties(
     /** 손절 거리. <b>근거 있는 수가 아니라 자리표시자다</b> — 이 저장소가 잰 적이 없다. */
     public Percentage stopDistance() {
         return Percentage.of(stopDistancePercent);
+    }
+
+    /** 1차 익절 거리. 같은 자리표시자다. */
+    public Percentage firstTarget() {
+        return Percentage.of(firstTargetPercent);
+    }
+
+    /**
+     * 왕복 비용. 본전 손절이 <b>진입가가 아니라</b> 이만큼 유리한 쪽에 놓인다 —
+     * 진입가에 걸면 수수료만큼 지고 끝난다.
+     */
+    public Percentage roundTripCost() {
+        return Percentage.of(takerFeePercent.multiply(new java.math.BigDecimal("2"))
+                .add(slippagePercent.multiply(new java.math.BigDecimal("2"))));
     }
 
     private static <T> T orDefault(T value, T fallback) {

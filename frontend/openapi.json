@@ -1795,6 +1795,13 @@
               "$ref": "#/components/schemas/RejectedOrderResponse"
             }
           },
+          "cancelled": {
+            "type": "array",
+            "description": "지운 주문의 식별자. 손절을 본전으로 옮길 때 옛 손절이 여기 들어간다.\n안 적으면 규칙이 옮긴 것과 누가 지운 것이 기록에서 구별되지 않는다.",
+            "items": {
+              "type": "string"
+            }
+          },
           "halted": {
             "type": [
               "string",
@@ -1811,6 +1818,7 @@
         },
         "required": [
           "at",
+          "cancelled",
           "halted",
           "mode",
           "placed",
