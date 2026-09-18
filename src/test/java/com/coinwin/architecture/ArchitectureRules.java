@@ -112,6 +112,11 @@ public final class ArchitectureRules {
      * 하나뿐이니 포트를 두지 않는다" 는 판단으로 서비스가 스냅샷 어댑터를 직접 들게 했고,
      * 규칙 2 와 6 이 먼저 그것을 잡았다. 규칙 4 에까지 넣는 이유는 <b>공지 어댑터가 붙으면서
      * 같은 실수를 다시 할 자리가 생겼기</b> 때문이다.
+     *
+     * <p><b>{@code trading} 에서 가장 날카롭다.</b> {@code account} 에서 깨지면 서명 키가
+     * 새고, 여기서 깨지면 <b>실계좌 브로커에 닿는 경로가 포트를 지나지 않고 하나 더 생긴다.</b>
+     * 포트를 안 지나면 {@code RiskLimits} 도 안 지난다 — 전략이 뚫을 수 없어야 할 벽에 문이
+     * 열리는 것이고, 자동으로 도는 루프에서 그 문은 사람이 안 볼 때 쓰인다.
      */
     public static ArchRule hexagonalApplicationDoesNotSeeAdapters(String root) {
         return noClasses()
@@ -120,14 +125,17 @@ public final class ArchitectureRules {
                         root + ".journal.application..",
                         root + ".ai.application..",
                         root + ".account.application..",
-                        root + ".watch.application..")
+                        root + ".watch.application..",
+                        root + ".trading.application..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         root + ".market.adapter..",
                         root + ".journal.adapter..",
                         root + ".ai.adapter..",
                         root + ".account.adapter..",
-                        root + ".watch.adapter..")
-                .as("규칙 4: market / journal / ai / account / watch 의 application 은 adapter 를 알지 못한다");
+                        root + ".watch.adapter..",
+                        root + ".trading.adapter..")
+                .as("규칙 4: market / journal / ai / account / watch / trading 의 application 은 "
+                        + "adapter 를 알지 못한다");
     }
 
     /** 규칙 5 — backtest 는 market 의 포트만 소비하고 어댑터를 직접 참조하지 않는다. */

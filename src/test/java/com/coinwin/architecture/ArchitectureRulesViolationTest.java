@@ -114,6 +114,20 @@ class ArchitectureRulesViolationTest {
                 "LeakyCalendarService");
     }
 
+    /**
+     * <b>이 모듈에서 규칙 4 가 가장 날카롭다.</b> 깨지면 실계좌 브로커에 닿는 경로가 포트를
+     * 지나지 않고 하나 더 생기고, 포트를 안 지나면 {@code RiskLimits} 도 안 지난다 — 전략이
+     * 뚫을 수 없어야 할 벽에 문이 열린다.
+     */
+    @Test
+    @DisplayName("규칙 4 는 trading.application → trading.adapter 참조도 잡는다")
+    void 규칙4는_trading에서도_application이_adapter를_참조하는_것을_잡는다() {
+        assertRuleRejects(
+                ArchitectureRules.hexagonalApplicationDoesNotSeeAdapters("archfixture.r4t"),
+                "archfixture.r4t",
+                "LeakyBotService");
+    }
+
     @Test
     @DisplayName("규칙 5 는 backtest → market.adapter 참조를 잡는다")
     void 규칙5는_backtest가_adapter를_참조하는_것을_잡는다() {

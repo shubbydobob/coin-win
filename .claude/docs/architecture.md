@@ -15,6 +15,7 @@
 | `ai` | 포트/어댑터 | LLM·벡터스토어를 `application` 밖에 묶어 두기 위해서 |
 | `account` | 포트/어댑터 | 거래소 포지션 소스가 둘 (서명 호출 / 인메모리). 서명 키를 `application` 밖에 가둔다 |
 | `watch` | 포트/어댑터 | 공지 소스가 둘(바이낸스 / 인메모리). 일정은 스냅샷 하나뿐인데도 포트를 갖는다 — 아래 |
+| `trading` | 포트/어댑터 | 브로커가 셋(장부 / 테스트넷 / 실계좌). **돈이 움직일 수 있는 유일한 자리라 경계가 가장 날카롭다** |
 
 `backtest`가 백테스트 시에는 과거 캔들 어댑터를, 실사용 시에는 실시간 어댑터를 같은 포트로 소비한다. 이 지점이 없었다면 전부 계층형으로 충분했다.
 
@@ -85,6 +86,18 @@ com.coinwin
 │           ├── binance/         # BinancePositionAdapter (HMAC 서명), BinanceSigner
 │           └── memory/          # InMemoryExchangePositionAdapter
 │
+├── trading/                     # ◆ 포트/어댑터
+│   ├── domain/                  # OrderIntent, RiskLimits, RiskVerdict, PlacedOrder, TradingMode
+│   ├── application/
+│   │   ├── port/in/             # RunTradingCycleUseCase
+│   │   ├── port/out/            # PlaceOrderPort — 돈이 움직일 수 있는 유일한 인터페이스
+│   │   └── service/
+│   └── adapter/
+│       ├── in/web/
+│       └── out/
+│           ├── paper/           # PaperBrokerAdapter — 기본값. 장부에만 적는다
+│           └── binance/         # 테스트넷 · 실계좌. 출금 엔드포인트가 없다
+│
 └── ai/                          # ◆ 포트/어댑터
     ├── config/                  # SpringAiEnabledOnlyWithApiKey — 계층 밖. 기동 시점 스위치
     ├── domain/                  # DraftedFields, Narrative, JournalAnswer, TradeDocument
@@ -146,6 +159,7 @@ ai                  → position.domain, indicator.domain,
 backtest.api        → ai.application.port.in, ai.domain
 account             → journal.application.port.in, journal.domain,
                       position.domain, market.domain
+trading             → backtest.domain(CostModel), position.domain, market.domain
 그 외 모듈 간 직접 참조 금지
 ```
 
@@ -237,6 +251,23 @@ account             → journal.application.port.in, journal.domain,
 **방향은 한쪽뿐이다** — `journal` 은 `backtest` 를 모른다. `MarketContext` 의 지지·저항을
 `PriceZone` 으로 구조화하는 것은 새 방향을 만드는 별개의 결정이므로 하지 않았다.
 
+**`trading → backtest.domain` 은 `CostModel` 하나 때문이다.** 장부 브로커가 모의 체결에
+수수료와 슬리피지를 물리는데, 그 규칙이 백테스트와 갈라지면 **모의 기록과 백테스트 결과를
+나란히 놓는 것 자체가 무의미해진다** — 그리고 그 대조가 봇이 실계좌로 갈 수 있는지를 정하는
+유일한 시험이다(`docs/spec/trading-bot.md` § 5). `backtest → journal.domain, projection.domain`
+이 어휘를 나누려고 만든 의존과 같은 모양이고(`docs/adr/018`), 방향도 한쪽뿐이다 —
+**`backtest` 는 `trading` 을 모른다.**
+
+**`trading` 은 `account` 를 참조하지 않는다.** 포지션을 읽는 일은 `account` 가 하지만, 봇이
+필요한 것은 포지션 목록이 아니라 **수 네 개**다(`AccountState` — 계좌 크기 · 열린 포지션 수 ·
+오늘 손익 · 누적 손익). 한계는 "무엇을 들고 있나" 가 아니라 "얼마나 걸려 있고 얼마를 잃었나"
+로 정해지므로 그 넷이면 충분하고, 그 이상을 끌어오면 `trading ↔ account` 를 만들 자리가 생긴다.
+조립은 `adapter.in` 이 한다.
+
+**`trading` 에 출금 엔드포인트가 없다.** `scope.md` 가 주문 실행만 조건부로 해제했고 출금은
+그대로 금지다. 키에서도 끈다 — **코드와 권한 양쪽에서 막는 것은 한쪽이 무너져도 다른 쪽이
+남기 위해서다.**
+
 **`watch` 는 아무 모듈도 참조하지 않는다.** 예정 이벤트와 거래소 공지는 다른 모듈을 몰라도
 성립한다. 이것이 의도된 제약인 이유는, 캘린더가 `position` 을 알게 되는 순간 "이벤트가 가까우면
 명목을 자동으로 줄인다" 로 미끄러지기 때문이다. 그것은 `scope.md` 가 금지한 자동 판단이다.
@@ -263,15 +294,18 @@ Phase 6 에서 `backtest`가 다섯 모듈을 조합하게 됐고, 그럼에도 
 1. `domain` 패키지의 Spring / JPA / Jackson import 금지
 2. 계층 의존 방향 (`(api|adapter) → application → domain`)
 3. 패키지 순환 참조 0건
-4. `market.application` / `journal.application` / `ai.application` / `account.application` / `watch.application` → `adapter` 참조 금지
+4. `market.application` / `journal.application` / `ai.application` / `account.application` / `watch.application` / `trading.application` → `adapter` 참조 금지
 5. `backtest` → `market.adapter` 참조 금지 (포트만 허용)
 6. `adapter.out` 구현체는 반드시 `application.port.out` 인터페이스를 구현
 
 4번과 5번이 없으면 헥사고날이 이름만 남고 계층형으로 무너진다. `account` 에서는 더 날카롭다 —
-규칙 4가 깨지면 **서명 키가 `application` 으로 샌다.**
+규칙 4가 깨지면 **서명 키가 `application` 으로 샌다.** `trading` 에서는 그보다 더하다 —
+**실계좌 브로커에 닿는 경로가 포트를 지나지 않고 하나 더 생기고, 포트를 안 지나면
+`RiskLimits` 도 안 지난다.** 전략이 뚫을 수 없어야 할 벽에 문이 열리는 것이고, 자동으로 도는
+루프에서 그 문은 사람이 안 볼 때 쓰인다.
 
 규칙 4는 모듈 이름을 손으로 열거하므로 모듈마다 위반 픽스처가 필요하다:
-`r4`(market) · `r4j`(journal) · `r4a`(ai) · `r4acc`(account) · `r4w`(watch).
+`r4`(market) · `r4j`(journal) · `r4a`(ai) · `r4acc`(account) · `r4w`(watch) · `r4t`(trading).
 
 `r4w` 는 상상해서 만든 것이 아니다. `watch` 를 만들면서 실제로 그렇게 짰고 규칙 2·6 이 먼저
 잡았다. 규칙 4 에까지 넣은 것은 공지 어댑터가 붙으면서 같은 실수를 다시 할 자리가 생겼기
