@@ -228,6 +228,7 @@ class ExitRuleStrategyTest {
     private static BotContext context(Direction open, Price mark, List<PlacedOrder> resting) {
         return new BotContext(
                 new MarketView(Symbol.BTC_USDT, mark, List.of(), AT),
+                MarketReading.none(),
                 new AccountState(EQUITY, open == null ? 0 : 1, Money.of("0"), Money.of("0")),
                 open == null
                         ? Optional.empty()

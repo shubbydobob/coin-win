@@ -14,6 +14,7 @@ import com.coinwin.trading.domain.AccountState;
 import com.coinwin.trading.domain.BotContext;
 import com.coinwin.trading.domain.BotPosition;
 import com.coinwin.trading.domain.CycleDecision;
+import com.coinwin.trading.domain.MarketReading;
 import com.coinwin.trading.domain.MarketView;
 import com.coinwin.trading.domain.OrderIntent;
 import com.coinwin.trading.domain.TradingCycle;
@@ -139,6 +140,7 @@ class TradingBotServiceTest {
     private static BotContext context(AccountState account, BotPosition open) {
         return new BotContext(
                 new MarketView(Symbol.BTC_USDT, Price.of("78000"), List.of(), AT),
+                MarketReading.none(),
                 account, Optional.ofNullable(open), List.of());
     }
 

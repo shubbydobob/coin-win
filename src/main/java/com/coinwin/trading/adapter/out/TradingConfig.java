@@ -3,6 +3,9 @@ package com.coinwin.trading.adapter.out;
 import com.coinwin.backtest.domain.CostModel;
 import com.coinwin.market.application.port.in.LoadMarketDataUseCase;
 import com.coinwin.market.application.port.in.LoadOrderBookUseCase;
+import com.coinwin.market.application.port.in.LoadOutliersUseCase;
+import com.coinwin.market.application.port.in.SyncMarketDataUseCase;
+import com.coinwin.trading.adapter.out.market.MarketAccess;
 import com.coinwin.trading.adapter.out.market.MarketBotContextAdapter;
 import com.coinwin.common.binance.BinanceServerClock;
 import com.coinwin.trading.adapter.out.binance.BinanceOrderAdapter;
@@ -130,10 +133,22 @@ public class TradingConfig {
      */
     @Bean
     LoadBotContextPort loadBotContextPort(
-            LoadOrderBookUseCase tickers, LoadMarketDataUseCase candles,
-            TradingProperties properties, PaperBrokerAdapter paperBrokerAdapter) {
+            MarketAccess market, TradingProperties properties,
+            PaperBrokerAdapter paperBrokerAdapter) {
         return new PaperBotContextAdapter(
-                new MarketBotContextAdapter(tickers, candles, properties), paperBrokerAdapter);
+                new MarketBotContextAdapter(market, properties), paperBrokerAdapter);
+    }
+
+    /**
+     * 봇이 시장을 보는 통로 넷. <b>빈으로 두되 포트 타입이 아니다</b> — 포트 타입이면 감싼
+     * 쪽과 둘이 되어 주입할 때 스프링이 묻고, 그 답이 "감싸지 않은 쪽" 으로 정해지면 봇이
+     * 계좌를 못 보는 채로 조용히 돈다. 실제로 그 자리에서 컨텍스트가 두 번 안 떴다.
+     */
+    @Bean
+    MarketAccess marketAccess(
+            LoadOrderBookUseCase tickers, LoadMarketDataUseCase candles,
+            SyncMarketDataUseCase sync, LoadOutliersUseCase outliers) {
+        return new MarketAccess(tickers, candles, sync, outliers);
     }
 
     /**

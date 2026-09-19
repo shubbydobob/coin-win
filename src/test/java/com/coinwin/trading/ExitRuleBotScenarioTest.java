@@ -17,6 +17,7 @@ import com.coinwin.trading.domain.AccountState;
 import com.coinwin.trading.domain.BotContext;
 import com.coinwin.trading.domain.CallbackRate;
 import com.coinwin.trading.domain.ExitRuleStrategy;
+import com.coinwin.trading.domain.MarketReading;
 import com.coinwin.trading.domain.MarketView;
 import com.coinwin.trading.domain.OrderIntent;
 import com.coinwin.trading.domain.OrderKind;
@@ -256,6 +257,7 @@ class ExitRuleBotScenarioTest {
         public BotContext contextFor(Symbol symbol) {
             return new BotContext(
                     new MarketView(symbol, mark, List.of(), AT),
+                MarketReading.none(),
                     AccountState.flat(EQUITY), Optional.empty(), List.of());
         }
     }

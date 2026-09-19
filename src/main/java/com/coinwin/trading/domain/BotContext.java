@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 한 사이클이 보는 세상의 전부 — 시장 · 계좌 · 열린 포지션.
+ * 한 사이클이 보는 세상의 전부 — 시장 · 판독 · 계좌 · 열린 포지션.
  *
  * <p><b>셋을 한 번에 읽는 것이 요점이다.</b> 따로 읽으면 같은 사이클 안에서 시장은 3초 전,
  * 계좌는 지금이 되고, 그 어긋남 위에서 내린 판단은 재현되지 않는다. 포트를 하나로 둔 것도
@@ -16,17 +16,23 @@ import java.util.Optional;
  * @param view 이 순간의 시장
  * @param account 한계를 판정하는 데 필요한 수 네 개
  * @param open 열려 있는 포지션. 없으면 비어 있다
+ * @param reading 시장을 읽어낸 것 — 지표·대·매물대 · 호가 · 군중의 위치.
+ *     <b>{@link MarketView} 와 나눠 둔 이유는 하나가 사실이고 하나가 해석이기 때문이다</b> —
+ *     표시가와 캔들은 거래소가 준 것이고, 판독은 그 위에서 우리가 계산한 것이다.
+ *     못 읽었을 수 있고 그때 비어 있다({@link MarketReading})
  * @param resting 걸려 있는 미체결 주문. <b>이것이 없으면 전략이 "손절이 이미 있는가" 를
  *     물을 수 없고, 사이클마다 같은 손절을 다시 건다</b>
  */
 public record BotContext(
         MarketView view,
+        MarketReading reading,
         AccountState account,
         Optional<BotPosition> open,
         List<PlacedOrder> resting) {
 
     public BotContext {
         DomainValues.required(view, "시장");
+        DomainValues.required(reading, "판독");
         DomainValues.required(account, "계좌 상태");
         DomainValues.required(open, "열린 포지션");
         DomainValues.required(resting, "걸려 있는 주문");

@@ -162,7 +162,8 @@ ai                  → position.domain, indicator.domain,
 backtest.api        → ai.application.port.in, ai.domain
 account             → journal.application.port.in, journal.domain,
                       position.domain, market.domain
-trading             → backtest.domain(CostModel), position.domain, market.domain,
+trading             → backtest.domain(CostModel · ZoneSettings), position.domain,
+                      market.domain, readout.domain, indicator.domain(어댑터에서만),
                       market.application.port.in (어댑터에서만), common.binance
 그 외 모듈 간 직접 참조 금지
 ```
@@ -261,6 +262,21 @@ trading             → backtest.domain(CostModel), position.domain, market.doma
 유일한 시험이다(`docs/spec/trading-bot.md` § 5). `backtest → journal.domain, projection.domain`
 이 어휘를 나누려고 만든 의존과 같은 모양이고(`docs/adr/018`), 방향도 한쪽뿐이다 —
 **`backtest` 는 `trading` 을 모른다.**
+
+**`trading → readout.domain` 은 봇과 사람이 같은 값을 보게 하기 위해서다.** 봇에게 넘어가던
+것은 표시가와 캔들뿐이었고, 그 상태로는 지표·대·매물대를 보고 판단하라고 시킬 재료가 없다.
+`readout` 이 화면을 위해 이미 만들어 둔 `TimeframeReadout` 을 **그대로** 실어 준다 — 봇 쪽에
+지표 계산을 다시 두면 **화면이 보여 주는 값과 봇이 판단한 값이 갈라지고**, 그 갈라짐은 사후에
+"왜 들어갔나" 를 물을 수 없게 만든다. 연구 파이프라인에서 지표 계산을 파이썬에 다시 쓰지 않고
+자바 덤프를 쓰기로 한 것과 **같은 판단**이다(`research/README.md`).
+
+**방향은 한쪽뿐이다** — `readout` 은 `trading` 을 모른다. 판독은 누가 읽든 같은 사실이고,
+그것을 무엇으로 바꿀지가 전략의 일이다.
+
+**`indicator.domain` 은 어댑터에서만 쓴다.** `VolumeProfileSettings` 하나 때문이며
+`journal → indicator.domain` 이 `BandPosition` 하나 때문인 것과 같은 모양이다(`docs/adr/017`).
+**`trading` 은 지표를 계산하지 않는다** — 계산기도 `IchimokuValue` 도 참조하지 않고 판독
+결과만 받는다. 그 이상을 끌어오게 되면 이 의존을 다시 봐야 한다.
 
 **`trading` 은 `account` 를 참조하지 않는다.** 포지션을 읽는 일은 `account` 가 하지만, 봇이
 필요한 것은 포지션 목록이 아니라 **수 네 개**다(`AccountState` — 계좌 크기 · 열린 포지션 수 ·

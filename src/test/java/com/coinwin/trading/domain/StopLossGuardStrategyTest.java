@@ -100,6 +100,7 @@ class StopLossGuardStrategyTest {
     private static BotContext context(Direction open, List<PlacedOrder> resting) {
         return new BotContext(
                 new MarketView(Symbol.BTC_USDT, Price.of("78000"), List.of(), AT),
+                MarketReading.none(),
                 new AccountState(EQUITY, open == null ? 0 : 1, Money.of("0"), Money.of("0")),
                 open == null
                         ? Optional.empty()

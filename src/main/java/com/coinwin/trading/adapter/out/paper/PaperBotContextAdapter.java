@@ -4,7 +4,6 @@ import com.coinwin.common.domain.DomainValues;
 import com.coinwin.market.domain.Symbol;
 import com.coinwin.trading.application.port.out.LoadBotContextPort;
 import com.coinwin.trading.domain.BotContext;
-import com.coinwin.trading.domain.MarketView;
 import com.coinwin.trading.domain.PaperLedger;
 
 /**
@@ -27,12 +26,16 @@ public class PaperBotContextAdapter implements LoadBotContextPort {
         this.broker = DomainValues.required(broker, "장부 브로커");
     }
 
+    /**
+     * <b>판독은 감싸는 쪽이 읽은 것을 그대로 나른다.</b> 여기서 다시 읽으면 한 사이클 안에서
+     * 시장을 두 번 보게 되고, 그 둘이 어긋난 위에서 내린 판단은 재현되지 않는다.
+     */
     @Override
     public BotContext contextFor(Symbol symbol) {
-        MarketView view = marketOnly.contextFor(symbol).view();
-        broker.advanceTo(view.mark());
+        BotContext market = marketOnly.contextFor(symbol);
+        broker.advanceTo(market.view().mark());
         PaperLedger ledger = broker.ledger();
-        return new BotContext(
-                view, ledger.state(), ledger.position(), broker.restingOrders());
+        return new BotContext(market.view(), market.reading(),
+                ledger.state(), ledger.position(), broker.restingOrders());
     }
 }
